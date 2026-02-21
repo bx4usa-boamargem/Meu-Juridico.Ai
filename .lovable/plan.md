@@ -1,108 +1,78 @@
 
+# Corrigir Falha na Geracao do Document Engine
 
-# Pagina Publica de Compartilhamento + Geracao de PDF
+## Problema
+O `handleNext` em `Documento.tsx` nao valida o retorno do INSERT em `document_versions`. Se o insert falhar (ex: RLS, campo nulo), o codigo continua atualizando status e navegando para `/view`, onde nao ha versao -- resultando em "Nenhuma versao encontrada".
 
-## Resumo
+## Correcao 1 -- Documento.tsx (handleNext, linhas 219-244)
 
-Tres entregas: (1) pagina publica `/shared/:token` para visualizacao read-only do documento, (2) edge function `generate-pdf` para converter HTML em PDF e salvar no storage, (3) integracao do botao de PDF na tela DocumentView.
+Reescrever o bloco de finalizacao com validacao sequencial:
 
----
+```text
+1. Verificar que docId e processoId nao sao null
+2. renderDfdTemplate(formData, processoData) -> htmlFinal
+3. INSERT em document_versions com .select().single()
+4. SE erro no insert -> toast.error("Erro ao gerar documento. Tente novamente.") e RETURN
+5. Somente apos sucesso:
+   a. UPDATE documentos.status = 'aprovado'
+   b. UPDATE processos.status = 'DFD_APROVADO'
+   c. invalidateQueries
+   d. navigate para /view
+```
 
-## Etapa 1 -- Pagina Publica `/shared/:token`
+Codigo resultante:
+```typescript
+if (nextIdx >= enabledSections.length) {
+  if (!docId || !processoId) {
+    toast.error("IDs de documento ou processo não encontrados.");
+    return;
+  }
 
-Criar `src/pages/SharedDocument.tsx` -- uma pagina sem autenticacao que:
+  const htmlFinal = renderDfdTemplate(formData, processoData);
 
-1. Extrai o `token` da URL
-2. Busca o `document_share_links` pelo token (a RLS policy `public_read_share_links` ja permite leitura anonima para links ativos)
-3. Busca o `document_versions` pelo `version_id` (a RLS policy `public_read_via_share` ja permite leitura anonima)
-4. Renderiza o HTML do documento em modo read-only (sem editor, sem toolbar de edicao)
-5. Inclui header minimalista com titulo do documento e botao "Imprimir"
+  const { error: insertError } = await supabase
+    .from("document_versions")
+    .insert({
+      documento_id: docId,
+      processo_id: processoId,
+      conteudo_html: htmlFinal,
+      versao: 1,
+      gerado_por: user?.id,
+    });
 
-**Rota em App.tsx**: Adicionar `/shared/:token` FORA do `ProtectedRoute`, pois e acesso publico.
+  if (insertError) {
+    console.error("Erro ao inserir versão:", insertError);
+    toast.error("Erro ao gerar documento. Tente novamente.");
+    return;
+  }
 
-**Layout**: Pagina standalone, sem sidebar nem AppLayout -- apenas o documento centralizado com estilo clean.
+  await supabase.from("documentos").update({
+    status: "aprovado",
+    conteudo_final: htmlFinal,
+    workflow_status: "rascunho",
+  }).eq("id", docId);
 
----
+  await supabase.from("processos").update({ status: "DFD_APROVADO" }).eq("id", processoId);
 
-## Etapa 2 -- Edge Function `generate-pdf`
+  queryClient.invalidateQueries({ queryKey: ["processo", processoId] });
+  queryClient.invalidateQueries({ queryKey: ["pipeline", processoId] });
+  toast.success("DFD finalizado! Redirecionando para visualização...");
+  navigate(`/processo/${processoId}/documento/${docId}/view`);
+  return;
+}
+```
 
-Criar `supabase/functions/generate-pdf/index.ts` que:
+## Correcao 2 -- DocumentView.tsx (query, linha 41)
 
-1. Recebe `{ version_id, documento_id }` via POST
-2. Valida JWT do usuario (seguranca em codigo)
-3. Busca o `conteudo_html` da `document_versions`
-4. Usa a API do Lovable AI (modelo `google/gemini-2.5-flash`) para... Na verdade, HTML-to-PDF nao e tarefa de LLM.
+Trocar `.single()` por `.maybeSingle()` para nao lancar erro quando nao ha versao. Isso permite exibir mensagem amigavel em vez de erro no console.
 
-**Abordagem alternativa**: Usar a biblioteca `jspdf` + `html2canvas` no **client-side** em vez de edge function, pois:
-- Edge functions Deno nao tem acesso a navegador para renderizar HTML
-- Bibliotecas server-side de PDF em Deno sao limitadas
-- A abordagem client-side funciona bem para documentos HTML estilizados
+## Correcao 3 -- Verificar RLS
 
-**Implementacao client-side**:
-- No DocumentView, ao clicar "Gerar PDF", usar `window.print()` com `@media print` otimizado (ja implementado parcialmente)
-- Alternativamente, usar a API nativa do navegador para capturar o HTML e gerar um Blob PDF via `print()`
-- Salvar o PDF gerado no storage bucket `document-pdfs` via upload direto do client
-- Atualizar `document_versions.pdf_url` e `pdf_gerado_em`
-
-**Nota sobre Storage RLS**: Sera necessario criar policies de INSERT para o bucket `document-pdfs` permitindo usuarios autenticados fazerem upload.
-
----
-
-## Etapa 3 -- Integracao do PDF no DocumentView
-
-Adicionar ao toolbar do DocumentView:
-- Botao "Gerar PDF" que abre janela de impressao otimizada para PDF
-- Apos gerar, faz upload do arquivo para o storage
-- Atualiza a versao com `pdf_url`
-- Exibe link para download do PDF se ja existir
-
----
+A policy `users_own_versions` ja existe com comando ALL e verifica `processo_id IN (SELECT id FROM processos WHERE created_by = auth.uid())`. Isso cobre INSERT. Nenhuma alteracao de RLS necessaria.
 
 ## Arquivos Afetados
 
-| Arquivo | Acao |
-|---------|------|
-| `src/pages/SharedDocument.tsx` | **Novo** -- pagina publica read-only |
-| `src/App.tsx` | Adicionar rota `/shared/:token` fora do ProtectedRoute |
-| `src/pages/DocumentView.tsx` | Adicionar botao de PDF com upload para storage |
-| Migration SQL | RLS policies para storage bucket `document-pdfs` |
-
-## Detalhes Tecnicos
-
-### SharedDocument.tsx - Consulta publica
-
-A consulta usa o client Supabase com anon key (sem autenticacao). As RLS policies existentes ja permitem:
-- `public_read_share_links`: SELECT quando `ativo = true` e nao expirado
-- `public_read_via_share`: SELECT em `document_versions` quando o `id` esta referenciado em um share link ativo
-
-### Storage RLS para document-pdfs
-
-```sql
-CREATE POLICY "authenticated_upload_pdfs"
-ON storage.objects FOR INSERT
-TO authenticated
-WITH CHECK (bucket_id = 'document-pdfs');
-
-CREATE POLICY "public_read_pdfs"
-ON storage.objects FOR SELECT
-TO public
-USING (bucket_id = 'document-pdfs');
-```
-
-### Fluxo de PDF
-
-```text
-Usuario clica "Gerar PDF"
-    |
-    v
-window.print() abre dialogo de impressao
-    |
-    v
-Usuario salva como PDF localmente
-    |
-    v
-(Opcional futuro: upload automatico via File API)
-```
-
-Para a v1, o "Gerar PDF" usara `window.print()` com CSS `@media print` otimizado, que ja permite salvar como PDF pelo navegador. O upload automatico para storage pode ser adicionado em iteracao futura quando houver necessidade de persistencia server-side.
-
+| Arquivo | Alteracao |
+|---------|-----------|
+| `src/pages/Documento.tsx` | Adicionar validacao de erro no INSERT e guards de null |
+| `src/pages/DocumentView.tsx` | Trocar `.single()` por `.maybeSingle()` na query de versao |
