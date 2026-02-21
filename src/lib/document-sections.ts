@@ -6,6 +6,9 @@ export interface FieldDef {
   source?: "processo";
   options?: string[];
   required?: boolean;
+  maxLength?: number;
+  colspan?: number; // 1 (half) or 2 (full width) — default inferred from type
+  group?: string; // group fields into sub-section cards
 }
 
 export interface SectionDef {
@@ -59,11 +62,16 @@ const DFD_SECTIONS: SectionDef[] = [
     required: true,
     unlocksNext: true,
     fields: [
-      { key: "numero_processo", label: "Número do Processo", type: "text", readOnly: true, source: "processo" },
-      { key: "orgao", label: "Órgão", type: "text", readOnly: true, source: "processo" },
+      { key: "numero_processo", label: "Número do Processo", type: "text", readOnly: true, source: "processo", group: "basicas" },
+      { key: "orgao", label: "Órgão", type: "text", readOnly: true, source: "processo", group: "basicas" },
+      { key: "categoria", label: "Categoria", type: "select", options: ["Bens", "Serviços", "Obras", "Serviços de Engenharia"], required: true, group: "basicas" },
       { key: "setor_demandante", label: "Setor Demandante", type: "text", required: true },
       { key: "responsavel", label: "Responsável pela Demanda", type: "text", required: true },
-      { key: "categoria", label: "Categoria", type: "select", options: ["Bens", "Serviços", "Obras", "Serviços de Engenharia"], required: true },
+      { key: "data_conclusao_contratacao", label: "Data da conclusão da contratação", type: "date" },
+      { key: "area_requisitante_etp", label: "Área requisitante", type: "select", options: ["Selecione o ETP"], required: false },
+      { key: "descricao_sucinta_objeto", label: "Descrição sucinta do objeto", type: "textarea", maxLength: 200 },
+      { key: "prioridade_info", label: "Prioridade", type: "select", options: ["Alto", "Médio", "Baixo"] },
+      { key: "justificativa_prioridade", label: "Justificativa da prioridade", type: "textarea", maxLength: 500 },
     ],
   },
   {
