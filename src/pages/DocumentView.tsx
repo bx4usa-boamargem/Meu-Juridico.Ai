@@ -28,10 +28,11 @@ export default function DocumentView() {
   const [shareLink, setShareLink] = useState<string | null>(null);
   const [creatingShare, setCreatingShare] = useState(false);
 
-  // Fetch latest version
+  // Fetch latest version (with self-healing if missing)
   const { data: version, isLoading } = useQuery({
     queryKey: ["document-version", docId],
     queryFn: async () => {
+      // Try to fetch existing version
       const { data, error } = await supabase
         .from("document_versions")
         .select("*")
@@ -40,7 +41,58 @@ export default function DocumentView() {
         .limit(1)
         .maybeSingle();
       if (error) throw error;
-      return data;
+      if (data) return data;
+
+      // Self-healing: no version exists, try to create from document data
+      const { data: doc } = await supabase
+        .from("documentos")
+        .select("conteudo_final, dados_estruturados, processo_id")
+        .eq("id", docId!)
+        .single();
+
+      if (!doc || !processoId) return null;
+
+      // Generate HTML from dados_estruturados if no conteudo_final
+      let html = doc.conteudo_final;
+      if (!html && doc.dados_estruturados) {
+        const { data: proc } = await supabase
+          .from("processos")
+          .select("*")
+          .eq("id", processoId)
+          .single();
+        const { renderDfdTemplate } = await import("@/lib/dfd-template");
+        html = renderDfdTemplate(
+          doc.dados_estruturados as Record<string, any>,
+          proc as any
+        );
+      }
+
+      if (!html) return null;
+
+      // Insert recovered version
+      const { data: newVersion, error: insertErr } = await supabase
+        .from("document_versions")
+        .insert({
+          documento_id: docId!,
+          processo_id: processoId,
+          conteudo_html: html,
+          versao: 1,
+          gerado_por: user?.id,
+        })
+        .select("*")
+        .single();
+
+      if (insertErr) {
+        console.error("Self-healing version insert failed:", insertErr);
+        return null;
+      }
+
+      // Also update conteudo_final if missing
+      if (!doc.conteudo_final) {
+        await supabase.from("documentos").update({ conteudo_final: html }).eq("id", docId!);
+      }
+
+      return newVersion;
     },
     enabled: !!docId,
   });
