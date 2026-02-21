@@ -38,7 +38,7 @@ export default function DocumentView() {
         .eq("documento_id", docId!)
         .order("versao", { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
       if (error) throw error;
       return data;
     },

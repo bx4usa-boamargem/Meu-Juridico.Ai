@@ -217,26 +217,36 @@ export default function Documento() {
 
     const nextIdx = currentIdx + 1;
     if (nextIdx >= enabledSections.length) {
-      // Generate final HTML via template engine
+      if (!docId || !processoId) {
+        toast.error("IDs de documento ou processo não encontrados.");
+        return;
+      }
+
       const htmlFinal = renderDfdTemplate(formData, processoData);
 
-      // Save first version
-      await supabase.from("document_versions").insert({
-        documento_id: docId!,
-        processo_id: processoId!,
-        conteudo_html: htmlFinal,
-        versao: 1,
-        gerado_por: user?.id,
-      });
+      const { error: insertError } = await supabase
+        .from("document_versions")
+        .insert({
+          documento_id: docId,
+          processo_id: processoId,
+          conteudo_html: htmlFinal,
+          versao: 1,
+          gerado_por: user?.id,
+        });
 
-      // Update documento
+      if (insertError) {
+        console.error("Erro ao inserir versão:", insertError);
+        toast.error("Erro ao gerar documento. Tente novamente.");
+        return;
+      }
+
       await supabase.from("documentos").update({
         status: "aprovado",
         conteudo_final: htmlFinal,
         workflow_status: "rascunho",
-      }).eq("id", docId!);
+      }).eq("id", docId);
 
-      await supabase.from("processos").update({ status: "DFD_APROVADO" }).eq("id", processoId!);
+      await supabase.from("processos").update({ status: "DFD_APROVADO" }).eq("id", processoId);
       queryClient.invalidateQueries({ queryKey: ["processo", processoId] });
       queryClient.invalidateQueries({ queryKey: ["pipeline", processoId] });
       toast.success("DFD finalizado! Redirecionando para visualização...");
