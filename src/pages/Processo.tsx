@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { DocumentChainView } from "@/components/DocumentChainView";
-import { ArrowLeft } from "lucide-react";
 
 export default function Processo() {
   const { id } = useParams<{ id: string }>();
@@ -55,77 +54,73 @@ export default function Processo() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-background">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      <div className="flex items-center justify-center h-full py-20">
+        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
       </div>
     );
   }
 
   if (!processo) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-background gap-4">
-        <p className="text-muted-foreground">Processo não encontrado.</p>
-        <Button variant="outline" onClick={() => navigate("/dashboard")}>Voltar</Button>
+      <div className="flex flex-col items-center justify-center h-full py-20 gap-3">
+        <p className="text-sm text-muted-foreground">Processo não encontrado.</p>
+        <Button variant="outline" size="sm" onClick={() => navigate("/dashboard")}>
+          Voltar
+        </Button>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-muted/40">
-      <header className="border-b bg-background">
-        <div className="container flex h-14 items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => navigate("/dashboard")}>
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <span className="font-semibold">Processo {processo.numero_processo}</span>
+    <div className="p-6 space-y-6 max-w-6xl mx-auto">
+      {/* Process Header */}
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-lg font-semibold tracking-tight">
+            {processo.numero_processo || "Sem número"}
+          </h1>
+          <p className="text-sm text-muted-foreground">{processo.orgao || "—"}</p>
         </div>
-      </header>
+        <Badge variant={processo.status === "ativo" ? "default" : "secondary"} className="shrink-0">
+          {processo.status ?? "rascunho"}
+        </Badge>
+      </div>
 
-      <main className="container py-8 space-y-6">
-        <Card>
-          <CardHeader>
-            <div className="flex items-start justify-between">
-              <CardTitle>{processo.numero_processo || "Sem número"}</CardTitle>
-              <Badge>{processo.status ?? "rascunho"}</Badge>
-            </div>
-          </CardHeader>
-          <CardContent className="grid gap-3 sm:grid-cols-2 text-sm">
-            <div>
-              <span className="text-muted-foreground">Órgão</span>
-              <p className="font-medium">{processo.orgao || "—"}</p>
-            </div>
-            <div>
-              <span className="text-muted-foreground">Modalidade</span>
-              <p className="font-medium">{processo.modalidade || "—"}</p>
-            </div>
-            <div className="sm:col-span-2">
-              <span className="text-muted-foreground">Objeto</span>
-              <p className="font-medium">{processo.objeto || "—"}</p>
-            </div>
-            <div>
-              <span className="text-muted-foreground">Criado em</span>
-              <p className="font-medium">{new Date(processo.created_at).toLocaleDateString("pt-BR")}</p>
-            </div>
-          </CardContent>
-        </Card>
+      {/* Metadata row */}
+      <div className="flex flex-wrap gap-4 text-sm">
+        <div className="bg-muted rounded-md px-3 py-2">
+          <span className="text-muted-foreground text-xs block">Modalidade</span>
+          <span className="font-medium">{processo.modalidade || "—"}</span>
+        </div>
+        <div className="bg-muted rounded-md px-3 py-2">
+          <span className="text-muted-foreground text-xs block">Criado em</span>
+          <span className="font-medium">{new Date(processo.created_at).toLocaleDateString("pt-BR")}</span>
+        </div>
+        <div className="bg-muted rounded-md px-3 py-2 flex-1 min-w-[200px]">
+          <span className="text-muted-foreground text-xs block">Objeto</span>
+          <span className="font-medium text-xs">{processo.objeto || "—"}</span>
+        </div>
+      </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Cadeia Documental</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {cadeia ? (
-              <DocumentChainView
-                processoId={processo.id}
-                cadeia={cadeia}
-                documentos={documentos ?? []}
-              />
-            ) : (
-              <p className="text-sm text-muted-foreground">Carregando cadeia...</p>
-            )}
-          </CardContent>
-        </Card>
-      </main>
+      {/* Document Chain — Main focal point */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-medium text-muted-foreground">Cadeia Documental</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {cadeia ? (
+            <DocumentChainView
+              processoId={processo.id}
+              cadeia={cadeia}
+              documentos={documentos ?? []}
+            />
+          ) : (
+            <div className="flex justify-center py-8">
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary" />
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
