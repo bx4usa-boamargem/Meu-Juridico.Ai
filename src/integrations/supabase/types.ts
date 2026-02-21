@@ -63,6 +63,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "alertas_cascata_doc_afetado_id_fkey"
+            columns: ["doc_afetado_id"]
+            isOneToOne: false
+            referencedRelation: "vw_processo_com_dfd"
+            referencedColumns: ["dfd_id"]
+          },
+          {
             foreignKeyName: "alertas_cascata_doc_origem_id_fkey"
             columns: ["doc_origem_id"]
             isOneToOne: false
@@ -70,11 +77,25 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "alertas_cascata_doc_origem_id_fkey"
+            columns: ["doc_origem_id"]
+            isOneToOne: false
+            referencedRelation: "vw_processo_com_dfd"
+            referencedColumns: ["dfd_id"]
+          },
+          {
             foreignKeyName: "alertas_cascata_processo_id_fkey"
             columns: ["processo_id"]
             isOneToOne: false
             referencedRelation: "processos"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "alertas_cascata_processo_id_fkey"
+            columns: ["processo_id"]
+            isOneToOne: false
+            referencedRelation: "vw_processo_com_dfd"
+            referencedColumns: ["processo_id"]
           },
         ]
       }
@@ -185,11 +206,25 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "documentos_parent_doc_id_fkey"
+            columns: ["parent_doc_id"]
+            isOneToOne: false
+            referencedRelation: "vw_processo_com_dfd"
+            referencedColumns: ["dfd_id"]
+          },
+          {
             foreignKeyName: "documentos_processo_id_fkey"
             columns: ["processo_id"]
             isOneToOne: false
             referencedRelation: "processos"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "documentos_processo_id_fkey"
+            columns: ["processo_id"]
+            isOneToOne: false
+            referencedRelation: "vw_processo_com_dfd"
+            referencedColumns: ["processo_id"]
           },
         ]
       }
@@ -239,11 +274,25 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "heranca_campos_doc_destino_id_fkey"
+            columns: ["doc_destino_id"]
+            isOneToOne: false
+            referencedRelation: "vw_processo_com_dfd"
+            referencedColumns: ["dfd_id"]
+          },
+          {
             foreignKeyName: "heranca_campos_doc_origem_id_fkey"
             columns: ["doc_origem_id"]
             isOneToOne: false
             referencedRelation: "documentos"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "heranca_campos_doc_origem_id_fkey"
+            columns: ["doc_origem_id"]
+            isOneToOne: false
+            referencedRelation: "vw_processo_com_dfd"
+            referencedColumns: ["dfd_id"]
           },
         ]
       }
@@ -288,7 +337,33 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      vw_processo_com_dfd: {
+        Row: {
+          cadeia_id: string | null
+          context_data: Json | null
+          created_at: string | null
+          created_by: string | null
+          dfd_dados: Json | null
+          dfd_id: string | null
+          dfd_status: string | null
+          dfd_versao: number | null
+          modalidade: string | null
+          numero_processo: string | null
+          objeto: string | null
+          orgao: string | null
+          processo_id: string | null
+          status: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "documentos_cadeia_id_fkey"
+            columns: ["cadeia_id"]
+            isOneToOne: false
+            referencedRelation: "cadeias_documentais"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       create_processo_com_documento_raiz: {
@@ -300,6 +375,10 @@ export type Database = {
           p_orgao: string
         }
         Returns: string
+      }
+      obter_pipeline_processo: {
+        Args: { p_processo_id: string }
+        Returns: Json
       }
       resolver_heranca: {
         Args: {
