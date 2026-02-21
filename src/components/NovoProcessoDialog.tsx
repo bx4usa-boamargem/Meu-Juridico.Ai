@@ -58,23 +58,33 @@ export function NovoProcessoDialog({ open, onOpenChange, onSuccess }: Props) {
       });
       if (error) throw error;
 
-      // Fetch the DFD document created automatically
-      const { data: doc } = await supabase
-        .from("documentos")
-        .select("id")
-        .eq("processo_id", processoId)
-        .order("created_at", { ascending: true })
-        .limit(1)
-        .maybeSingle();
+      // Retry up to 2 times to find the DFD document
+      let docId: string | null = null;
+      for (let attempt = 0; attempt < 2; attempt++) {
+        if (attempt > 0) await new Promise((r) => setTimeout(r, 300));
+        const { data: doc } = await supabase
+          .from("documentos")
+          .select("id")
+          .eq("processo_id", processoId)
+          .in("tipo", ["DFD", "dfd"])
+          .order("created_at", { ascending: true })
+          .limit(1)
+          .maybeSingle();
+        if (doc?.id) {
+          docId = doc.id;
+          break;
+        }
+      }
+
+      if (!docId) {
+        toast.error("DFD não encontrado. Reabra o processo.");
+        setSaving(false);
+        return;
+      }
 
       toast.success("Processo criado com sucesso!");
       onOpenChange(false);
-
-      if (doc?.id) {
-        navigate(`/processo/${processoId}/documento/${doc.id}`);
-      } else {
-        navigate(`/processo/${processoId}`);
-      }
+      navigate(`/processo/${processoId}/documento/${docId}`);
     } catch (err: any) {
       toast.error(err.message || "Erro ao criar processo");
     } finally {
