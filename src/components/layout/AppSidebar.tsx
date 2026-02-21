@@ -36,9 +36,9 @@ export function AppSidebar() {
       <SidebarHeader className="py-3">
         <div className="flex items-center gap-2 px-2">
           {collapsed ? (
-            <img src={logoIcon} alt="MeuJurídico.ai" className="h-7 w-7 shrink-0" />
+            <img src={logoIcon} alt="MeuJurídico.ai" className="h-7 w-7 shrink-0 brightness-0 invert" />
           ) : (
-            <img src={logoFull} alt="MeuJurídico.ai" className="h-7 shrink-0" />
+            <img src={logoFull} alt="MeuJurídico.ai" className="h-7 shrink-0 brightness-0 invert" />
           )}
         </div>
       </SidebarHeader>
