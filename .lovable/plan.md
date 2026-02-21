@@ -1,93 +1,108 @@
 
-# Validacao Visual + Editor Rico no Step 8
+
+# Pagina Publica de Compartilhamento + Geracao de PDF
 
 ## Resumo
 
-Tres entregas: (1) validacao visual com destaque vermelho nos campos obrigatorios vazios ao tentar avancar, (2) teste do botao Finalizar no Step 8, e (3) editor de texto rico na Visualizacao.
+Tres entregas: (1) pagina publica `/shared/:token` para visualizacao read-only do documento, (2) edge function `generate-pdf` para converter HTML em PDF e salvar no storage, (3) integracao do botao de PDF na tela DocumentView.
 
-## Etapa 1 -- Validacao Visual nos Campos Obrigatorios
+---
 
-### Problema atual
-Quando o usuario clica "Proximo" sem preencher campos obrigatorios, aparece apenas um toast generico. Nao ha indicacao visual de QUAIS campos estao faltando.
+## Etapa 1 -- Pagina Publica `/shared/:token`
 
-### Solucao
+Criar `src/pages/SharedDocument.tsx` -- uma pagina sem autenticacao que:
 
-Adicionar estado `invalidFields` (Set de keys) em `Documento.tsx`. Quando `handleNext` detecta campos faltantes, popula esse Set e passa para `StepFormRenderer`. O Set e limpo quando o usuario muda de step ou preenche o campo.
+1. Extrai o `token` da URL
+2. Busca o `document_share_links` pelo token (a RLS policy `public_read_share_links` ja permite leitura anonima para links ativos)
+3. Busca o `document_versions` pelo `version_id` (a RLS policy `public_read_via_share` ja permite leitura anonima)
+4. Renderiza o HTML do documento em modo read-only (sem editor, sem toolbar de edicao)
+5. Inclui header minimalista com titulo do documento e botao "Imprimir"
 
-**Documento.tsx:**
-- Novo estado: `const [invalidFields, setInvalidFields] = useState<Set<string>>(new Set())`
-- No `handleNext`, quando `!complete`: identificar campos vazios, chamar `setInvalidFields(new Set(missingKeys))` e retornar
-- Ao mudar de step (`handleSelectStep`, `handlePrevious`): limpar `setInvalidFields(new Set())`
-- No `handleFieldChange`: remover a key do Set quando preenchida
-- Passar `invalidFields` como prop para `StepFormRenderer`
+**Rota em App.tsx**: Adicionar `/shared/:token` FORA do `ProtectedRoute`, pois e acesso publico.
 
-**StepFormRenderer.tsx:**
-- Nova prop `invalidFields?: Set<string>`
-- No `renderField`, se `invalidFields.has(field.key)`:
-  - Borda vermelha no Input/Textarea/Select: `border-destructive`
-  - Mensagem inline abaixo: `<p className="text-[10px] text-destructive">Campo obrigatorio</p>`
+**Layout**: Pagina standalone, sem sidebar nem AppLayout -- apenas o documento centralizado com estilo clean.
 
-### Resultado visual
+---
 
-```text
-+------------------------------------------+
-| Objeto da Contratacao *                   |
-| +--------------------------------------+ |
-| |                          (borda verm) | |
-| +--------------------------------------+ |
-| Campo obrigatorio                        |
-+------------------------------------------+
-```
+## Etapa 2 -- Edge Function `generate-pdf`
 
-## Etapa 2 -- Teste do Finalizar (Step 8)
+Criar `supabase/functions/generate-pdf/index.ts` que:
 
-O codigo de finalizacao ja existe em `handleNext` (linhas 191-199). Porem ha um bug: o botao "Finalizar" tem `disabled={!canAdvance && !isLastStep}` -- no ultimo step, `isLastStep` e `true`, entao o `disabled` e `false` (OK). Mas `canAdvance` usa `currentSection.required` que e `false` para Visualizacao, entao funciona.
+1. Recebe `{ version_id, documento_id }` via POST
+2. Valida JWT do usuario (seguranca em codigo)
+3. Busca o `conteudo_html` da `document_versions`
+4. Usa a API do Lovable AI (modelo `google/gemini-2.5-flash`) para... Na verdade, HTML-to-PDF nao e tarefa de LLM.
 
-**Ajuste necessario:** Nenhum no codigo -- o fluxo ja funciona. Basta testar clicando Finalizar no Step 8 e verificar:
-1. Documento atualiza para `status = 'aprovado'`
-2. Processo atualiza para `status = 'DFD_APROVADO'`
-3. Redirect para `/processo/{id}` que mostra pipeline
+**Abordagem alternativa**: Usar a biblioteca `jspdf` + `html2canvas` no **client-side** em vez de edge function, pois:
+- Edge functions Deno nao tem acesso a navegador para renderizar HTML
+- Bibliotecas server-side de PDF em Deno sao limitadas
+- A abordagem client-side funciona bem para documentos HTML estilizados
 
-## Etapa 3 -- Editor de Texto Rico no Step 8
+**Implementacao client-side**:
+- No DocumentView, ao clicar "Gerar PDF", usar `window.print()` com `@media print` otimizado (ja implementado parcialmente)
+- Alternativamente, usar a API nativa do navegador para capturar o HTML e gerar um Blob PDF via `print()`
+- Salvar o PDF gerado no storage bucket `document-pdfs` via upload direto do client
+- Atualizar `document_versions.pdf_url` e `pdf_gerado_em`
 
-### Abordagem
-Usar `contentEditable` com `execCommand` para um editor leve sem dependencias externas. Isso e suficiente para formatacao basica (negrito, italico, listas, titulos) e evita adicionar bibliotecas pesadas.
+**Nota sobre Storage RLS**: Sera necessario criar policies de INSERT para o bucket `document-pdfs` permitindo usuarios autenticados fazerem upload.
 
-### Novo componente: `RichTextEditor.tsx`
+---
 
-```text
-src/components/documento/RichTextEditor.tsx
-```
+## Etapa 3 -- Integracao do PDF no DocumentView
 
-- Toolbar com botoes: Negrito, Italico, Sublinhado, Lista, Titulo
-- Area editavel via `div[contentEditable]` com borda e padding
-- Recebe `value` (HTML string) e `onChange` callback
-- Salva conteudo como `conteudo_final` no formData
-- Substitui tokens `{{campo}}` por valores reais na pre-visualizacao
+Adicionar ao toolbar do DocumentView:
+- Botao "Gerar PDF" que abre janela de impressao otimizada para PDF
+- Apos gerar, faz upload do arquivo para o storage
+- Atualiza a versao com `pdf_url`
+- Exibe link para download do PDF se ja existir
 
-### Integracao no StepFormRenderer
-
-Na secao de Visualizacao (quando `section.fields.length === 0`), substituir o placeholder atual pelo `RichTextEditor`:
-
-- Editor ocupa a area principal (flex-1)
-- Painel de tokens dinamicos permanece a direita (w-48)
-- Ao clicar num token, insere `{{token}}` na posicao do cursor no editor
-- O conteudo e salvo via `onChange("conteudo_final", htmlContent)`
-
-### Persistencia
-
-O conteudo do editor sera salvo no campo `conteudo_final` da tabela `documentos` (coluna ja existente, tipo `text`). O auto-save existente (`useDocumentAutoSave`) ja persiste `formData`, entao basta adicionar a key `conteudo_final` ao formData.
+---
 
 ## Arquivos Afetados
 
 | Arquivo | Acao |
 |---------|------|
-| `src/pages/Documento.tsx` | Adicionar estado `invalidFields`, logica de validacao visual, passar prop |
-| `src/components/documento/StepFormRenderer.tsx` | Receber `invalidFields`, renderizar borda vermelha e mensagem inline, integrar RichTextEditor no Step 8 |
-| `src/components/documento/RichTextEditor.tsx` | **Novo** -- editor contentEditable com toolbar de formatacao |
+| `src/pages/SharedDocument.tsx` | **Novo** -- pagina publica read-only |
+| `src/App.tsx` | Adicionar rota `/shared/:token` fora do ProtectedRoute |
+| `src/pages/DocumentView.tsx` | Adicionar botao de PDF com upload para storage |
+| Migration SQL | RLS policies para storage bucket `document-pdfs` |
 
-### Arquivos NAO modificados
-- `document-sections.ts` -- definicoes permanecem identicas
-- `SectionCard.tsx` -- nao usado no fluxo principal do wizard
-- Edge Functions -- intactas
-- Migracoes SQL -- nenhuma necessaria (coluna `conteudo_final` ja existe)
+## Detalhes Tecnicos
+
+### SharedDocument.tsx - Consulta publica
+
+A consulta usa o client Supabase com anon key (sem autenticacao). As RLS policies existentes ja permitem:
+- `public_read_share_links`: SELECT quando `ativo = true` e nao expirado
+- `public_read_via_share`: SELECT em `document_versions` quando o `id` esta referenciado em um share link ativo
+
+### Storage RLS para document-pdfs
+
+```sql
+CREATE POLICY "authenticated_upload_pdfs"
+ON storage.objects FOR INSERT
+TO authenticated
+WITH CHECK (bucket_id = 'document-pdfs');
+
+CREATE POLICY "public_read_pdfs"
+ON storage.objects FOR SELECT
+TO public
+USING (bucket_id = 'document-pdfs');
+```
+
+### Fluxo de PDF
+
+```text
+Usuario clica "Gerar PDF"
+    |
+    v
+window.print() abre dialogo de impressao
+    |
+    v
+Usuario salva como PDF localmente
+    |
+    v
+(Opcional futuro: upload automatico via File API)
+```
+
+Para a v1, o "Gerar PDF" usara `window.print()` com CSS `@media print` otimizado, que ja permite salvar como PDF pelo navegador. O upload automatico para storage pode ser adicionado em iteracao futura quando houver necessidade de persistencia server-side.
+
