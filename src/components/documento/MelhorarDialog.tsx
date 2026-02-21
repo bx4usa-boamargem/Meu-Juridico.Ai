@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Sparkles, Loader2 } from "lucide-react";
@@ -65,14 +65,18 @@ export function MelhorarDialog({
     }
   };
 
-  const handleOpen = (isOpen: boolean) => {
-    onOpenChange(isOpen);
-    if (isOpen && !suggestion && !loading) {
+  // Trigger AI call when dialog opens
+  useEffect(() => {
+    if (open && !suggestion && !loading) {
       handleImprove();
     }
-    if (!isOpen) {
+    if (!open) {
       setSuggestion(null);
     }
+  }, [open]);
+
+  const handleOpen = (isOpen: boolean) => {
+    onOpenChange(isOpen);
   };
 
   return (
