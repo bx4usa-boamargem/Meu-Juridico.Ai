@@ -87,6 +87,7 @@ export type Database = {
           mapeamento_campos: Json | null
           modalidade: string | null
           nome: string
+          tipo_procedimento: string | null
         }
         Insert: {
           ativo?: boolean | null
@@ -96,6 +97,7 @@ export type Database = {
           mapeamento_campos?: Json | null
           modalidade?: string | null
           nome: string
+          tipo_procedimento?: string | null
         }
         Update: {
           ativo?: boolean | null
@@ -105,6 +107,7 @@ export type Database = {
           mapeamento_campos?: Json | null
           modalidade?: string | null
           nome?: string
+          tipo_procedimento?: string | null
         }
         Relationships: []
       }

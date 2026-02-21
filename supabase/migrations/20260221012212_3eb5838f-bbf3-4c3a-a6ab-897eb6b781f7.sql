@@ -1,0 +1,1 @@
+ALTER TABLE public.cadeias_documentais ADD COLUMN tipo_procedimento VARCHAR(30);
