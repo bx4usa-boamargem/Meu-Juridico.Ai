@@ -1,14 +1,32 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { FileText, List, Eye, ShieldCheck, Search } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { FileText, ArrowLeft, Check, Circle, Lock, Link2, Save, Loader2 } from "lucide-react";
+import { SectionCard } from "@/components/documento/SectionCard";
+import { InheritedDataPanel } from "@/components/documento/InheritedDataPanel";
+import { useDocumentAutoSave } from "@/hooks/useDocumentAutoSave";
+import {
+  getSectionsForType,
+  calculateDocumentProgress,
+  calculateSectionCompletion,
+  isSectionUnlocked,
+} from "@/lib/document-sections";
 
 export default function Documento() {
   const { processoId, docId } = useParams<{ processoId: string; docId: string }>();
   const navigate = useNavigate();
+
+  const [activeSection, setActiveSection] = useState<string | null>(null);
+  const [formData, setFormData] = useState<Record<string, any>>({});
+  const [inheritedKeys, setInheritedKeys] = useState<Set<string>>(new Set());
+  const sectionRefs = useRef<Record<string, React.RefObject<HTMLDivElement>>>({});
 
   const { data: documento, isLoading } = useQuery({
     queryKey: ["documento", docId],
@@ -24,6 +42,91 @@ export default function Documento() {
     enabled: !!docId,
   });
 
+  const { data: processo } = useQuery({
+    queryKey: ["processo-for-doc", processoId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("processos")
+        .select("*")
+        .eq("id", processoId!)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!processoId,
+  });
+
+  // Preload inherited data
+  const { data: inherited } = useQuery({
+    queryKey: ["heranca-preload", processoId, documento?.tipo],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("resolver_heranca", {
+        p_processo_id: processoId!,
+        p_tipo_documento: documento!.tipo!,
+        p_parent_doc_id: documento?.parent_doc_id ?? undefined,
+      });
+      if (error) throw error;
+      return data as Record<string, any> | null;
+    },
+    enabled: !!processoId && !!documento?.tipo,
+  });
+
+  const sections = getSectionsForType(documento?.tipo);
+
+  // Initialize form with existing data + inherited
+  useEffect(() => {
+    if (!documento) return;
+    const existing = (documento.dados_estruturados as Record<string, any>) ?? {};
+    const merged = { ...existing };
+    const keys = new Set<string>();
+
+    if (inherited) {
+      for (const [k, v] of Object.entries(inherited)) {
+        if (v !== null && v !== undefined && v !== "" && !merged[k]) {
+          merged[k] = v;
+          keys.add(k);
+        }
+      }
+    }
+
+    setFormData(merged);
+    setInheritedKeys(keys);
+    if (!activeSection && sections.length > 0) {
+      setActiveSection(sections[0].id);
+    }
+  }, [documento, inherited, sections.length]);
+
+  const { saving, lastSaved } = useDocumentAutoSave(docId, formData);
+
+  const handleFieldChange = useCallback((key: string, value: string) => {
+    setFormData((prev) => ({ ...prev, [key]: value }));
+  }, []);
+
+  const handleApplyInherited = useCallback((key: string, value: string) => {
+    setFormData((prev) => ({ ...prev, [key]: value }));
+    setInheritedKeys((prev) => new Set(prev).add(key));
+  }, []);
+
+  // Ensure refs exist for each section
+  sections.forEach((s) => {
+    if (!sectionRefs.current[s.id]) {
+      sectionRefs.current[s.id] = { current: null } as React.RefObject<HTMLDivElement>;
+    }
+  });
+
+  const scrollToSection = (sectionId: string) => {
+    setActiveSection(sectionId);
+    sectionRefs.current[sectionId]?.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  const progress = calculateDocumentProgress(sections, formData);
+  const processoData = processo ? {
+    numero_processo: processo.numero_processo,
+    orgao: processo.orgao,
+    objeto: processo.objeto,
+    modalidade: processo.modalidade,
+  } : undefined;
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full py-20">
@@ -36,19 +139,19 @@ export default function Documento() {
     return (
       <div className="flex flex-col items-center justify-center h-full py-20 gap-3">
         <p className="text-sm text-muted-foreground">Documento não encontrado.</p>
+        <Button variant="outline" size="sm" onClick={() => navigate(-1)}>Voltar</Button>
       </div>
     );
   }
 
-  const sections = documento.conteudo_gerado
-    ? Object.keys(documento.conteudo_gerado as Record<string, any>)
-    : [];
-
   return (
     <div className="h-[calc(100svh-3rem)] flex flex-col">
-      {/* Doc Header */}
+      {/* Top Document Bar */}
       <div className="flex items-center justify-between border-b px-4 py-2 bg-background shrink-0">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="sm" className="h-7 px-2" onClick={() => navigate(`/processo/${processoId}`)}>
+            <ArrowLeft className="h-3.5 w-3.5" />
+          </Button>
           <FileText className="h-4 w-4 text-muted-foreground" />
           <span className="text-sm font-semibold">{documento.tipo ?? "Documento"}</span>
           <Badge variant="secondary" className="text-[10px]">v{documento.versao ?? 1}</Badge>
@@ -59,94 +162,115 @@ export default function Documento() {
             {documento.status ?? "rascunho"}
           </Badge>
         </div>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+            {saving ? (
+              <><Loader2 className="h-3 w-3 animate-spin" /> Salvando...</>
+            ) : lastSaved ? (
+              <><Check className="h-3 w-3 text-green-600" /> Salvo automaticamente</>
+            ) : null}
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] text-muted-foreground">{progress}%</span>
+            <Progress value={progress} className="w-20 h-1.5" />
+          </div>
+        </div>
       </div>
 
-      {/* Three-column layout */}
+      {/* Three-column workspace */}
       <ResizablePanelGroup direction="horizontal" className="flex-1">
-        {/* LEFT — Structure Tree */}
-        <ResizablePanel defaultSize={20} minSize={15} maxSize={30}>
-          <div className="h-full border-r bg-muted/20 p-3">
-            <p className="text-xs font-medium text-muted-foreground mb-3 uppercase tracking-wider">
-              Estrutura
-            </p>
-            {sections.length > 0 ? (
-              <ul className="space-y-1">
-                {sections.map((section) => (
-                  <li key={section}>
-                    <button className="flex items-center gap-2 w-full rounded-md px-2 py-1.5 text-xs hover:bg-muted text-left">
-                      <List className="h-3 w-3 text-muted-foreground shrink-0" />
-                      <span className="truncate">{section}</span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-xs text-muted-foreground italic">
-                Nenhuma seção gerada.
+        {/* LEFT — Section Navigator */}
+        <ResizablePanel defaultSize={18} minSize={14} maxSize={25}>
+          <ScrollArea className="h-full">
+            <div className="p-3">
+              <p className="text-[10px] font-medium text-muted-foreground mb-3 uppercase tracking-wider">
+                Seções do Documento
               </p>
-            )}
-          </div>
-        </ResizablePanel>
+              <div className="space-y-1">
+                {sections.map((section, i) => {
+                  const unlocked = isSectionUnlocked(i, sections, formData);
+                  const { filled, total, complete } = calculateSectionCompletion(section, formData);
+                  const isActive_ = activeSection === section.id;
 
-        <ResizableHandle withHandle />
-
-        {/* CENTER — Content Viewer */}
-        <ResizablePanel defaultSize={50} minSize={30}>
-          <div className="h-full p-6 overflow-auto">
-            <div className="max-w-2xl mx-auto">
-              <h2 className="text-lg font-semibold mb-4">{documento.tipo}</h2>
-              {documento.conteudo_final ? (
-                <div className="prose prose-sm max-w-none text-foreground">
-                  <p className="whitespace-pre-wrap text-sm leading-relaxed">
-                    {documento.conteudo_final}
-                  </p>
-                </div>
-              ) : sections.length > 0 ? (
-                <div className="space-y-4">
-                  {sections.map((section) => (
-                    <div key={section} className="border rounded-md p-4">
-                      <h3 className="text-sm font-medium mb-2">{section}</h3>
-                      <p className="text-xs text-muted-foreground">
-                        {JSON.stringify((documento.conteudo_gerado as Record<string, any>)[section], null, 2)}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="border border-dashed rounded-lg p-12 text-center">
-                  <FileText className="h-8 w-8 mx-auto text-muted-foreground/40 mb-2" />
-                  <p className="text-sm text-muted-foreground">
-                    Conteúdo ainda não gerado.
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    A geração por IA será disponibilizada em breve.
-                  </p>
-                </div>
-              )}
+                  return (
+                    <button
+                      key={section.id}
+                      onClick={() => unlocked && scrollToSection(section.id)}
+                      disabled={!unlocked}
+                      className={`flex items-center gap-2 w-full rounded-md px-2 py-2 text-xs text-left transition-colors ${
+                        isActive_
+                          ? "bg-primary/10 text-primary font-medium"
+                          : unlocked
+                          ? "hover:bg-muted text-foreground"
+                          : "text-muted-foreground/50 cursor-not-allowed"
+                      }`}
+                    >
+                      {!unlocked ? (
+                        <Lock className="h-3 w-3 shrink-0 text-muted-foreground/40" />
+                      ) : complete ? (
+                        <Check className="h-3 w-3 shrink-0 text-green-600" />
+                      ) : (
+                        <Circle className="h-3 w-3 shrink-0 text-yellow-500" />
+                      )}
+                      <span className="truncate flex-1">{section.label}</span>
+                      <span className="text-[9px] text-muted-foreground shrink-0">
+                        {filled}/{total}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          </div>
+          </ScrollArea>
         </ResizablePanel>
 
         <ResizableHandle withHandle />
 
-        {/* RIGHT — Metadata / Preview / Validation */}
+        {/* CENTER — Structured Form Engine */}
+        <ResizablePanel defaultSize={52} minSize={35}>
+          <ScrollArea className="h-full">
+            <div className="p-6 max-w-2xl mx-auto space-y-3">
+              {sections.map((section, i) => (
+                <SectionCard
+                  key={section.id}
+                  section={section}
+                  data={formData}
+                  processoData={processoData}
+                  inheritedKeys={inheritedKeys}
+                  onChange={handleFieldChange}
+                  isActive={activeSection === section.id}
+                  isUnlocked={isSectionUnlocked(i, sections, formData)}
+                  onActivate={() => setActiveSection(section.id)}
+                  sectionRef={sectionRefs.current[section.id]}
+                />
+              ))}
+            </div>
+          </ScrollArea>
+        </ResizablePanel>
+
+        <ResizableHandle withHandle />
+
+        {/* RIGHT — Inherited Data + Metadata */}
         <ResizablePanel defaultSize={30} minSize={20} maxSize={40}>
           <div className="h-full border-l bg-muted/10">
-            <Tabs defaultValue="metadata" className="h-full flex flex-col">
+            <Tabs defaultValue="herdados" className="h-full flex flex-col">
               <TabsList className="w-full rounded-none border-b bg-transparent justify-start px-2 shrink-0">
+                <TabsTrigger value="herdados" className="text-xs gap-1">
+                  <Link2 className="h-3 w-3" /> Dados Herdados
+                </TabsTrigger>
                 <TabsTrigger value="metadata" className="text-xs gap-1">
                   <FileText className="h-3 w-3" /> Metadata
                 </TabsTrigger>
-                <TabsTrigger value="preview" className="text-xs gap-1">
-                  <Eye className="h-3 w-3" /> Preview
-                </TabsTrigger>
-                <TabsTrigger value="validation" className="text-xs gap-1">
-                  <ShieldCheck className="h-3 w-3" /> Validação
-                </TabsTrigger>
-                <TabsTrigger value="research" className="text-xs gap-1">
-                  <Search className="h-3 w-3" /> Pesquisa
-                </TabsTrigger>
               </TabsList>
+
+              <TabsContent value="herdados" className="flex-1 overflow-auto mt-0">
+                <InheritedDataPanel
+                  processoId={processoId!}
+                  tipoDocumento={documento.tipo ?? ""}
+                  parentDocId={documento.parent_doc_id}
+                  onApply={handleApplyInherited}
+                />
+              </TabsContent>
 
               <TabsContent value="metadata" className="flex-1 overflow-auto p-4 mt-0">
                 <div className="space-y-3 text-xs">
@@ -160,24 +284,6 @@ export default function Documento() {
                     <Field label="Aprovado em" value={new Date(documento.aprovado_em).toLocaleString("pt-BR")} />
                   )}
                 </div>
-              </TabsContent>
-
-              <TabsContent value="preview" className="flex-1 overflow-auto p-4 mt-0">
-                <p className="text-xs text-muted-foreground italic">
-                  Preview do documento será disponibilizado em breve.
-                </p>
-              </TabsContent>
-
-              <TabsContent value="validation" className="flex-1 overflow-auto p-4 mt-0">
-                <p className="text-xs text-muted-foreground italic">
-                  Validação do documento será disponibilizada em breve.
-                </p>
-              </TabsContent>
-
-              <TabsContent value="research" className="flex-1 overflow-auto p-4 mt-0">
-                <p className="text-xs text-muted-foreground italic">
-                  Pesquisa de referência será disponibilizada em breve.
-                </p>
               </TabsContent>
             </Tabs>
           </div>

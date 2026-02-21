@@ -7,8 +7,12 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AppLayout } from "@/components/layout/AppLayout";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
+import Processos from "./pages/Processos";
 import Processo from "./pages/Processo";
+import Documentos from "./pages/Documentos";
 import Documento from "./pages/Documento";
+import Pesquisa from "./pages/Pesquisa";
+import Configuracoes from "./pages/Configuracoes";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -28,8 +32,12 @@ const App = () => (
                 <AppLayout>
                   <Routes>
                     <Route path="/dashboard" element={<Dashboard />} />
+                    <Route path="/processos" element={<Processos />} />
                     <Route path="/processo/:id" element={<Processo />} />
                     <Route path="/processo/:processoId/documento/:docId" element={<Documento />} />
+                    <Route path="/documentos" element={<Documentos />} />
+                    <Route path="/pesquisa" element={<Pesquisa />} />
+                    <Route path="/configuracoes" element={<Configuracoes />} />
                     <Route path="/" element={<Navigate to="/dashboard" replace />} />
                     <Route path="*" element={<NotFound />} />
                   </Routes>

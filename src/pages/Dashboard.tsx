@@ -25,15 +25,16 @@ export default function Dashboard() {
   const { data: stats } = useQuery({
     queryKey: ["dashboard-stats"],
     queryFn: async () => {
-      const [processosRes, docsRascunhoRes, alertasRes] = await Promise.all([
+      const results = await Promise.all([
         supabase.from("processos").select("id", { count: "exact", head: true }).eq("status", "ativo"),
         supabase.from("documentos").select("id", { count: "exact", head: true }).eq("status", "rascunho"),
         supabase.from("alertas_cascata").select("id", { count: "exact", head: true }).eq("status", "pendente"),
-      ]);
+      ].map((q) => (q as any).then((r: any) => r).catch(() => ({ count: 0 }))));
+      const [processosRes, docsRascunhoRes, alertasRes] = results;
       return {
-        ativos: processosRes.count ?? 0,
-        emRevisao: docsRascunhoRes.count ?? 0,
-        alertas: alertasRes.count ?? 0,
+        ativos: (processosRes as any).count ?? 0,
+        emRevisao: (docsRascunhoRes as any).count ?? 0,
+        alertas: (alertasRes as any).count ?? 0,
         total: processos?.length ?? 0,
       };
     },
