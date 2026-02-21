@@ -40,8 +40,6 @@ export function ProcessCard({
   totalChainSteps = 5,
 }: ProcessCardProps) {
   const navigate = useNavigate();
-  const completedDocs = documentos.filter((d) => d.status === "aprovado").length;
-  const existingDocs = documentos.length;
 
   return (
     <Card
@@ -84,9 +82,9 @@ export function ProcessCard({
                 className={cn(
                   "h-1.5 flex-1 rounded-full",
                   doc?.status === "aprovado"
-                    ? "bg-green-500"
+                    ? "bg-success"
                     : doc?.status === "rascunho"
-                    ? "bg-yellow-500"
+                    ? "bg-warning"
                     : "bg-border"
                 )}
               />

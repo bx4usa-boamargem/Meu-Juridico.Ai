@@ -1,6 +1,8 @@
-import { Scale, LayoutDashboard, FolderKanban, FileText, Search, Settings, LogOut } from "lucide-react";
+import { LayoutDashboard, FolderKanban, FileText, Search, Settings, LogOut } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
+import logoIcon from "@/assets/logo-icon.svg";
+import logoFull from "@/assets/logo-full.svg";
 import {
   Sidebar,
   SidebarContent,
@@ -33,11 +35,10 @@ export function AppSidebar() {
     <Sidebar collapsible="icon">
       <SidebarHeader className="py-3">
         <div className="flex items-center gap-2 px-2">
-          <Scale className="h-5 w-5 shrink-0 text-primary" />
-          {!collapsed && (
-            <span className="font-semibold text-sm tracking-tight text-sidebar-foreground">
-              MeuJurídico.ai
-            </span>
+          {collapsed ? (
+            <img src={logoIcon} alt="MeuJurídico.ai" className="h-7 w-7 shrink-0" />
+          ) : (
+            <img src={logoFull} alt="MeuJurídico.ai" className="h-7 shrink-0" />
           )}
         </div>
       </SidebarHeader>

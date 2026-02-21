@@ -50,8 +50,8 @@ export function DocumentStepSidebar({ sections, workflow, formData, onSelectStep
                 {isLocked ? (
                   <Lock className="h-3.5 w-3.5 text-muted-foreground/50" />
                 ) : isComplete ? (
-                  <div className="h-4 w-4 rounded-full bg-green-600 flex items-center justify-center">
-                    <Check className="h-2.5 w-2.5 text-white" />
+                  <div className="h-4 w-4 rounded-full bg-success flex items-center justify-center">
+                    <Check className="h-2.5 w-2.5 text-success-foreground" />
                   </div>
                 ) : (
                   <FileText className="h-3.5 w-3.5 text-primary" />

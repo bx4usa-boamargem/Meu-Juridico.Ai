@@ -49,11 +49,11 @@ export function StepFormRenderer({ section, formData, processoData, inheritedKey
   return (
     <div className="space-y-5">
       {/* Info banner */}
-      <div className="flex items-start gap-2 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 p-3">
-        <Info className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5 shrink-0" />
+      <div className="flex items-start gap-2 rounded-lg bg-primary/5 border border-primary/20 p-3">
+        <Info className="h-4 w-4 text-primary mt-0.5 shrink-0" />
         <div>
-          <p className="text-xs font-medium text-blue-900 dark:text-blue-200">Informação importante</p>
-          <p className="text-[11px] text-blue-700 dark:text-blue-300">
+          <p className="text-xs font-medium text-foreground">Informação importante</p>
+          <p className="text-[11px] text-muted-foreground">
             Preencha todos os campos obrigatórios desta seção para avançar para a próxima etapa.
             {section.required && " Esta seção é obrigatória."}
           </p>
@@ -62,9 +62,9 @@ export function StepFormRenderer({ section, formData, processoData, inheritedKey
 
       {/* Inherited callout */}
       {hasInheritedFields && (
-        <div className="flex items-start gap-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 p-3">
-          <Info className="h-4 w-4 text-emerald-600 dark:text-emerald-400 mt-0.5 shrink-0" />
-          <p className="text-[11px] text-emerald-700 dark:text-emerald-300">
+        <div className="flex items-start gap-2 rounded-lg bg-success/5 border border-success/20 p-3">
+          <Info className="h-4 w-4 text-success mt-0.5 shrink-0" />
+          <p className="text-[11px] text-muted-foreground">
             Alguns campos foram preenchidos automaticamente com dados herdados de documentos anteriores.
             Você pode editar esses valores livremente.
           </p>
@@ -83,7 +83,7 @@ export function StepFormRenderer({ section, formData, processoData, inheritedKey
                 <div className="flex items-center gap-1.5">
                   <Label className="text-xs font-medium">{field.label}</Label>
                   {isInherited && (
-                    <Badge variant="secondary" className="text-[8px] px-1.5 py-0 bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-700">
+                    <Badge variant="secondary" className="text-[8px] px-1.5 py-0 bg-success/10 text-success border-success/20">
                       preenchimento automático
                     </Badge>
                   )}
@@ -109,7 +109,7 @@ export function StepFormRenderer({ section, formData, processoData, inheritedKey
                   className={cn(
                     "text-sm min-h-[100px]",
                     field.readOnly && "bg-muted cursor-not-allowed",
-                    isInherited && "border-emerald-200 bg-emerald-50/30 dark:border-emerald-700 dark:bg-emerald-900/10"
+                    isInherited && "border-success/20 bg-success/5"
                   )}
                 />
               ) : field.type === "select" ? (
@@ -136,7 +136,7 @@ export function StepFormRenderer({ section, formData, processoData, inheritedKey
                   className={cn(
                     "text-sm",
                     field.readOnly && "bg-muted cursor-not-allowed",
-                    isInherited && "border-emerald-200 bg-emerald-50/30 dark:border-emerald-700 dark:bg-emerald-900/10"
+                    isInherited && "border-success/20 bg-success/5"
                   )}
                 />
               )}
