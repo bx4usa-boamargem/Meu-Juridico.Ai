@@ -39,7 +39,13 @@ export function DocumentChainView({ processoId, cadeia, documentos }: Props) {
             )}
             <button
               onClick={() => {
-                if (doc) navigate(`/processo/${processoId}/documento/${doc.id}`);
+                if (doc) {
+                  if (isAprovado) {
+                    navigate(`/processo/${processoId}/documento/${doc.id}/view`);
+                  } else {
+                    navigate(`/processo/${processoId}/documento/${doc.id}`);
+                  }
+                }
               }}
               disabled={!exists}
               className={cn(
