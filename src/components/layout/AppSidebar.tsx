@@ -1,8 +1,8 @@
 import { LayoutDashboard, FolderKanban, FileText, Search, Settings, LogOut } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
-import logoIcon from "@/assets/logo-icon.svg";
-import logoFull from "@/assets/logo-full.svg";
+import logoIcon from "@/assets/logo-icon.png";
+import logoFull from "@/assets/logo-full.png";
 import {
   Sidebar,
   SidebarContent,

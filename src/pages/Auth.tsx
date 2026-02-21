@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { Navigate } from "react-router-dom";
-import logoFull from "@/assets/logo-full.svg";
+import logoFull from "@/assets/logo-full.png";
 
 export default function Auth() {
   const { user, loading } = useAuth();
