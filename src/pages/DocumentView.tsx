@@ -92,7 +92,7 @@ export default function DocumentView() {
     queryKey: ["processo-for-doc", processoId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("processos").select("numero_processo, orgao").eq("id", processoId!).single();
+        .from("processos").select("numero_processo, orgao, objeto, modalidade").eq("id", processoId!).single();
       if (error) throw error;
       return data;
     },
@@ -370,6 +370,16 @@ export default function DocumentView() {
             value={currentHtml}
             onChange={setEditedHtml}
             className="min-h-[600px]"
+            processoContext={{
+              objeto: processo?.objeto,
+              orgao: processo?.orgao,
+              modalidade: processo?.modalidade,
+              numero_processo: processo?.numero_processo,
+            }}
+            documentType={documento?.tipo ?? "DFD"}
+            sectionType="documento_completo"
+            dadosEstruturados={documento?.dados_estruturados as Record<string, any>}
+            documentoId={docId}
           />
 
           {/* Signature preview */}

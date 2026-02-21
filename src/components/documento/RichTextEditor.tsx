@@ -14,11 +14,19 @@ import {
   Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import { AiContextMenu, type AiAction } from "./AiContextMenu";
+import { AiRewriteDialog } from "./AiRewriteDialog";
 
 interface RichTextEditorProps {
   value: string;
   onChange: (html: string) => void;
   className?: string;
+  processoContext?: { objeto?: string; orgao?: string; modalidade?: string; numero_processo?: string };
+  documentType?: string;
+  sectionType?: string;
+  dadosEstruturados?: Record<string, any>;
+  otherSections?: { field: string; value: string }[];
+  documentoId?: string;
 }
 
 const FONTS = [
@@ -92,10 +100,23 @@ function ToolBtn({ action, onExec }: { action: ToolbarAction; onExec: (cmd: stri
   );
 }
 
-export function RichTextEditor({ value, onChange, className }: RichTextEditorProps) {
+export function RichTextEditor({
+  value, onChange, className,
+  processoContext, documentType, sectionType,
+  dadosEstruturados, otherSections, documentoId,
+}: RichTextEditorProps) {
   const editorRef = useRef<HTMLDivElement>(null);
   const isInternalChange = useRef(false);
   const [lineSpacing, setLineSpacing] = useState("1.5");
+
+  // AI context menu state
+  const [aiMenuPos, setAiMenuPos] = useState<{ top: number; left: number } | null>(null);
+  const [selectedText, setSelectedText] = useState("");
+  const savedSelectionRef = useRef<Range | null>(null);
+
+  // AI rewrite dialog state
+  const [rewriteOpen, setRewriteOpen] = useState(false);
+  const [rewriteAction, setRewriteAction] = useState<AiAction>("melhorar");
 
   useEffect(() => {
     if (editorRef.current && !isInternalChange.current) {
@@ -189,6 +210,63 @@ export function RichTextEditor({ value, onChange, className }: RichTextEditorPro
     if (!editor) return;
     editor.focus();
     document.execCommand("insertText", false, `{{${token}}}`);
+    isInternalChange.current = true;
+    onChange(editor.innerHTML);
+  }, [onChange]);
+
+  // Handle text selection for AI menu
+  const handleMouseUp = useCallback(() => {
+    setTimeout(() => {
+      const selection = window.getSelection();
+      if (!selection || selection.isCollapsed || !editorRef.current) {
+        setAiMenuPos(null);
+        return;
+      }
+
+      const text = selection.toString().trim();
+      if (text.length < 10) {
+        setAiMenuPos(null);
+        return;
+      }
+
+      // Check selection is inside editor
+      const range = selection.getRangeAt(0);
+      if (!editorRef.current.contains(range.commonAncestorContainer)) {
+        setAiMenuPos(null);
+        return;
+      }
+
+      // Save selection and show menu
+      savedSelectionRef.current = range.cloneRange();
+      setSelectedText(text);
+
+      const rect = range.getBoundingClientRect();
+      setAiMenuPos({
+        top: rect.bottom + 8,
+        left: Math.min(rect.left, window.innerWidth - 240),
+      });
+    }, 50);
+  }, []);
+
+  const handleAiAction = useCallback((action: AiAction) => {
+    setRewriteAction(action);
+    setRewriteOpen(true);
+  }, []);
+
+  const handleApplyRewrite = useCallback((rewrittenText: string) => {
+    const editor = editorRef.current;
+    if (!editor || !savedSelectionRef.current) return;
+
+    // Restore saved selection
+    const selection = window.getSelection();
+    if (selection) {
+      selection.removeAllRanges();
+      selection.addRange(savedSelectionRef.current);
+    }
+
+    // Replace selected text
+    document.execCommand("insertText", false, rewrittenText);
+    savedSelectionRef.current = null;
     isInternalChange.current = true;
     onChange(editor.innerHTML);
   }, [onChange]);
@@ -354,8 +432,33 @@ export function RichTextEditor({ value, onChange, className }: RichTextEditorPro
             [&_th]:border [&_th]:border-border [&_th]:p-2 [&_th]:bg-muted/50 [&_th]:font-semibold [&_th]:text-left"
           style={{ lineHeight: lineSpacing, fontFamily: "'Times New Roman', serif" }}
           onInput={handleInput}
+          onMouseUp={handleMouseUp}
         />
       </div>
+
+      {/* AI Context Menu (floating) */}
+      {aiMenuPos && (
+        <AiContextMenu
+          position={aiMenuPos}
+          onAction={handleAiAction}
+          onClose={() => setAiMenuPos(null)}
+        />
+      )}
+
+      {/* AI Rewrite Dialog */}
+      <AiRewriteDialog
+        open={rewriteOpen}
+        onOpenChange={setRewriteOpen}
+        action={rewriteAction}
+        selectedText={selectedText}
+        sectionType={sectionType}
+        documentType={documentType}
+        processoContext={processoContext}
+        dadosEstruturados={dadosEstruturados}
+        otherSections={otherSections}
+        documentoId={documentoId}
+        onApply={handleApplyRewrite}
+      />
     </TooltipProvider>
   );
 }

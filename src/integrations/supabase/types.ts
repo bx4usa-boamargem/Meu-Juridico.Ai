@@ -14,6 +14,57 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_audit_log: {
+        Row: {
+          action: string
+          created_at: string
+          documento_id: string | null
+          id: string
+          input_text: string | null
+          model: string
+          output_text: string | null
+          prompt_version: string
+          user_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          documento_id?: string | null
+          id?: string
+          input_text?: string | null
+          model: string
+          output_text?: string | null
+          prompt_version?: string
+          user_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          documento_id?: string | null
+          id?: string
+          input_text?: string | null
+          model?: string
+          output_text?: string | null
+          prompt_version?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_audit_log_documento_id_fkey"
+            columns: ["documento_id"]
+            isOneToOne: false
+            referencedRelation: "documentos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_audit_log_documento_id_fkey"
+            columns: ["documento_id"]
+            isOneToOne: false
+            referencedRelation: "vw_processo_com_dfd"
+            referencedColumns: ["dfd_id"]
+          },
+        ]
+      }
       alertas_cascata: {
         Row: {
           campo: string
@@ -422,6 +473,42 @@ export type Database = {
           },
         ]
       }
+      org_knowledge_base: {
+        Row: {
+          conteudo: string
+          created_at: string
+          created_by: string
+          id: string
+          orgao: string
+          search_vector: unknown
+          tags: string[] | null
+          tipo: string
+          titulo: string
+        }
+        Insert: {
+          conteudo: string
+          created_at?: string
+          created_by: string
+          id?: string
+          orgao: string
+          search_vector?: unknown
+          tags?: string[] | null
+          tipo: string
+          titulo: string
+        }
+        Update: {
+          conteudo?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          orgao?: string
+          search_vector?: unknown
+          tags?: string[] | null
+          tipo?: string
+          titulo?: string
+        }
+        Relationships: []
+      }
       processos: {
         Row: {
           context_data: Json | null
@@ -502,6 +589,7 @@ export type Database = {
         }
         Returns: string
       }
+      get_user_orgao: { Args: { p_user_id: string }; Returns: string }
       obter_pipeline_processo: {
         Args: { p_processo_id: string }
         Returns: Json

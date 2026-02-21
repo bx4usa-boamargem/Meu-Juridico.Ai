@@ -55,7 +55,7 @@ Retorne APENAS o texto da justificativa, sem títulos ou explicações adicionai
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: "google/gemini-3-pro-preview",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: `Gere a justificativa de contratação para o seguinte objeto:\n\n${objeto}` },

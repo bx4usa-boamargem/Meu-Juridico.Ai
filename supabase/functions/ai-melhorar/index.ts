@@ -72,7 +72,7 @@ Retorne APENAS o texto melhorado, sem explicações adicionais.`;
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: "google/gemini-3-pro-preview",
         messages: [
           { role: "system", content: systemPrompt },
           {
