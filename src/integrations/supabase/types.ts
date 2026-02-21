@@ -132,6 +132,129 @@ export type Database = {
         }
         Relationships: []
       }
+      document_share_links: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          created_by: string | null
+          documento_id: string
+          expires_at: string | null
+          id: string
+          token: string
+          version_id: string
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          created_by?: string | null
+          documento_id: string
+          expires_at?: string | null
+          id?: string
+          token?: string
+          version_id: string
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          created_by?: string | null
+          documento_id?: string
+          expires_at?: string | null
+          id?: string
+          token?: string
+          version_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_share_links_documento_id_fkey"
+            columns: ["documento_id"]
+            isOneToOne: false
+            referencedRelation: "documentos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_share_links_documento_id_fkey"
+            columns: ["documento_id"]
+            isOneToOne: false
+            referencedRelation: "vw_processo_com_dfd"
+            referencedColumns: ["dfd_id"]
+          },
+          {
+            foreignKeyName: "document_share_links_version_id_fkey"
+            columns: ["version_id"]
+            isOneToOne: false
+            referencedRelation: "document_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      document_versions: {
+        Row: {
+          conteudo_html: string
+          created_at: string
+          documento_id: string
+          gerado_em: string
+          gerado_por: string | null
+          id: string
+          pdf_gerado_em: string | null
+          pdf_url: string | null
+          processo_id: string
+          versao: number
+        }
+        Insert: {
+          conteudo_html: string
+          created_at?: string
+          documento_id: string
+          gerado_em?: string
+          gerado_por?: string | null
+          id?: string
+          pdf_gerado_em?: string | null
+          pdf_url?: string | null
+          processo_id: string
+          versao?: number
+        }
+        Update: {
+          conteudo_html?: string
+          created_at?: string
+          documento_id?: string
+          gerado_em?: string
+          gerado_por?: string | null
+          id?: string
+          pdf_gerado_em?: string | null
+          pdf_url?: string | null
+          processo_id?: string
+          versao?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_versions_documento_id_fkey"
+            columns: ["documento_id"]
+            isOneToOne: false
+            referencedRelation: "documentos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_versions_documento_id_fkey"
+            columns: ["documento_id"]
+            isOneToOne: false
+            referencedRelation: "vw_processo_com_dfd"
+            referencedColumns: ["dfd_id"]
+          },
+          {
+            foreignKeyName: "document_versions_processo_id_fkey"
+            columns: ["processo_id"]
+            isOneToOne: false
+            referencedRelation: "processos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_versions_processo_id_fkey"
+            columns: ["processo_id"]
+            isOneToOne: false
+            referencedRelation: "vw_processo_com_dfd"
+            referencedColumns: ["processo_id"]
+          },
+        ]
+      }
       documentos: {
         Row: {
           aprovado_em: string | null
@@ -151,6 +274,7 @@ export type Database = {
           tipo: string | null
           updated_at: string
           versao: number | null
+          workflow_status: string
         }
         Insert: {
           aprovado_em?: string | null
@@ -170,6 +294,7 @@ export type Database = {
           tipo?: string | null
           updated_at?: string
           versao?: number | null
+          workflow_status?: string
         }
         Update: {
           aprovado_em?: string | null
@@ -189,6 +314,7 @@ export type Database = {
           tipo?: string | null
           updated_at?: string
           versao?: number | null
+          workflow_status?: string
         }
         Relationships: [
           {

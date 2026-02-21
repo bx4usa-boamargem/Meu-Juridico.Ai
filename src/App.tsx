@@ -12,6 +12,7 @@ import Processos from "./pages/Processos";
 import Processo from "./pages/Processo";
 import Documentos from "./pages/Documentos";
 import Documento from "./pages/Documento";
+import DocumentView from "./pages/DocumentView";
 import Pesquisa from "./pages/Pesquisa";
 import Configuracoes from "./pages/Configuracoes";
 import NotFound from "./pages/NotFound";
@@ -33,6 +34,16 @@ const App = () => (
               <ProtectedRoute>
                 <DocumentLayout>
                   <Documento />
+                </DocumentLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/processo/:processoId/documento/:docId/view"
+            element={
+              <ProtectedRoute>
+                <DocumentLayout>
+                  <DocumentView />
                 </DocumentLayout>
               </ProtectedRoute>
             }
