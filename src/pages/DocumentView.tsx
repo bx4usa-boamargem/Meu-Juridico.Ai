@@ -1,15 +1,18 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { RichTextEditor } from "@/components/documento/RichTextEditor";
+import { SignatureBlock, renderSignatureHtml } from "@/components/documento/SignatureBlock";
+import { sanitizeHtml } from "@/lib/html-sanitizer";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Card } from "@/components/ui/card";
 import {
   Save, Printer, Share2, Send, FileText, ArrowLeft,
-  Loader2, Check, Copy, ExternalLink
+  Loader2, Check, Copy, ExternalLink, Info
 } from "lucide-react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription
@@ -32,7 +35,6 @@ export default function DocumentView() {
   const { data: version, isLoading } = useQuery({
     queryKey: ["document-version", docId],
     queryFn: async () => {
-      // Try to fetch existing version
       const { data, error } = await supabase
         .from("document_versions")
         .select("*")
@@ -43,7 +45,7 @@ export default function DocumentView() {
       if (error) throw error;
       if (data) return data;
 
-      // Self-healing: no version exists, try to create from document data
+      // Self-healing: no version exists
       const { data: doc } = await supabase
         .from("documentos")
         .select("conteudo_final, dados_estruturados, processo_id")
@@ -52,46 +54,24 @@ export default function DocumentView() {
 
       if (!doc || !processoId) return null;
 
-      // Generate HTML from dados_estruturados if no conteudo_final
       let html = doc.conteudo_final;
       if (!html && doc.dados_estruturados) {
         const { data: proc } = await supabase
-          .from("processos")
-          .select("*")
-          .eq("id", processoId)
-          .single();
+          .from("processos").select("*").eq("id", processoId).single();
         const { renderDfdTemplate } = await import("@/lib/dfd-template");
-        html = renderDfdTemplate(
-          doc.dados_estruturados as Record<string, any>,
-          proc as any
-        );
+        html = renderDfdTemplate(doc.dados_estruturados as Record<string, any>, proc as any);
       }
-
       if (!html) return null;
 
-      // Insert recovered version
       const { data: newVersion, error: insertErr } = await supabase
         .from("document_versions")
-        .insert({
-          documento_id: docId!,
-          processo_id: processoId,
-          conteudo_html: html,
-          versao: 1,
-          gerado_por: user?.id,
-        })
-        .select("*")
-        .single();
+        .insert({ documento_id: docId!, processo_id: processoId, conteudo_html: html, versao: 1, gerado_por: user?.id })
+        .select("*").single();
 
-      if (insertErr) {
-        console.error("Self-healing version insert failed:", insertErr);
-        return null;
-      }
-
-      // Also update conteudo_final if missing
+      if (insertErr) { console.error("Self-healing failed:", insertErr); return null; }
       if (!doc.conteudo_final) {
         await supabase.from("documentos").update({ conteudo_final: html }).eq("id", docId!);
       }
-
       return newVersion;
     },
     enabled: !!docId,
@@ -101,10 +81,7 @@ export default function DocumentView() {
     queryKey: ["documento", docId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("documentos")
-        .select("tipo, status, workflow_status")
-        .eq("id", docId!)
-        .single();
+        .from("documentos").select("tipo, status, workflow_status, dados_estruturados").eq("id", docId!).single();
       if (error) throw error;
       return data;
     },
@@ -115,15 +92,27 @@ export default function DocumentView() {
     queryKey: ["processo-for-doc", processoId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("processos")
-        .select("numero_processo, orgao")
-        .eq("id", processoId!)
-        .single();
+        .from("processos").select("numero_processo, orgao").eq("id", processoId!).single();
       if (error) throw error;
       return data;
     },
     enabled: !!processoId,
   });
+
+  // Extract signature data from dados_estruturados (NOT from HTML)
+  const signatureData = useMemo(() => {
+    const dados = (documento?.dados_estruturados as Record<string, any>) ?? {};
+    return {
+      responsavel_tecnico: dados.responsavel_tecnico as string | undefined,
+      fiscal_contrato: dados.fiscal_contrato as string | undefined,
+      ordenador_despesa: dados.ordenador_despesa as string | undefined,
+    };
+  }, [documento?.dados_estruturados]);
+
+  const docCode = useMemo(() => {
+    const num = processo?.numero_processo ?? "—";
+    return `DFD-${num}`;
+  }, [processo]);
 
   const currentHtml = editedHtml ?? version?.conteudo_html ?? "";
   const hasChanges = editedHtml !== null && editedHtml !== version?.conteudo_html;
@@ -132,17 +121,19 @@ export default function DocumentView() {
     if (!version || !editedHtml) return;
     setSaving(true);
     try {
+      // Sanitize before saving
+      const cleanHtml = sanitizeHtml(editedHtml);
+
       const { error } = await supabase.from("document_versions").insert({
         documento_id: docId!,
         processo_id: processoId!,
-        conteudo_html: editedHtml,
+        conteudo_html: cleanHtml,
         versao: version.versao + 1,
         gerado_por: user?.id,
       });
       if (error) throw error;
 
-      await supabase.from("documentos").update({ conteudo_final: editedHtml }).eq("id", docId!);
-
+      await supabase.from("documentos").update({ conteudo_final: cleanHtml }).eq("id", docId!);
       queryClient.invalidateQueries({ queryKey: ["document-version", docId] });
       setEditedHtml(null);
       toast.success(`Versão ${version.versao + 1} salva com sucesso!`);
@@ -156,22 +147,95 @@ export default function DocumentView() {
   const handlePrint = useCallback(() => {
     const printWindow = window.open("", "_blank");
     if (!printWindow) return;
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html><head><title>${documento?.tipo ?? "Documento"}</title>
-      <style>@media print { body { margin: 20mm; } }</style>
-      </head><body>${currentHtml}</body></html>
-    `);
+
+    const sigHtml = renderSignatureHtml(
+      signatureData.responsavel_tecnico,
+      signatureData.fiscal_contrato,
+      signatureData.ordenador_despesa,
+    );
+
+    const generatedAt = new Date().toLocaleDateString("pt-BR", {
+      day: "2-digit", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit",
+    });
+
+    printWindow.document.write(`<!DOCTYPE html>
+<html><head>
+<title>${docCode} — ${documento?.tipo ?? "Documento"}</title>
+<style>
+  @page {
+    size: A4;
+    margin: 25mm 20mm 30mm 20mm;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: 'Times New Roman', serif;
+    font-size: 12pt;
+    color: #1a1a1a;
+    line-height: 1.6;
+    margin: 0;
+    padding: 0;
+  }
+  /* Header on first page */
+  .print-header {
+    text-align: center;
+    border-bottom: 2px solid #1a1a1a;
+    padding-bottom: 12px;
+    margin-bottom: 20px;
+  }
+  .print-header .org { font-size: 10pt; text-transform: uppercase; letter-spacing: 2px; margin: 0; }
+  .print-header .title { font-size: 14pt; font-weight: bold; margin: 8px 0 4px; }
+  .print-header .proc { font-size: 10pt; margin: 0; }
+  .print-header .meta { font-size: 9pt; color: #666; margin-top: 4px; }
+  /* Content */
+  .print-content { }
+  .print-content h1, .print-content h2, .print-content h3 { page-break-after: avoid; }
+  .print-content table { page-break-inside: avoid; }
+  /* Page break markers */
+  div[style*="page-break-before"] {
+    border: none !important;
+    color: transparent !important;
+    height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  /* Footer */
+  .print-footer {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    text-align: center;
+    font-size: 8pt;
+    color: #999;
+    border-top: 1px solid #ddd;
+    padding-top: 4px;
+  }
+  @media print {
+    .print-footer { position: fixed; bottom: 0mm; }
+  }
+</style>
+</head><body>
+  <div class="print-footer">
+    ${docCode} • v${version?.versao ?? 1} • ${processo?.orgao ?? ""} • Gerado em ${generatedAt}
+  </div>
+  <div class="print-header">
+    <p class="org">${processo?.orgao ?? ""}</p>
+    <p class="title">DOCUMENTO DE FORMALIZAÇÃO DA DEMANDA</p>
+    <p class="proc">Processo nº ${processo?.numero_processo ?? "—"}</p>
+    <p class="meta">${docCode} • Versão ${version?.versao ?? 1} • ${generatedAt} • ${user?.email ?? ""}</p>
+  </div>
+  <div class="print-content">${currentHtml}</div>
+  ${sigHtml}
+</body></html>`);
     printWindow.document.close();
-    printWindow.print();
-  }, [currentHtml, documento]);
+    setTimeout(() => printWindow.print(), 300);
+  }, [currentHtml, documento, processo, version, docCode, user, signatureData]);
 
   const handleShare = useCallback(async () => {
     if (!version) return;
     setShareDialogOpen(true);
     setCreatingShare(true);
     try {
-      // Check for existing active link
       const { data: existing } = await supabase
         .from("document_share_links")
         .select("token")
@@ -185,13 +249,8 @@ export default function DocumentView() {
       } else {
         const { data: newLink, error } = await supabase
           .from("document_share_links")
-          .insert({
-            documento_id: docId!,
-            version_id: version.id,
-            created_by: user?.id,
-          })
-          .select("token")
-          .single();
+          .insert({ documento_id: docId!, version_id: version.id, created_by: user?.id })
+          .select("token").single();
         if (error) throw error;
         setShareLink(`${window.location.origin}/shared/${newLink.token}`);
       }
@@ -204,20 +263,11 @@ export default function DocumentView() {
 
   const handleWorkflowChange = useCallback(async (newStatus: string) => {
     try {
-      const { error } = await supabase
-        .from("documentos")
-        .update({ workflow_status: newStatus })
-        .eq("id", docId!);
+      const { error } = await supabase.from("documentos").update({ workflow_status: newStatus }).eq("id", docId!);
       if (error) throw error;
       queryClient.invalidateQueries({ queryKey: ["documento", docId] });
-      toast.success(
-        newStatus === "em_aprovacao"
-          ? "Documento enviado para aprovação!"
-          : `Status atualizado para ${newStatus}`
-      );
-    } catch (e: any) {
-      toast.error("Erro: " + e.message);
-    }
+      toast.success(newStatus === "em_aprovacao" ? "Documento enviado para aprovação!" : `Status: ${newStatus}`);
+    } catch (e: any) { toast.error("Erro: " + e.message); }
   }, [docId, queryClient]);
 
   const workflowBadge = (status: string) => {
@@ -273,15 +323,12 @@ export default function DocumentView() {
               Salvar v{version.versao + 1}
             </Button>
           )}
-
           <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={handlePrint}>
-            <Printer className="h-3 w-3" /> Imprimir / PDF
+            <Printer className="h-3 w-3" /> PDF / Imprimir
           </Button>
-
           <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={handleShare}>
             <Share2 className="h-3 w-3" /> Compartilhar
           </Button>
-
           {documento?.workflow_status === "rascunho" && (
             <Button variant="outline" size="sm" className="h-7 text-xs gap-1 border-primary/30 text-primary" onClick={() => handleWorkflowChange("em_aprovacao")}>
               <Send className="h-3 w-3" /> Enviar p/ Aprovação
@@ -300,14 +347,42 @@ export default function DocumentView() {
         </div>
       </div>
 
-      {/* Editor */}
+      {/* Metadata bar */}
+      <div className="shrink-0 border-b bg-muted/20 px-4 py-2">
+        <div className="flex flex-wrap items-center gap-4 text-[11px] text-muted-foreground max-w-3xl mx-auto">
+          <div className="flex items-center gap-1">
+            <Info className="h-3 w-3" />
+            <span className="font-semibold text-foreground">{docCode}</span>
+          </div>
+          <span>Versão: <span className="font-medium text-foreground">v{version.versao}</span></span>
+          <span>Gerado em: <span className="font-medium text-foreground">
+            {new Date(version.gerado_em).toLocaleString("pt-BR")}
+          </span></span>
+          <span>Por: <span className="font-medium text-foreground">{user?.email ?? "—"}</span></span>
+          {processo?.orgao && <span>Órgão: <span className="font-medium text-foreground">{processo.orgao}</span></span>}
+        </div>
+      </div>
+
+      {/* Editor + Signatures */}
       <ScrollArea className="flex-1">
-        <div className="p-6 max-w-3xl mx-auto">
+        <div className="p-6 max-w-3xl mx-auto space-y-6">
           <RichTextEditor
             value={currentHtml}
             onChange={setEditedHtml}
             className="min-h-[600px]"
           />
+
+          {/* Signature preview */}
+          <Card className="p-6">
+            <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold mb-4">
+              Bloco de Assinaturas (incluído no PDF)
+            </p>
+            <SignatureBlock
+              responsavelTecnico={signatureData.responsavel_tecnico}
+              fiscalContrato={signatureData.fiscal_contrato}
+              ordenadorDespesa={signatureData.ordenador_despesa}
+            />
+          </Card>
         </div>
       </ScrollArea>
 
@@ -329,15 +404,8 @@ export default function DocumentView() {
               <div className="flex items-center gap-2 rounded-md border p-2">
                 <ExternalLink className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                 <span className="text-xs truncate flex-1 font-mono">{shareLink}</span>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-6 text-xs gap-1 shrink-0"
-                  onClick={() => {
-                    navigator.clipboard.writeText(shareLink);
-                    toast.success("Link copiado!");
-                  }}
-                >
+                <Button variant="ghost" size="sm" className="h-6 text-xs gap-1 shrink-0"
+                  onClick={() => { navigator.clipboard.writeText(shareLink); toast.success("Link copiado!"); }}>
                   <Copy className="h-3 w-3" /> Copiar
                 </Button>
               </div>

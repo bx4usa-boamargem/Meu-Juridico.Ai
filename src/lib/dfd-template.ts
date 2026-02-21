@@ -1,6 +1,6 @@
 /**
- * DFD Template Engine
- * Renders structured data into a formal HTML document.
+ * DFD Template Engine — Modelo SEI
+ * Renders structured data into a formal HTML document with 9 blocks.
  */
 
 const DFD_TEMPLATE = `
@@ -12,23 +12,8 @@ const DFD_TEMPLATE = `
     <p style="font-size: 12px; margin: 0;">Processo nº {{numero_processo}}</p>
   </div>
 
-  <!-- 1. Objeto -->
-  <h2 style="font-size: 14px; font-weight: bold; margin: 20px 0 8px; text-transform: uppercase;">1. OBJETO DA CONTRATAÇÃO</h2>
-  <p style="font-size: 13px; text-align: justify;">{{objeto_contratacao}}</p>
-
-  <!-- 2. Contexto -->
-  <h2 style="font-size: 14px; font-weight: bold; margin: 20px 0 8px; text-transform: uppercase;">2. CONTEXTO DA CONTRATAÇÃO</h2>
-  <h3 style="font-size: 13px; font-weight: bold; margin: 16px 0 4px;">2.1 Problema Público Identificado</h3>
-  <p style="font-size: 13px; text-align: justify;">{{problema_publico}}</p>
-  <h3 style="font-size: 13px; font-weight: bold; margin: 16px 0 4px;">2.2 Impacto Esperado</h3>
-  <p style="font-size: 13px; text-align: justify;">{{impacto_esperado}}</p>
-  <h3 style="font-size: 13px; font-weight: bold; margin: 16px 0 4px;">2.3 Alinhamento Estratégico</h3>
-  <p style="font-size: 13px; text-align: justify;">{{alinhamento_estrategico}}</p>
-  <h3 style="font-size: 13px; font-weight: bold; margin: 16px 0 4px;">2.4 Fundamento Legal</h3>
-  <p style="font-size: 13px; text-align: justify;">{{fundamento_legal}}</p>
-
-  <!-- 3. Informações Gerais -->
-  <h2 style="font-size: 14px; font-weight: bold; margin: 20px 0 8px; text-transform: uppercase;">3. INFORMAÇÕES GERAIS</h2>
+  <!-- BLOCO 1 — Área Requisitante -->
+  <h2 style="font-size: 14px; font-weight: bold; margin: 20px 0 8px; text-transform: uppercase;">BLOCO 1 — ÁREA REQUISITANTE</h2>
   <table style="width: 100%; border-collapse: collapse; font-size: 12px; margin: 8px 0;">
     <tr>
       <td style="border: 1px solid #ccc; padding: 6px 10px; font-weight: bold; width: 40%; background: #f5f5f5;">Área Demandante</td>
@@ -42,8 +27,15 @@ const DFD_TEMPLATE = `
       <td style="border: 1px solid #ccc; padding: 6px 10px; font-weight: bold; background: #f5f5f5;">Responsável</td>
       <td style="border: 1px solid #ccc; padding: 6px 10px;">{{responsavel}}</td>
     </tr>
+  </table>
+
+  <!-- BLOCO 2 — Identificação da Demanda -->
+  <h2 style="font-size: 14px; font-weight: bold; margin: 20px 0 8px; text-transform: uppercase;">BLOCO 2 — IDENTIFICAÇÃO DA DEMANDA</h2>
+  <h3 style="font-size: 13px; font-weight: bold; margin: 16px 0 4px;">2.1 Objeto da Contratação</h3>
+  <p style="font-size: 13px; text-align: justify;">{{objeto_contratacao}}</p>
+  <table style="width: 100%; border-collapse: collapse; font-size: 12px; margin: 8px 0;">
     <tr>
-      <td style="border: 1px solid #ccc; padding: 6px 10px; font-weight: bold; background: #f5f5f5;">Categoria</td>
+      <td style="border: 1px solid #ccc; padding: 6px 10px; font-weight: bold; width: 40%; background: #f5f5f5;">Categoria</td>
       <td style="border: 1px solid #ccc; padding: 6px 10px;">{{categoria}}</td>
     </tr>
     <tr>
@@ -52,14 +44,27 @@ const DFD_TEMPLATE = `
     </tr>
   </table>
 
-  <!-- 4. Justificativa -->
-  <h2 style="font-size: 14px; font-weight: bold; margin: 20px 0 8px; text-transform: uppercase;">4. JUSTIFICATIVA DA CONTRATAÇÃO</h2>
+  <!-- BLOCO 3 — Justificativa -->
+  <h2 style="font-size: 14px; font-weight: bold; margin: 20px 0 8px; text-transform: uppercase;">BLOCO 3 — JUSTIFICATIVA DA CONTRATAÇÃO</h2>
   <p style="font-size: 13px; text-align: justify;">{{justificativa_contratacao}}</p>
-  <h3 style="font-size: 13px; font-weight: bold; margin: 16px 0 4px;">4.1 Descrição da Necessidade</h3>
+  <h3 style="font-size: 13px; font-weight: bold; margin: 16px 0 4px;">3.1 Descrição da Necessidade</h3>
   <p style="font-size: 13px; text-align: justify;">{{necessidade}}</p>
 
-  <!-- 5. Materiais / Serviços -->
-  <h2 style="font-size: 14px; font-weight: bold; margin: 20px 0 8px; text-transform: uppercase;">5. MATERIAIS / SERVIÇOS</h2>
+  <!-- BLOCO 4 — Resultados Pretendidos -->
+  <h2 style="font-size: 14px; font-weight: bold; margin: 20px 0 8px; text-transform: uppercase;">BLOCO 4 — RESULTADOS PRETENDIDOS</h2>
+  <h3 style="font-size: 13px; font-weight: bold; margin: 16px 0 4px;">4.1 Problema Público Identificado</h3>
+  <p style="font-size: 13px; text-align: justify;">{{problema_publico}}</p>
+  <h3 style="font-size: 13px; font-weight: bold; margin: 16px 0 4px;">4.2 Impacto Esperado</h3>
+  <p style="font-size: 13px; text-align: justify;">{{impacto_esperado}}</p>
+
+  <!-- BLOCO 5 — Alinhamento Estratégico -->
+  <h2 style="font-size: 14px; font-weight: bold; margin: 20px 0 8px; text-transform: uppercase;">BLOCO 5 — ALINHAMENTO ESTRATÉGICO</h2>
+  <p style="font-size: 13px; text-align: justify;">{{alinhamento_estrategico}}</p>
+  <h3 style="font-size: 13px; font-weight: bold; margin: 16px 0 4px;">5.1 Fundamento Legal</h3>
+  <p style="font-size: 13px; text-align: justify;">{{fundamento_legal}}</p>
+
+  <!-- BLOCO 6 — Estimativa de Quantidades -->
+  <h2 style="font-size: 14px; font-weight: bold; margin: 20px 0 8px; text-transform: uppercase;">BLOCO 6 — ESTIMATIVA DE QUANTIDADES</h2>
   <table style="width: 100%; border-collapse: collapse; font-size: 12px; margin: 8px 0;">
     <tr>
       <td style="border: 1px solid #ccc; padding: 6px 10px; font-weight: bold; width: 40%; background: #f5f5f5;">Descrição dos Itens</td>
@@ -73,14 +78,36 @@ const DFD_TEMPLATE = `
       <td style="border: 1px solid #ccc; padding: 6px 10px; font-weight: bold; background: #f5f5f5;">Unidade de Medida</td>
       <td style="border: 1px solid #ccc; padding: 6px 10px;">{{unidade_medida}}</td>
     </tr>
+  </table>
+
+  <!-- BLOCO 7 — Classificação do Objeto -->
+  <h2 style="font-size: 14px; font-weight: bold; margin: 20px 0 8px; text-transform: uppercase;">BLOCO 7 — CLASSIFICAÇÃO DO OBJETO</h2>
+  <table style="width: 100%; border-collapse: collapse; font-size: 12px; margin: 8px 0;">
     <tr>
-      <td style="border: 1px solid #ccc; padding: 6px 10px; font-weight: bold; background: #f5f5f5;">Valor Estimado (R$)</td>
+      <td style="border: 1px solid #ccc; padding: 6px 10px; font-weight: bold; width: 40%; background: #f5f5f5;">Valor Estimado (R$)</td>
       <td style="border: 1px solid #ccc; padding: 6px 10px;">{{valor_estimado}}</td>
+    </tr>
+    <tr>
+      <td style="border: 1px solid #ccc; padding: 6px 10px; font-weight: bold; background: #f5f5f5;">Prioridade</td>
+      <td style="border: 1px solid #ccc; padding: 6px 10px;">{{prioridade}}</td>
+    </tr>
+    <tr>
+      <td style="border: 1px solid #ccc; padding: 6px 10px; font-weight: bold; background: #f5f5f5;">Prazo de Entrega</td>
+      <td style="border: 1px solid #ccc; padding: 6px 10px;">{{prazo_entrega}}</td>
     </tr>
   </table>
 
-  <!-- 6. Responsáveis -->
-  <h2 style="font-size: 14px; font-weight: bold; margin: 20px 0 8px; text-transform: uppercase;">6. RESPONSÁVEIS</h2>
+  <!-- BLOCO 8 — Recursos Orçamentários -->
+  <h2 style="font-size: 14px; font-weight: bold; margin: 20px 0 8px; text-transform: uppercase;">BLOCO 8 — RECURSOS ORÇAMENTÁRIOS</h2>
+  {{#observacoes}}
+  <p style="font-size: 13px; text-align: justify;">{{observacoes}}</p>
+  {{/observacoes}}
+  {{^observacoes}}
+  <p style="font-size: 13px; text-align: justify; color: #999;">A informar.</p>
+  {{/observacoes}}
+
+  <!-- BLOCO 9 — Encaminhamento ao ETP -->
+  <h2 style="font-size: 14px; font-weight: bold; margin: 20px 0 8px; text-transform: uppercase;">BLOCO 9 — RESPONSÁVEIS E ENCAMINHAMENTO</h2>
   <table style="width: 100%; border-collapse: collapse; font-size: 12px; margin: 8px 0;">
     <tr>
       <td style="border: 1px solid #ccc; padding: 6px 10px; font-weight: bold; width: 40%; background: #f5f5f5;">Responsável Técnico</td>
@@ -96,23 +123,6 @@ const DFD_TEMPLATE = `
     </tr>
   </table>
 
-  <!-- 7. Acompanhamento -->
-  <h2 style="font-size: 14px; font-weight: bold; margin: 20px 0 8px; text-transform: uppercase;">7. ACOMPANHAMENTO</h2>
-  <table style="width: 100%; border-collapse: collapse; font-size: 12px; margin: 8px 0;">
-    <tr>
-      <td style="border: 1px solid #ccc; padding: 6px 10px; font-weight: bold; width: 40%; background: #f5f5f5;">Prioridade</td>
-      <td style="border: 1px solid #ccc; padding: 6px 10px;">{{prioridade}}</td>
-    </tr>
-    <tr>
-      <td style="border: 1px solid #ccc; padding: 6px 10px; font-weight: bold; background: #f5f5f5;">Prazo de Entrega</td>
-      <td style="border: 1px solid #ccc; padding: 6px 10px;">{{prazo_entrega}}</td>
-    </tr>
-  </table>
-  {{#observacoes}}
-  <h3 style="font-size: 13px; font-weight: bold; margin: 16px 0 4px;">Observações</h3>
-  <p style="font-size: 13px; text-align: justify;">{{observacoes}}</p>
-  {{/observacoes}}
-
   <!-- Footer -->
   <div style="margin-top: 48px; border-top: 1px solid #ccc; padding-top: 16px; text-align: center;">
     <p style="font-size: 11px; color: #666;">Documento gerado eletronicamente em {{data_geracao}}</p>
@@ -126,21 +136,18 @@ export function renderDfdTemplate(
 ): string {
   const merged: Record<string, string> = {};
 
-  // Merge processo data
   if (processo) {
     for (const [k, v] of Object.entries(processo)) {
       if (v) merged[k] = String(v);
     }
   }
 
-  // Merge form data (overrides processo)
   for (const [k, v] of Object.entries(dados)) {
     if (v && k !== "meta" && k !== "conteudo_final") {
       merged[k] = String(v);
     }
   }
 
-  // Add generation date
   merged.data_geracao = new Date().toLocaleDateString("pt-BR", {
     day: "2-digit",
     month: "long",
@@ -149,7 +156,7 @@ export function renderDfdTemplate(
     minute: "2-digit",
   });
 
-  // Handle conditional blocks {{#key}}...{{/key}}
+  // Handle conditional blocks {{#key}}...{{/key}} and {{^key}}...{{/key}}
   let html = DFD_TEMPLATE.replace(
     /\{\{#(\w+)\}\}([\s\S]*?)\{\{\/\1\}\}/g,
     (_, key, content) => {
@@ -158,7 +165,14 @@ export function renderDfdTemplate(
     }
   );
 
-  // Replace tokens
+  html = html.replace(
+    /\{\{\^(\w+)\}\}([\s\S]*?)\{\{\/\1\}\}/g,
+    (_, key, content) => {
+      const val = merged[key];
+      return !val || !val.trim() ? content : "";
+    }
+  );
+
   html = html.replace(/\{\{(\w+)\}\}/g, (_, key) => {
     return merged[key] ?? "—";
   });
