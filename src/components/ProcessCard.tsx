@@ -41,10 +41,19 @@ export function ProcessCard({
 }: ProcessCardProps) {
   const navigate = useNavigate();
 
+  const handleClick = () => {
+    const rascunho = documentos.find((d) => d.status === "rascunho");
+    if (rascunho) {
+      navigate(`/processo/${id}/documento/${rascunho.id}`);
+    } else {
+      navigate(`/processo/${id}`);
+    }
+  };
+
   return (
     <Card
       className="cursor-pointer hover:shadow-md transition-shadow group"
-      onClick={() => navigate(`/processo/${id}`)}
+      onClick={handleClick}
     >
       <CardContent className="p-4 space-y-3">
         <div className="flex items-start justify-between gap-2">

@@ -21,6 +21,7 @@ const navItems = [
 
 export function DocumentLayout({ children }: { children: React.ReactNode }) {
   console.log("FIGMA DOCUMENT WORKSPACE ACTIVE");
+  console.log("DOCUMENT WORKSPACE MOUNTED");
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const initials = user?.email?.slice(0, 2).toUpperCase() ?? "U";
