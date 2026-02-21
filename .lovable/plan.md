@@ -1,68 +1,116 @@
 
+# Integracao Real do ProcessWorkspace -- Dados Reais com Ajustes Obrigatorios
 
-# Ajuste Visual do Document Workspace para Fidelidade ao Figma
+## Resumo
 
-## Problema
-O Document Workspace funciona e renderiza corretamente, mas o visual dos componentes internos nao esta alinhado com o Figma. Os principais desvios sao no layout dos campos (coluna unica vs grid), ausencia de sub-secoes com cards agrupados, falta de contadores de caracteres, e o step de Visualizacao que deveria ter um editor de texto rico com dados dinamicos.
+Transformar `Processo.tsx` em orquestrador documental real que redireciona automaticamente ao DFD ativo, criar view e RPC no banco, e adicionar logica de finalizacao no `Documento.tsx`.
 
-## Mudancas Planejadas
+## Etapa 1 -- Migracoes SQL
 
-### 1. StepFormRenderer -- Layout de campos em grid 2 colunas
-- Campos curtos (text, date, select) renderizados lado a lado em grid de 2 colunas
-- Campos textarea ocupam largura total (col-span-2)
-- Adicionar contador de caracteres nos textareas (ex: "0/200")
-- Texto do banner "Informacao importante" atualizado para: "Antes de editar o documento, confira as todas as informacoes abaixo e certifique-se que esta editando o documento correto, pois as alteracoes serao salvas automaticamente."
+### 1a. View `vw_processo_com_dfd` com LATERAL JOIN
 
-### 2. StepFormRenderer -- Sub-secao "Informacoes basicas" com card agrupado
-- Quando existem campos herdados/readOnly numa secao, agrupa-los dentro de um card com borda, contendo header "Informacoes basicas" e callout "Preenchimento automatico - Dados obtidos durante a construcao do ETP"
-- Campos herdados dentro do card em layout grid (Numero do processo, Orgao, Categoria lado a lado)
-- Campos editaveis ficam fora do card
+Criar view que busca APENAS o DFD ativo (maior versao) usando `LEFT JOIN LATERAL ... ORDER BY versao DESC LIMIT 1`:
 
-### 3. DocumentStepSidebar -- Ajuste visual dos step items
-- O item ativo deve ter fundo azul claro com borda esquerda azul (como no Figma, o card selecionado tem fundo highlight)
-- Icone de documento (FileText) em todos os steps (nao Lock para os desbloqueados)
-- Remover o contador "X/Y campos" do sidebar (simplificar como no Figma)
+```text
+CREATE VIEW vw_processo_com_dfd AS
+SELECT
+  p.id AS processo_id,
+  p.numero_processo, p.orgao, p.objeto, p.modalidade,
+  p.status, p.created_at, p.created_by, p.context_data,
+  dfd.id AS dfd_id,
+  dfd.status AS dfd_status,
+  dfd.dados_estruturados AS dfd_dados,
+  dfd.cadeia_id,
+  dfd.versao AS dfd_versao
+FROM processos p
+LEFT JOIN LATERAL (
+  SELECT d.id, d.status, d.dados_estruturados, d.cadeia_id, d.versao
+  FROM documentos d
+  WHERE d.processo_id = p.id
+    AND d.tipo IN ('DFD', 'dfd')
+  ORDER BY d.versao DESC NULLS LAST
+  LIMIT 1
+) dfd ON true;
+```
 
-### 4. DocumentMetaBar -- Alinhar com Figma
-- Lado esquerdo: Titulo do documento + icone editar + icone hamburger (menu)
-- Texto "Data da ultima alteracao" com data formatada
-- "Editado por" com avatar e nome
-- "Status" com badge colorida (laranja para Rascunho)
-- Manter botoes "Sair" e "Criar documento" a direita
+Politica RLS na view: herda de `processos` via `created_by = auth.uid()`.
 
-### 5. Secao "Informacoes gerais" -- Campos atualizados
-- Adicionar campo "Data da conclusao da contratacao" (type: date)
-- Adicionar campo "Area requisitante" (type: select, placeholder "Selecione o ETP")
-- Adicionar campo "Descricao sucinta do objeto" (type: textarea com Melhorar e 0/200)
-- Adicionar campo "Prioridade" (type: select, opcoes Alto/Medio/Baixo)
-- Adicionar campo "Justificativa da prioridade" (type: textarea com Melhorar)
+### 1b. RPC `obter_pipeline_processo`
 
-### 6. Step "Visualizacao" -- Placeholder de editor rico
-- Ao inves de mostrar um resumo read-only simples, mostrar um placeholder visual indicando que o editor de texto rico estara disponivel em breve
-- Incluir area de "Dados dinamicos" na lateral direita com tokens copiaveis (numero_processo, orgao, etc.)
+Funcao que retorna a cadeia documental com status de cada documento:
 
-## Detalhes Tecnicos
+```text
+obter_pipeline_processo(p_processo_id uuid) RETURNS jsonb
+  - Busca cadeia_id do primeiro documento do processo
+  - Le array da cadeia documental
+  - Para cada tipo: verifica se existe documento, seu status
+  - Marca desbloqueado = true se posicao 0 OU documento anterior aprovado
+  - Retorna array jsonb com {tipo, posicao, doc_id, status, desbloqueado}
+```
 
-### Arquivos afetados
+## Etapa 2 -- Processo.tsx como Orquestrador
+
+Reescrever `Processo.tsx` para:
+
+1. Carregar dados via query direta (simulando a view, ja que views nao aparecem no SDK automaticamente -- usar query raw ou RPC)
+2. Logica de auto-redirect via `useEffect`:
+   - Se `dfd_id` existe E `dfd_status !== 'aprovado'` --> `navigate(/processo/{id}/documento/{dfd_id}, { replace: true })`
+   - Se `dfd_status === 'aprovado'` --> mostrar pipeline completa (cadeia documental com status)
+3. Carregar pipeline via `obter_pipeline_processo` quando DFD aprovado
+4. Remover queries separadas de documentos e cadeia (substituidas pela view/RPC)
+
+### Fluxo de decisao:
+
+```text
+Processo.tsx carrega vw_processo_com_dfd
+  |
+  +--> DFD nao aprovado? --> redirect para /processo/{id}/documento/{dfd_id}
+  |
+  +--> DFD aprovado? --> mostrar pipeline (DocumentChainView existente)
+  |
+  +--> Sem DFD? --> mostrar erro "Processo sem DFD"
+```
+
+## Etapa 3 -- Documento.tsx: Finalizacao do DFD
+
+No `handleNext`, quando e o ultimo step:
+
+1. Atualizar `documentos.status = 'aprovado'` para o docId atual
+2. Atualizar `processos.status = 'DFD_APROVADO'` (conforme ajuste solicitado -- NAO 'ativo')
+3. Invalidar queries do TanStack Query: `['processo', processoId]`
+4. Toast de sucesso: "DFD finalizado com sucesso!"
+5. `navigate(/processo/{processoId})` -- volta ao orquestrador que agora mostra pipeline
+
+### Trecho de codigo (handleNext, ultimo step):
+
+```text
+if (nextIdx >= enabledSections.length) {
+  // Finalizar documento
+  await supabase.from("documentos").update({ status: "aprovado" }).eq("id", docId);
+  await supabase.from("processos").update({ status: "DFD_APROVADO" }).eq("id", processoId);
+  queryClient.invalidateQueries({ queryKey: ["processo", processoId] });
+  toast.success("DFD finalizado com sucesso!");
+  navigate(`/processo/${processoId}`);
+  return;
+}
+```
+
+## Arquivos Afetados
 
 | Arquivo | Acao |
 |---------|------|
-| `src/components/documento/StepFormRenderer.tsx` | Refatorar layout para grid 2 colunas, adicionar sub-secao agrupada, contadores |
-| `src/components/documento/DocumentStepSidebar.tsx` | Ajustar estilo do item ativo e icones |
-| `src/components/documento/DocumentMetaBar.tsx` | Reformatar para match Figma (data, editado por, status) |
-| `src/lib/document-sections.ts` | Atualizar campos da secao "informacoes_gerais" e adicionar maxLength nos FieldDef |
-| `src/pages/Documento.tsx` | Ajustes menores no header da secao (remover "SESSAO: X DE Y" e usar "Sessao: {label}") |
+| Migration SQL | Criar `vw_processo_com_dfd` (LATERAL JOIN) + RPC `obter_pipeline_processo` |
+| `src/pages/Processo.tsx` | Reescrever: carregar view, auto-redirect, mostrar pipeline |
+| `src/pages/Documento.tsx` | Adicionar finalizacao: UPDATE status + navigate de volta |
 
-### Mudanca no FieldDef (document-sections.ts)
-- Adicionar propriedade opcional `maxLength?: number` para suportar contadores
-- Adicionar propriedade opcional `colspan?: number` para controlar layout grid
-- Adicionar propriedade opcional `group?: string` para agrupar campos em sub-secoes
+### Arquivos NAO modificados
+- `App.tsx` -- rotas permanecem identicas
+- `NovoProcessoDialog.tsx` -- ja funciona com redirect
+- `ProcessCard.tsx` -- ja funciona com navegacao direta
+- `DocumentLayout.tsx` -- intacto
+- Componentes do documento -- intactos
+- Edge Functions -- intactas
+- Autenticacao -- intacta
 
-### Nenhuma mudanca em:
-- Rotas (App.tsx)
-- Banco de dados / RPCs
-- Edge Functions
-- Autenticacao
-- DocumentLayout
-- Logica de workflow/autosave
-
+## Nenhum componente novo sera criado
+Reutilizacao total de `DocumentChainView` para exibir pipeline quando DFD aprovado.
