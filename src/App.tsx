@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AppLayout } from "@/components/layout/AppLayout";
+import { DocumentLayout } from "@/components/layout/DocumentLayout";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import Processos from "./pages/Processos";
@@ -25,6 +26,17 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           <Route path="/auth" element={<Auth />} />
+          {/* Document workspace uses its own layout */}
+          <Route
+            path="/processo/:processoId/documento/:docId"
+            element={
+              <ProtectedRoute>
+                <DocumentLayout>
+                  <Documento />
+                </DocumentLayout>
+              </ProtectedRoute>
+            }
+          />
           <Route
             path="/*"
             element={
@@ -34,7 +46,6 @@ const App = () => (
                     <Route path="/dashboard" element={<Dashboard />} />
                     <Route path="/processos" element={<Processos />} />
                     <Route path="/processo/:id" element={<Processo />} />
-                    <Route path="/processo/:processoId/documento/:docId" element={<Documento />} />
                     <Route path="/documentos" element={<Documentos />} />
                     <Route path="/pesquisa" element={<Pesquisa />} />
                     <Route path="/configuracoes" element={<Configuracoes />} />

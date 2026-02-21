@@ -5,6 +5,7 @@ export interface FieldDef {
   readOnly?: boolean;
   source?: "processo";
   options?: string[];
+  required?: boolean;
 }
 
 export interface SectionDef {
@@ -22,7 +23,36 @@ export interface WorkflowState {
   steps: Record<string, { status: StepStatus; enabled: boolean }>;
 }
 
+// ─── DFD Sections (new order with Buscar Objeto + Contexto) ──────────
+
 const DFD_SECTIONS: SectionDef[] = [
+  {
+    id: "buscar_objeto",
+    label: "Buscar Objeto",
+    required: true,
+    unlocksNext: true,
+    fields: [
+      { key: "objeto_contratacao", label: "Objeto da Contratação", type: "textarea", required: true },
+    ],
+  },
+  {
+    id: "contexto_contratacao",
+    label: "Contexto da Contratação",
+    required: true,
+    unlocksNext: true,
+    fields: [
+      { key: "problema_publico", label: "Problema Público Identificado", type: "textarea", required: true },
+      { key: "area_demandante", label: "Área Demandante", type: "text", required: true },
+      { key: "impacto_esperado", label: "Impacto Esperado", type: "textarea", required: true },
+      { key: "continuidade_ou_nova", label: "Continuidade ou Nova Contratação", type: "select", options: ["Continuidade", "Nova contratação"], required: false },
+      { key: "publico_beneficiado", label: "Público Beneficiado", type: "textarea", required: false },
+      { key: "alinhamento_estrategico", label: "Alinhamento Estratégico", type: "textarea", required: false },
+      { key: "fundamento_legal", label: "Fundamento Legal", type: "textarea", required: false },
+      { key: "plano_anual_contratacoes", label: "Plano Anual de Contratações", type: "text", required: false },
+      { key: "politica_publica_relacionada", label: "Política Pública Relacionada", type: "textarea", required: false },
+      { key: "instrumento_planejamento", label: "Instrumento de Planejamento", type: "text", required: false },
+    ],
+  },
   {
     id: "informacoes_gerais",
     label: "Informações gerais",
@@ -31,9 +61,9 @@ const DFD_SECTIONS: SectionDef[] = [
     fields: [
       { key: "numero_processo", label: "Número do Processo", type: "text", readOnly: true, source: "processo" },
       { key: "orgao", label: "Órgão", type: "text", readOnly: true, source: "processo" },
-      { key: "setor_demandante", label: "Setor Demandante", type: "text" },
-      { key: "responsavel", label: "Responsável pela Demanda", type: "text" },
-      { key: "categoria", label: "Categoria", type: "select", options: ["Bens", "Serviços", "Obras", "Serviços de Engenharia"] },
+      { key: "setor_demandante", label: "Setor Demandante", type: "text", required: true },
+      { key: "responsavel", label: "Responsável pela Demanda", type: "text", required: true },
+      { key: "categoria", label: "Categoria", type: "select", options: ["Bens", "Serviços", "Obras", "Serviços de Engenharia"], required: true },
     ],
   },
   {
@@ -42,9 +72,9 @@ const DFD_SECTIONS: SectionDef[] = [
     required: true,
     unlocksNext: true,
     fields: [
-      { key: "justificativa_contratacao", label: "Justificativa da Contratação", type: "textarea" },
-      { key: "necessidade", label: "Descrição da Necessidade", type: "textarea" },
-      { key: "alinhamento_estrategico", label: "Alinhamento Estratégico", type: "textarea" },
+      { key: "justificativa_contratacao", label: "Justificativa da Contratação", type: "textarea", required: true },
+      { key: "necessidade", label: "Descrição da Necessidade", type: "textarea", required: true },
+      { key: "alinhamento_estrategico_just", label: "Alinhamento Estratégico", type: "textarea", required: false },
     ],
   },
   {
@@ -53,10 +83,10 @@ const DFD_SECTIONS: SectionDef[] = [
     required: true,
     unlocksNext: true,
     fields: [
-      { key: "descricao_itens", label: "Descrição dos Itens/Serviços", type: "textarea" },
-      { key: "quantidade", label: "Quantidade Estimada", type: "text" },
+      { key: "descricao_itens", label: "Descrição dos Itens/Serviços", type: "textarea", required: true },
+      { key: "quantidade", label: "Quantidade Estimada", type: "text", required: true },
       { key: "unidade_medida", label: "Unidade de Medida", type: "text" },
-      { key: "valor_estimado", label: "Valor Estimado (R$)", type: "text" },
+      { key: "valor_estimado", label: "Valor Estimado (R$)", type: "text", required: true },
       { key: "fonte_pesquisa", label: "Fonte de Pesquisa de Preço", type: "text" },
     ],
   },
@@ -66,8 +96,8 @@ const DFD_SECTIONS: SectionDef[] = [
     required: true,
     unlocksNext: true,
     fields: [
-      { key: "responsavel_tecnico", label: "Responsável Técnico", type: "text" },
-      { key: "fiscal_contrato", label: "Fiscal do Contrato", type: "text" },
+      { key: "responsavel_tecnico", label: "Responsável Técnico", type: "text", required: true },
+      { key: "fiscal_contrato", label: "Fiscal do Contrato", type: "text", required: true },
       { key: "ordenador_despesa", label: "Ordenador de Despesa", type: "text" },
     ],
   },
@@ -90,6 +120,8 @@ const DFD_SECTIONS: SectionDef[] = [
     fields: [],
   },
 ];
+
+// ─── ETP Sections ────────────────────────────────────────────────────
 
 const ETP_SECTIONS: SectionDef[] = [
   {
@@ -146,6 +178,8 @@ const ETP_SECTIONS: SectionDef[] = [
   },
 ];
 
+// ─── TR Sections ─────────────────────────────────────────────────────
+
 const TR_SECTIONS: SectionDef[] = [
   {
     id: "objeto",
@@ -199,6 +233,8 @@ const TR_SECTIONS: SectionDef[] = [
   },
 ];
 
+// ─── Generic Sections ────────────────────────────────────────────────
+
 const GENERIC_SECTIONS: SectionDef[] = [
   {
     id: "conteudo",
@@ -220,6 +256,8 @@ const GENERIC_SECTIONS: SectionDef[] = [
   },
 ];
 
+// ─── Section Map ─────────────────────────────────────────────────────
+
 const SECTION_MAP: Record<string, SectionDef[]> = {
   DFD: DFD_SECTIONS,
   ETP: ETP_SECTIONS,
@@ -233,17 +271,26 @@ export function getSectionsForType(tipo: string | null | undefined): SectionDef[
   return SECTION_MAP[tipo] ?? GENERIC_SECTIONS;
 }
 
+// ─── Completion helpers ──────────────────────────────────────────────
+
 export function calculateSectionCompletion(
   section: SectionDef,
   data: Record<string, any>
 ): { filled: number; total: number; complete: boolean } {
-  const requiredFields = section.fields.filter((f) => !f.readOnly);
+  // Only count fields with required === true (or legacy: not readOnly)
+  const requiredFields = section.fields.filter((f) => {
+    if (f.readOnly) return false;
+    if (f.required === true) return true;
+    // Legacy: if no explicit required, count all non-readOnly fields for sections that are required
+    if (f.required === undefined && section.required) return true;
+    return false;
+  });
   const total = requiredFields.length;
   const filled = requiredFields.filter((f) => {
     const val = data[f.key];
     return val !== undefined && val !== null && val !== "";
   }).length;
-  return { filled, total, complete: filled === total };
+  return { filled, total, complete: total === 0 || filled === total };
 }
 
 export function calculateDocumentProgress(
@@ -272,7 +319,6 @@ export function isSectionUnlocked(
   if (sectionIndex === 0) return true;
   for (let i = 0; i < sectionIndex; i++) {
     const prev = sections[i];
-    // Skip disabled steps
     if (workflow?.steps[prev.id]?.enabled === false) continue;
     if (prev.required && prev.unlocksNext) {
       const { complete } = calculateSectionCompletion(prev, data);

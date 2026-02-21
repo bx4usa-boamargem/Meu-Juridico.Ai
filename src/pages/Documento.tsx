@@ -2,15 +2,18 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ArrowLeft, ArrowRight, Check, Loader2, X } from "lucide-react";
+import { ArrowLeft, ArrowRight } from "lucide-react";
 import { DocumentStepSidebar } from "@/components/documento/DocumentStepSidebar";
+import { DocumentMetaBar } from "@/components/documento/DocumentMetaBar";
+import { DocumentToolsBar } from "@/components/documento/DocumentToolsBar";
 import { StepFormRenderer } from "@/components/documento/StepFormRenderer";
 import { MelhorarDialog } from "@/components/documento/MelhorarDialog";
+import { GerarJustificativaDialog } from "@/components/documento/GerarJustificativaDialog";
+import { ValidarObjetoDialog } from "@/components/documento/ValidarObjetoDialog";
 import { useDocumentAutoSave } from "@/hooks/useDocumentAutoSave";
+import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import {
   getSectionsForType,
@@ -25,15 +28,18 @@ import {
 export default function Documento() {
   const { processoId, docId } = useParams<{ processoId: string; docId: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [inheritedKeys, setInheritedKeys] = useState<Set<string>>(new Set());
   const [workflow, setWorkflow] = useState<WorkflowState | null>(null);
   const [initialized, setInitialized] = useState(false);
 
-  // AI Melhorar state
+  // Dialog states
   const [melhorarOpen, setMelhorarOpen] = useState(false);
   const [melhorarField, setMelhorarField] = useState<FieldDef | null>(null);
+  const [justificativaOpen, setJustificativaOpen] = useState(false);
+  const [validarObjetoOpen, setValidarObjetoOpen] = useState(false);
 
   const { data: documento, isLoading } = useQuery({
     queryKey: ["documento", docId],
@@ -87,7 +93,6 @@ export default function Documento() {
     const keys = new Set<string>();
 
     if (inherited) {
-      // inherited is the full resolver_heranca response with nested structure
       const herancaData = (inherited as any)?.heranca ?? inherited;
       if (herancaData && typeof herancaData === "object") {
         for (const [k, v] of Object.entries(herancaData)) {
@@ -99,11 +104,9 @@ export default function Documento() {
       }
     }
 
-    // Initialize workflow from persisted state or fresh
     const existingWorkflow = (existing as any)?.meta?.workflow as WorkflowState | undefined;
     const wf = initializeWorkflow(sections, existingWorkflow);
 
-    // Re-evaluate step statuses based on actual data
     sections.forEach((s, i) => {
       if (wf.steps[s.id]?.enabled === false) return;
       const { complete } = calculateSectionCompletion(s, merged);
@@ -123,7 +126,7 @@ export default function Documento() {
     setInitialized(true);
   }, [documento, inherited, sections, initialized]);
 
-  // Persist workflow state into formData.meta.workflow whenever workflow changes
+  // Persist workflow state
   const dataWithWorkflow = useMemo(() => {
     if (!workflow) return formData;
     return { ...formData, meta: { ...((formData as any)?.meta ?? {}), workflow } };
@@ -156,7 +159,7 @@ export default function Documento() {
   }, [formData, sections, initialized]);
 
   const handleSelectStep = useCallback((stepId: string) => {
-    setWorkflow((prev) => prev ? { ...prev, current_step: stepId } : prev);
+    setWorkflow((prev) => (prev ? { ...prev, current_step: stepId } : prev));
   }, []);
 
   const handleToggleStep = useCallback((stepId: string, enabled: boolean) => {
@@ -164,10 +167,7 @@ export default function Documento() {
       if (!prev) return prev;
       return {
         ...prev,
-        steps: {
-          ...prev.steps,
-          [stepId]: { ...prev.steps[stepId], enabled },
-        },
+        steps: { ...prev.steps, [stepId]: { ...prev.steps[stepId], enabled } },
       };
     });
   }, []);
@@ -186,7 +186,6 @@ export default function Documento() {
       return;
     }
 
-    // Mark current as complete and advance
     const nextIdx = currentIdx + 1;
     if (nextIdx >= enabledSections.length) {
       toast.success("Documento completo!");
@@ -208,16 +207,32 @@ export default function Documento() {
     });
   }, [workflow, sections, formData]);
 
+  const handlePrevious = useCallback(() => {
+    if (!workflow) return;
+    const enabledSections = sections.filter((s) => workflow.steps[s.id]?.enabled !== false);
+    const currentIdx = enabledSections.findIndex((s) => s.id === workflow.current_step);
+    if (currentIdx <= 0) return;
+    const prevSection = enabledSections[currentIdx - 1];
+    handleSelectStep(prevSection.id);
+  }, [workflow, sections, handleSelectStep]);
+
   const handleMelhorar = useCallback((field: FieldDef) => {
     setMelhorarField(field);
     setMelhorarOpen(true);
   }, []);
 
-  const handleMelhorarApply = useCallback((improved: string) => {
-    if (melhorarField) {
-      setFormData((prev) => ({ ...prev, [melhorarField.key]: improved }));
-    }
-  }, [melhorarField]);
+  const handleMelhorarApply = useCallback(
+    (improved: string) => {
+      if (melhorarField) {
+        setFormData((prev) => ({ ...prev, [melhorarField.key]: improved }));
+      }
+    },
+    [melhorarField]
+  );
+
+  const handleJustificativaApply = useCallback((text: string) => {
+    setFormData((prev) => ({ ...prev, justificativa_contratacao: text }));
+  }, []);
 
   const progress = workflow ? calculateDocumentProgress(sections, formData, workflow) : 0;
   const currentSection = workflow ? sections.find((s) => s.id === workflow.current_step) : null;
@@ -231,6 +246,9 @@ export default function Documento() {
   const currentCompletion = currentSection
     ? calculateSectionCompletion(currentSection, formData)
     : { filled: 0, total: 0, complete: false };
+  const canAdvance = currentSection
+    ? !currentSection.required || currentCompletion.complete
+    : false;
 
   const processoData = processo
     ? {
@@ -261,78 +279,39 @@ export default function Documento() {
   }
 
   return (
-    <div className="h-[calc(100svh-3rem)] flex flex-col">
-      {/* TOP DOCUMENT BAR */}
-      <div className="flex items-center justify-between border-b px-4 py-2 bg-background shrink-0">
-        <div className="flex items-center gap-3">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 px-2"
-            onClick={() => navigate(`/processo/${processoId}`)}
-          >
-            <ArrowLeft className="h-3.5 w-3.5" />
-          </Button>
-          <span className="text-sm font-semibold">{documento.tipo ?? "Documento"}</span>
-          {processo?.numero_processo && (
-            <span className="text-xs text-muted-foreground">• {processo.numero_processo}</span>
-          )}
-          <Badge variant="secondary" className="text-[10px]">
-            v{documento.versao ?? 1}
-          </Badge>
-          <Badge
-            variant={documento.status === "aprovado" ? "default" : "secondary"}
-            className="text-[10px]"
-          >
-            {documento.status ?? "rascunho"}
-          </Badge>
-        </div>
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-            {saving ? (
-              <>
-                <Loader2 className="h-3 w-3 animate-spin" /> Salvando...
-              </>
-            ) : lastSaved ? (
-              <>
-                <Check className="h-3 w-3 text-success" /> Salvo automaticamente
-              </>
-            ) : null}
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="text-[10px] text-muted-foreground">{progress}%</span>
-            <Progress value={progress} className="w-24 h-1.5" />
-          </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 px-2 text-xs gap-1"
-            onClick={() => navigate(`/processo/${processoId}`)}
-          >
-            <X className="h-3 w-3" /> Sair
-          </Button>
-        </div>
-      </div>
+    <div className="flex flex-col flex-1 overflow-hidden">
+      {/* META BAR */}
+      <DocumentMetaBar
+        tipo={documento.tipo}
+        numero={processo?.numero_processo ?? null}
+        status={documento.status}
+        saving={saving}
+        lastSaved={lastSaved}
+        processoId={processoId!}
+        userEmail={user?.email ?? undefined}
+      />
 
-      {/* MAIN WORKSPACE */}
+      {/* MAIN 3-COLUMN WORKSPACE */}
       <div className="flex flex-1 overflow-hidden">
-        {/* LEFT — Step Sidebar */}
+        {/* LEFT — Pipeline Sidebar */}
         <DocumentStepSidebar
           sections={sections}
           workflow={workflow}
           formData={formData}
+          documentTitle={documento.tipo ?? "Documento"}
+          documentNumber={processo?.numero_processo ?? undefined}
           onSelectStep={handleSelectStep}
           onToggleStep={handleToggleStep}
         />
 
-        {/* CENTER — Form Engine */}
+        {/* CENTER — Workspace */}
         <div className="flex-1 flex flex-col min-w-0">
           <ScrollArea className="flex-1">
             <div className="p-6 max-w-2xl mx-auto">
               {/* Section header */}
               <div className="mb-6">
                 <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-semibold mb-1">
-                  Seção {currentEnabledIdx + 1} de {enabledSections.length}
+                  Sessão: {currentEnabledIdx + 1} de {enabledSections.length}
                 </p>
                 <h2 className="text-lg font-semibold">{currentSection?.label}</h2>
               </div>
@@ -345,12 +324,14 @@ export default function Documento() {
                   inheritedKeys={inheritedKeys}
                   onChange={handleFieldChange}
                   onMelhorar={handleMelhorar}
+                  onGerarJustificativa={() => setJustificativaOpen(true)}
+                  onValidarObjeto={() => setValidarObjetoOpen(true)}
                 />
               )}
             </div>
           </ScrollArea>
 
-          {/* BOTTOM NAV BAR */}
+          {/* FOOTER */}
           <div className="border-t px-6 py-3 flex items-center justify-between bg-background shrink-0">
             <div className="flex items-center gap-2">
               <div className="h-2 w-2 rounded-full bg-warning" />
@@ -363,15 +344,7 @@ export default function Documento() {
             </div>
             <div className="flex items-center gap-2">
               {currentEnabledIdx > 0 && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="text-xs gap-1"
-                  onClick={() => {
-                    const prevSection = enabledSections[currentEnabledIdx - 1];
-                    handleSelectStep(prevSection.id);
-                  }}
-                >
+                <Button variant="outline" size="sm" className="text-xs gap-1" onClick={handlePrevious}>
                   <ArrowLeft className="h-3 w-3" /> Anterior
                 </Button>
               )}
@@ -379,16 +352,26 @@ export default function Documento() {
                 size="sm"
                 className="text-xs gap-1"
                 onClick={handleNext}
-                disabled={isLastStep && currentCompletion.complete}
+                disabled={!canAdvance && !isLastStep}
               >
                 {isLastStep ? "Finalizar" : "Próximo"} <ArrowRight className="h-3 w-3" />
               </Button>
             </div>
           </div>
         </div>
+
+        {/* RIGHT — Tools Bar */}
+        <DocumentToolsBar
+          onMelhorarClick={() => {
+            if (currentSection) {
+              const textareaField = currentSection.fields.find((f) => f.type === "textarea" && !f.readOnly);
+              if (textareaField) handleMelhorar(textareaField);
+            }
+          }}
+        />
       </div>
 
-      {/* AI Melhorar Dialog */}
+      {/* DIALOGS */}
       {melhorarField && (
         <MelhorarDialog
           open={melhorarOpen}
@@ -402,6 +385,29 @@ export default function Documento() {
           onApply={handleMelhorarApply}
         />
       )}
+
+      <GerarJustificativaDialog
+        open={justificativaOpen}
+        onOpenChange={setJustificativaOpen}
+        currentText={formData.justificativa_contratacao ?? ""}
+        objeto={formData.objeto_contratacao ?? processoData?.objeto ?? ""}
+        contexto={{
+          problema_publico: formData.problema_publico,
+          area_demandante: formData.area_demandante,
+          impacto_esperado: formData.impacto_esperado,
+          fundamento_legal: formData.fundamento_legal,
+          alinhamento_estrategico: formData.alinhamento_estrategico,
+        }}
+        orgao={processoData?.orgao ?? ""}
+        onApply={handleJustificativaApply}
+      />
+
+      <ValidarObjetoDialog
+        open={validarObjetoOpen}
+        onOpenChange={setValidarObjetoOpen}
+        objeto={formData.objeto_contratacao ?? ""}
+        orgao={processoData?.orgao ?? ""}
+      />
     </div>
   );
 }
