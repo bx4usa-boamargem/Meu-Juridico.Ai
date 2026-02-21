@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -28,6 +28,7 @@ import {
 export default function Documento() {
   const { processoId, docId } = useParams<{ processoId: string; docId: string }>();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { user } = useAuth();
 
   const [formData, setFormData] = useState<Record<string, any>>({});
@@ -172,7 +173,7 @@ export default function Documento() {
     });
   }, []);
 
-  const handleNext = useCallback(() => {
+  const handleNext = useCallback(async () => {
     if (!workflow) return;
     const enabledSections = sections.filter((s) => workflow.steps[s.id]?.enabled !== false);
     const currentIdx = enabledSections.findIndex((s) => s.id === workflow.current_step);
@@ -188,7 +189,13 @@ export default function Documento() {
 
     const nextIdx = currentIdx + 1;
     if (nextIdx >= enabledSections.length) {
-      toast.success("Documento completo!");
+      // Finalizar documento
+      await supabase.from("documentos").update({ status: "aprovado" }).eq("id", docId!);
+      await supabase.from("processos").update({ status: "DFD_APROVADO" }).eq("id", processoId!);
+      queryClient.invalidateQueries({ queryKey: ["processo", processoId] });
+      queryClient.invalidateQueries({ queryKey: ["pipeline", processoId] });
+      toast.success("DFD finalizado com sucesso!");
+      navigate(`/processo/${processoId}`);
       return;
     }
 
@@ -205,7 +212,7 @@ export default function Documento() {
         },
       };
     });
-  }, [workflow, sections, formData]);
+  }, [workflow, sections, formData, docId, processoId, queryClient, navigate]);
 
   const handlePrevious = useCallback(() => {
     if (!workflow) return;

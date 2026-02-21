@@ -1,56 +1,61 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { DocumentChainView } from "@/components/DocumentChainView";
 
+interface PipelineItem {
+  tipo: string;
+  posicao: number;
+  doc_id: string | null;
+  status: string | null;
+  desbloqueado: boolean;
+}
+
 export default function Processo() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
+  // Load processo + DFD ativo via view
   const { data: processo, isLoading } = useQuery({
     queryKey: ["processo", id],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("processos")
+        .from("vw_processo_com_dfd" as any)
         .select("*")
-        .eq("id", id!)
-        .single();
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!id,
-  });
-
-  const { data: documentos } = useQuery({
-    queryKey: ["documentos", id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("documentos")
-        .select("id, tipo, status, posicao_cadeia, cadeia_id")
         .eq("processo_id", id!)
-        .order("posicao_cadeia", { ascending: true });
+        .single();
       if (error) throw error;
-      return data;
+      return data as any;
     },
     enabled: !!id,
   });
 
-  const { data: cadeia } = useQuery({
-    queryKey: ["cadeia", documentos?.[0]?.cadeia_id],
+  // Load pipeline via RPC (only when DFD is approved)
+  const dfdAprovado = processo?.dfd_status === "aprovado";
+  const { data: pipeline } = useQuery({
+    queryKey: ["pipeline", id],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("cadeias_documentais")
-        .select("cadeia")
-        .eq("id", documentos![0].cadeia_id!)
-        .single();
+      const { data, error } = await supabase.rpc("obter_pipeline_processo" as any, {
+        p_processo_id: id!,
+      });
       if (error) throw error;
-      return (data.cadeia as string[]) ?? [];
+      return (data as any as PipelineItem[]) ?? [];
     },
-    enabled: !!documentos?.[0]?.cadeia_id,
+    enabled: !!id && dfdAprovado,
   });
+
+  // Auto-redirect: DFD not approved → go to document workspace
+  useEffect(() => {
+    if (!processo) return;
+    const { dfd_id, dfd_status } = processo;
+    if (dfd_id && dfd_status !== "aprovado") {
+      navigate(`/processo/${id}/documento/${dfd_id}`, { replace: true });
+    }
+  }, [processo, id, navigate]);
 
   if (isLoading) {
     return (
@@ -71,6 +76,38 @@ export default function Processo() {
     );
   }
 
+  // No DFD at all
+  if (!processo.dfd_id) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full py-20 gap-3">
+        <p className="text-sm text-muted-foreground">Processo sem DFD vinculado.</p>
+        <Button variant="outline" size="sm" onClick={() => navigate("/dashboard")}>
+          Voltar
+        </Button>
+      </div>
+    );
+  }
+
+  // DFD not approved → useEffect will redirect, show loading
+  if (processo.dfd_status !== "aprovado") {
+    return (
+      <div className="flex items-center justify-center h-full py-20">
+        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
+      </div>
+    );
+  }
+
+  // DFD approved → show pipeline
+  const cadeia = pipeline?.map((p) => p.tipo) ?? [];
+  const documentos = pipeline
+    ?.filter((p) => p.doc_id)
+    .map((p) => ({
+      id: p.doc_id!,
+      tipo: p.tipo,
+      status: p.status,
+      posicao_cadeia: p.posicao,
+    })) ?? [];
+
   return (
     <div className="p-6 space-y-6 max-w-6xl mx-auto">
       {/* Process Header */}
@@ -81,7 +118,7 @@ export default function Processo() {
           </h1>
           <p className="text-sm text-muted-foreground">{processo.orgao || "—"}</p>
         </div>
-        <Badge variant={processo.status === "ativo" ? "default" : "secondary"} className="shrink-0">
+        <Badge variant={processo.status === "DFD_APROVADO" ? "default" : "secondary"} className="shrink-0">
           {processo.status ?? "rascunho"}
         </Badge>
       </div>
@@ -102,17 +139,17 @@ export default function Processo() {
         </div>
       </div>
 
-      {/* Document Chain — Main focal point */}
+      {/* Document Chain — Pipeline */}
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-medium text-muted-foreground">Cadeia Documental</CardTitle>
         </CardHeader>
         <CardContent>
-          {cadeia ? (
+          {pipeline ? (
             <DocumentChainView
-              processoId={processo.id}
+              processoId={processo.processo_id}
               cadeia={cadeia}
-              documentos={documentos ?? []}
+              documentos={documentos}
             />
           ) : (
             <div className="flex justify-center py-8">
