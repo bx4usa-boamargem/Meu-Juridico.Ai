@@ -1,116 +1,93 @@
 
-# Integracao Real do ProcessWorkspace -- Dados Reais com Ajustes Obrigatorios
+# Validacao Visual + Editor Rico no Step 8
 
 ## Resumo
 
-Transformar `Processo.tsx` em orquestrador documental real que redireciona automaticamente ao DFD ativo, criar view e RPC no banco, e adicionar logica de finalizacao no `Documento.tsx`.
+Tres entregas: (1) validacao visual com destaque vermelho nos campos obrigatorios vazios ao tentar avancar, (2) teste do botao Finalizar no Step 8, e (3) editor de texto rico na Visualizacao.
 
-## Etapa 1 -- Migracoes SQL
+## Etapa 1 -- Validacao Visual nos Campos Obrigatorios
 
-### 1a. View `vw_processo_com_dfd` com LATERAL JOIN
+### Problema atual
+Quando o usuario clica "Proximo" sem preencher campos obrigatorios, aparece apenas um toast generico. Nao ha indicacao visual de QUAIS campos estao faltando.
 
-Criar view que busca APENAS o DFD ativo (maior versao) usando `LEFT JOIN LATERAL ... ORDER BY versao DESC LIMIT 1`:
+### Solucao
 
-```text
-CREATE VIEW vw_processo_com_dfd AS
-SELECT
-  p.id AS processo_id,
-  p.numero_processo, p.orgao, p.objeto, p.modalidade,
-  p.status, p.created_at, p.created_by, p.context_data,
-  dfd.id AS dfd_id,
-  dfd.status AS dfd_status,
-  dfd.dados_estruturados AS dfd_dados,
-  dfd.cadeia_id,
-  dfd.versao AS dfd_versao
-FROM processos p
-LEFT JOIN LATERAL (
-  SELECT d.id, d.status, d.dados_estruturados, d.cadeia_id, d.versao
-  FROM documentos d
-  WHERE d.processo_id = p.id
-    AND d.tipo IN ('DFD', 'dfd')
-  ORDER BY d.versao DESC NULLS LAST
-  LIMIT 1
-) dfd ON true;
-```
+Adicionar estado `invalidFields` (Set de keys) em `Documento.tsx`. Quando `handleNext` detecta campos faltantes, popula esse Set e passa para `StepFormRenderer`. O Set e limpo quando o usuario muda de step ou preenche o campo.
 
-Politica RLS na view: herda de `processos` via `created_by = auth.uid()`.
+**Documento.tsx:**
+- Novo estado: `const [invalidFields, setInvalidFields] = useState<Set<string>>(new Set())`
+- No `handleNext`, quando `!complete`: identificar campos vazios, chamar `setInvalidFields(new Set(missingKeys))` e retornar
+- Ao mudar de step (`handleSelectStep`, `handlePrevious`): limpar `setInvalidFields(new Set())`
+- No `handleFieldChange`: remover a key do Set quando preenchida
+- Passar `invalidFields` como prop para `StepFormRenderer`
 
-### 1b. RPC `obter_pipeline_processo`
+**StepFormRenderer.tsx:**
+- Nova prop `invalidFields?: Set<string>`
+- No `renderField`, se `invalidFields.has(field.key)`:
+  - Borda vermelha no Input/Textarea/Select: `border-destructive`
+  - Mensagem inline abaixo: `<p className="text-[10px] text-destructive">Campo obrigatorio</p>`
 
-Funcao que retorna a cadeia documental com status de cada documento:
+### Resultado visual
 
 ```text
-obter_pipeline_processo(p_processo_id uuid) RETURNS jsonb
-  - Busca cadeia_id do primeiro documento do processo
-  - Le array da cadeia documental
-  - Para cada tipo: verifica se existe documento, seu status
-  - Marca desbloqueado = true se posicao 0 OU documento anterior aprovado
-  - Retorna array jsonb com {tipo, posicao, doc_id, status, desbloqueado}
++------------------------------------------+
+| Objeto da Contratacao *                   |
+| +--------------------------------------+ |
+| |                          (borda verm) | |
+| +--------------------------------------+ |
+| Campo obrigatorio                        |
++------------------------------------------+
 ```
 
-## Etapa 2 -- Processo.tsx como Orquestrador
+## Etapa 2 -- Teste do Finalizar (Step 8)
 
-Reescrever `Processo.tsx` para:
+O codigo de finalizacao ja existe em `handleNext` (linhas 191-199). Porem ha um bug: o botao "Finalizar" tem `disabled={!canAdvance && !isLastStep}` -- no ultimo step, `isLastStep` e `true`, entao o `disabled` e `false` (OK). Mas `canAdvance` usa `currentSection.required` que e `false` para Visualizacao, entao funciona.
 
-1. Carregar dados via query direta (simulando a view, ja que views nao aparecem no SDK automaticamente -- usar query raw ou RPC)
-2. Logica de auto-redirect via `useEffect`:
-   - Se `dfd_id` existe E `dfd_status !== 'aprovado'` --> `navigate(/processo/{id}/documento/{dfd_id}, { replace: true })`
-   - Se `dfd_status === 'aprovado'` --> mostrar pipeline completa (cadeia documental com status)
-3. Carregar pipeline via `obter_pipeline_processo` quando DFD aprovado
-4. Remover queries separadas de documentos e cadeia (substituidas pela view/RPC)
+**Ajuste necessario:** Nenhum no codigo -- o fluxo ja funciona. Basta testar clicando Finalizar no Step 8 e verificar:
+1. Documento atualiza para `status = 'aprovado'`
+2. Processo atualiza para `status = 'DFD_APROVADO'`
+3. Redirect para `/processo/{id}` que mostra pipeline
 
-### Fluxo de decisao:
+## Etapa 3 -- Editor de Texto Rico no Step 8
+
+### Abordagem
+Usar `contentEditable` com `execCommand` para um editor leve sem dependencias externas. Isso e suficiente para formatacao basica (negrito, italico, listas, titulos) e evita adicionar bibliotecas pesadas.
+
+### Novo componente: `RichTextEditor.tsx`
 
 ```text
-Processo.tsx carrega vw_processo_com_dfd
-  |
-  +--> DFD nao aprovado? --> redirect para /processo/{id}/documento/{dfd_id}
-  |
-  +--> DFD aprovado? --> mostrar pipeline (DocumentChainView existente)
-  |
-  +--> Sem DFD? --> mostrar erro "Processo sem DFD"
+src/components/documento/RichTextEditor.tsx
 ```
 
-## Etapa 3 -- Documento.tsx: Finalizacao do DFD
+- Toolbar com botoes: Negrito, Italico, Sublinhado, Lista, Titulo
+- Area editavel via `div[contentEditable]` com borda e padding
+- Recebe `value` (HTML string) e `onChange` callback
+- Salva conteudo como `conteudo_final` no formData
+- Substitui tokens `{{campo}}` por valores reais na pre-visualizacao
 
-No `handleNext`, quando e o ultimo step:
+### Integracao no StepFormRenderer
 
-1. Atualizar `documentos.status = 'aprovado'` para o docId atual
-2. Atualizar `processos.status = 'DFD_APROVADO'` (conforme ajuste solicitado -- NAO 'ativo')
-3. Invalidar queries do TanStack Query: `['processo', processoId]`
-4. Toast de sucesso: "DFD finalizado com sucesso!"
-5. `navigate(/processo/{processoId})` -- volta ao orquestrador que agora mostra pipeline
+Na secao de Visualizacao (quando `section.fields.length === 0`), substituir o placeholder atual pelo `RichTextEditor`:
 
-### Trecho de codigo (handleNext, ultimo step):
+- Editor ocupa a area principal (flex-1)
+- Painel de tokens dinamicos permanece a direita (w-48)
+- Ao clicar num token, insere `{{token}}` na posicao do cursor no editor
+- O conteudo e salvo via `onChange("conteudo_final", htmlContent)`
 
-```text
-if (nextIdx >= enabledSections.length) {
-  // Finalizar documento
-  await supabase.from("documentos").update({ status: "aprovado" }).eq("id", docId);
-  await supabase.from("processos").update({ status: "DFD_APROVADO" }).eq("id", processoId);
-  queryClient.invalidateQueries({ queryKey: ["processo", processoId] });
-  toast.success("DFD finalizado com sucesso!");
-  navigate(`/processo/${processoId}`);
-  return;
-}
-```
+### Persistencia
+
+O conteudo do editor sera salvo no campo `conteudo_final` da tabela `documentos` (coluna ja existente, tipo `text`). O auto-save existente (`useDocumentAutoSave`) ja persiste `formData`, entao basta adicionar a key `conteudo_final` ao formData.
 
 ## Arquivos Afetados
 
 | Arquivo | Acao |
 |---------|------|
-| Migration SQL | Criar `vw_processo_com_dfd` (LATERAL JOIN) + RPC `obter_pipeline_processo` |
-| `src/pages/Processo.tsx` | Reescrever: carregar view, auto-redirect, mostrar pipeline |
-| `src/pages/Documento.tsx` | Adicionar finalizacao: UPDATE status + navigate de volta |
+| `src/pages/Documento.tsx` | Adicionar estado `invalidFields`, logica de validacao visual, passar prop |
+| `src/components/documento/StepFormRenderer.tsx` | Receber `invalidFields`, renderizar borda vermelha e mensagem inline, integrar RichTextEditor no Step 8 |
+| `src/components/documento/RichTextEditor.tsx` | **Novo** -- editor contentEditable com toolbar de formatacao |
 
 ### Arquivos NAO modificados
-- `App.tsx` -- rotas permanecem identicas
-- `NovoProcessoDialog.tsx` -- ja funciona com redirect
-- `ProcessCard.tsx` -- ja funciona com navegacao direta
-- `DocumentLayout.tsx` -- intacto
-- Componentes do documento -- intactos
+- `document-sections.ts` -- definicoes permanecem identicas
+- `SectionCard.tsx` -- nao usado no fluxo principal do wizard
 - Edge Functions -- intactas
-- Autenticacao -- intacta
-
-## Nenhum componente novo sera criado
-Reutilizacao total de `DocumentChainView` para exibir pipeline quando DFD aprovado.
+- Migracoes SQL -- nenhuma necessaria (coluna `conteudo_final` ja existe)
