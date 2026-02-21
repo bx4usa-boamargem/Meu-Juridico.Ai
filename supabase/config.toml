@@ -2,3 +2,9 @@ project_id = "opbnkyezpbaeoujgdwty"
 
 [functions.ai-melhorar]
 verify_jwt = false
+
+[functions.ai-gerar-justificativa]
+verify_jwt = false
+
+[functions.ai-validar-objeto]
+verify_jwt = false
