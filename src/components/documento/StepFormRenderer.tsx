@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import { Info, Sparkles, Shield, Copy } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -6,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { RichTextEditor } from "@/components/documento/RichTextEditor";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import type { SectionDef, FieldDef } from "@/lib/document-sections";
@@ -15,6 +17,7 @@ interface Props {
   formData: Record<string, any>;
   processoData?: Record<string, any>;
   inheritedKeys: Set<string>;
+  invalidFields?: Set<string>;
   onChange: (key: string, value: string) => void;
   onMelhorar: (field: FieldDef) => void;
   onGerarJustificativa?: () => void;
@@ -37,11 +40,14 @@ export function StepFormRenderer({
   formData,
   processoData,
   inheritedKeys,
+  invalidFields,
   onChange,
   onMelhorar,
   onGerarJustificativa,
   onValidarObjeto,
 }: Props) {
+  const editorRef = useRef<{ insertToken: (token: string) => void } | null>(null);
+
   const getFieldValue = (field: FieldDef) => {
     if (field.source === "processo" && processoData) {
       return processoData[field.key] ?? "";
@@ -53,22 +59,12 @@ export function StepFormRenderer({
   if (section.fields.length === 0) {
     return (
       <div className="flex gap-6">
-        {/* Editor placeholder */}
+        {/* Rich Text Editor */}
         <div className="flex-1 space-y-4">
-          <Card className="border-dashed">
-            <CardContent className="p-6">
-              <div className="flex flex-col items-center justify-center py-12 text-center gap-3">
-                <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-                  <Sparkles className="h-6 w-6 text-primary" />
-                </div>
-                <h3 className="text-sm font-semibold text-foreground">Editor de Texto Rico</h3>
-                <p className="text-xs text-muted-foreground max-w-xs">
-                  O editor de texto rico estará disponível em breve. Aqui você poderá
-                  visualizar e editar o documento final com formatação completa.
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+          <RichTextEditor
+            value={formData.conteudo_final ?? ""}
+            onChange={(html) => onChange("conteudo_final", html)}
+          />
 
           {/* Summary of filled fields */}
           <div className="space-y-2">
@@ -76,7 +72,7 @@ export function StepFormRenderer({
               Resumo dos dados preenchidos
             </h4>
             {Object.entries(formData)
-              .filter(([k, v]) => v && k !== "meta")
+              .filter(([k, v]) => v && k !== "meta" && k !== "conteudo_final")
               .slice(0, 10)
               .map(([k, v]) => (
                 <div key={k} className="border-b border-border/50 pb-2">
@@ -93,7 +89,7 @@ export function StepFormRenderer({
         <div className="w-48 shrink-0 space-y-3">
           <h4 className="text-xs font-semibold text-foreground">Dados dinâmicos</h4>
           <p className="text-[10px] text-muted-foreground">
-            Copie os tokens para inserir dados dinâmicos no documento.
+            Clique para inserir tokens dinâmicos no documento.
           </p>
           <div className="space-y-1.5">
             {DYNAMIC_TOKENS.map((token) => (
@@ -101,8 +97,16 @@ export function StepFormRenderer({
                 key={token.key}
                 className="w-full flex items-center gap-2 rounded-md border border-border/50 px-2.5 py-1.5 text-left hover:bg-muted/50 transition-colors group"
                 onClick={() => {
-                  navigator.clipboard.writeText(`{{${token.key}}}`);
-                  toast.success(`Token {{${token.key}}} copiado!`);
+                  // Try to insert into editor at cursor
+                  const editor = document.querySelector('[contenteditable="true"]') as HTMLDivElement | null;
+                  if (editor) {
+                    editor.focus();
+                    document.execCommand("insertText", false, `{{${token.key}}}`);
+                    onChange("conteudo_final", editor.innerHTML);
+                  } else {
+                    navigator.clipboard.writeText(`{{${token.key}}}`);
+                    toast.success(`Token {{${token.key}}} copiado!`);
+                  }
                 }}
               >
                 <Copy className="h-3 w-3 text-muted-foreground group-hover:text-foreground shrink-0" />
@@ -130,6 +134,7 @@ export function StepFormRenderer({
     const value = getFieldValue(field);
     const isInherited = inheritedKeys.has(field.key);
     const isRequired = field.required === true;
+    const isInvalid = invalidFields?.has(field.key) ?? false;
     const colSpan = field.colspan ?? (field.type === "textarea" ? 2 : 1);
 
     return (
@@ -175,7 +180,8 @@ export function StepFormRenderer({
               className={cn(
                 "text-sm min-h-[100px]",
                 field.readOnly && "bg-muted cursor-not-allowed",
-                isInherited && "border-success/20 bg-success/5"
+                isInherited && "border-success/20 bg-success/5",
+                isInvalid && "border-destructive"
               )}
             />
             {field.maxLength && (
@@ -193,7 +199,8 @@ export function StepFormRenderer({
             className={cn(
               "text-sm",
               field.readOnly && "bg-muted cursor-not-allowed",
-              isInherited && "border-success/20 bg-success/5"
+              isInherited && "border-success/20 bg-success/5",
+              isInvalid && "border-destructive"
             )}
           />
         ) : field.type === "select" ? (
@@ -202,7 +209,7 @@ export function StepFormRenderer({
             onValueChange={(v) => onChange(field.key, v)}
             disabled={field.readOnly}
           >
-            <SelectTrigger className="text-sm">
+            <SelectTrigger className={cn("text-sm", isInvalid && "border-destructive")}>
               <SelectValue placeholder="Selecione..." />
             </SelectTrigger>
             <SelectContent>
@@ -222,9 +229,14 @@ export function StepFormRenderer({
             className={cn(
               "text-sm",
               field.readOnly && "bg-muted cursor-not-allowed",
-              isInherited && "border-success/20 bg-success/5"
+              isInherited && "border-success/20 bg-success/5",
+              isInvalid && "border-destructive"
             )}
           />
+        )}
+
+        {isInvalid && (
+          <p className="text-[10px] text-destructive">Campo obrigatório</p>
         )}
       </div>
     );

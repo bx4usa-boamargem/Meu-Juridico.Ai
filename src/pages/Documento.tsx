@@ -33,6 +33,7 @@ export default function Documento() {
 
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [inheritedKeys, setInheritedKeys] = useState<Set<string>>(new Set());
+  const [invalidFields, setInvalidFields] = useState<Set<string>>(new Set());
   const [workflow, setWorkflow] = useState<WorkflowState | null>(null);
   const [initialized, setInitialized] = useState(false);
 
@@ -137,6 +138,14 @@ export default function Documento() {
 
   const handleFieldChange = useCallback((key: string, value: string) => {
     setFormData((prev) => ({ ...prev, [key]: value }));
+    setInvalidFields((prev) => {
+      if (prev.has(key) && value?.trim()) {
+        const next = new Set(prev);
+        next.delete(key);
+        return next;
+      }
+      return prev;
+    });
   }, []);
 
   // Update workflow step statuses when formData changes
@@ -160,6 +169,7 @@ export default function Documento() {
   }, [formData, sections, initialized]);
 
   const handleSelectStep = useCallback((stepId: string) => {
+    setInvalidFields(new Set());
     setWorkflow((prev) => (prev ? { ...prev, current_step: stepId } : prev));
   }, []);
 
@@ -183,6 +193,16 @@ export default function Documento() {
     const { complete } = calculateSectionCompletion(currentSection, formData);
 
     if (currentSection.required && !complete) {
+      // Identify which required fields are empty
+      const missingKeys = currentSection.fields
+        .filter((f) => {
+          if (f.readOnly) return false;
+          if (f.required !== true && !(f.required === undefined && currentSection.required)) return false;
+          const val = formData[f.key];
+          return !val || (typeof val === "string" && !val.trim());
+        })
+        .map((f) => f.key);
+      setInvalidFields(new Set(missingKeys));
       toast.error("Preencha todos os campos obrigatórios desta etapa antes de avançar.");
       return;
     }
@@ -216,6 +236,7 @@ export default function Documento() {
 
   const handlePrevious = useCallback(() => {
     if (!workflow) return;
+    setInvalidFields(new Set());
     const enabledSections = sections.filter((s) => workflow.steps[s.id]?.enabled !== false);
     const currentIdx = enabledSections.findIndex((s) => s.id === workflow.current_step);
     if (currentIdx <= 0) return;
@@ -329,6 +350,7 @@ export default function Documento() {
                   formData={formData}
                   processoData={processoData}
                   inheritedKeys={inheritedKeys}
+                  invalidFields={invalidFields}
                   onChange={handleFieldChange}
                   onMelhorar={handleMelhorar}
                   onGerarJustificativa={() => setJustificativaOpen(true)}
@@ -359,7 +381,6 @@ export default function Documento() {
                 size="sm"
                 className="text-xs gap-1"
                 onClick={handleNext}
-                disabled={!canAdvance && !isLastStep}
               >
                 {isLastStep ? "Finalizar" : "Próximo"} <ArrowRight className="h-3 w-3" />
               </Button>
