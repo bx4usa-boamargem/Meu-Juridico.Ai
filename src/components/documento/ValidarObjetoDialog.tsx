@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Shield, Loader2, AlertTriangle, CheckCircle2 } from "lucide-react";
@@ -45,14 +45,17 @@ export function ValidarObjetoDialog({ open, onOpenChange, objeto, orgao }: Props
     }
   };
 
-  const handleOpen = (isOpen: boolean) => {
-    onOpenChange(isOpen);
-    if (isOpen && !result && !loading) handleValidate();
-    if (!isOpen) setResult(null);
-  };
+  useEffect(() => {
+    if (open && !result && !loading) {
+      handleValidate();
+    }
+    if (!open) {
+      setResult(null);
+    }
+  }, [open]);
 
   return (
-    <Dialog open={open} onOpenChange={handleOpen}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-sm">

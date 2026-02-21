@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Sparkles, Loader2 } from "lucide-react";
@@ -46,18 +46,17 @@ export function GerarJustificativaDialog({ open, onOpenChange, currentText, obje
     }
   };
 
-  const handleOpen = (isOpen: boolean) => {
-    onOpenChange(isOpen);
-    if (isOpen && !generated && !loading) {
+  useEffect(() => {
+    if (open && !generated && !loading) {
       handleGenerate();
     }
-    if (!isOpen) {
+    if (!open) {
       setGenerated(null);
     }
-  };
+  }, [open]);
 
   return (
-    <Dialog open={open} onOpenChange={handleOpen}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-sm">
