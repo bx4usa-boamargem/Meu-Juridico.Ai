@@ -27,7 +27,7 @@ export function useDocumentAutoSave(docId: string | undefined, dados: Record<str
       return;
     }
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    timeoutRef.current = setTimeout(save, 800);
+    timeoutRef.current = setTimeout(save, 500);
     return () => {
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
     };

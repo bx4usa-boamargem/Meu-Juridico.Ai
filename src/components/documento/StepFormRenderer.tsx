@@ -1,4 +1,4 @@
-import { Info, Sparkles } from "lucide-react";
+import { Info, Sparkles, Shield } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -15,9 +15,20 @@ interface Props {
   inheritedKeys: Set<string>;
   onChange: (key: string, value: string) => void;
   onMelhorar: (field: FieldDef) => void;
+  onGerarJustificativa?: () => void;
+  onValidarObjeto?: () => void;
 }
 
-export function StepFormRenderer({ section, formData, processoData, inheritedKeys, onChange, onMelhorar }: Props) {
+export function StepFormRenderer({
+  section,
+  formData,
+  processoData,
+  inheritedKeys,
+  onChange,
+  onMelhorar,
+  onGerarJustificativa,
+  onValidarObjeto,
+}: Props) {
   const getFieldValue = (field: FieldDef) => {
     if (field.source === "processo" && processoData) {
       return processoData[field.key] ?? "";
@@ -34,17 +45,21 @@ export function StepFormRenderer({ section, formData, processoData, inheritedKey
             Visualização do documento será disponibilizada em breve. Revise as etapas anteriores para garantir que todos os campos estão preenchidos.
           </p>
         </div>
-        {Object.entries(formData).filter(([, v]) => v).map(([k, v]) => (
-          <div key={k} className="border-b pb-2">
-            <span className="text-[10px] text-muted-foreground uppercase block">{k.replace(/_/g, " ")}</span>
-            <span className="text-xs">{String(v)}</span>
-          </div>
-        ))}
+        {Object.entries(formData)
+          .filter(([k, v]) => v && k !== "meta")
+          .map(([k, v]) => (
+            <div key={k} className="border-b pb-2">
+              <span className="text-[10px] text-muted-foreground uppercase block">{k.replace(/_/g, " ")}</span>
+              <span className="text-xs">{String(v)}</span>
+            </div>
+          ))}
       </div>
     );
   }
 
   const hasInheritedFields = section.fields.some((f) => inheritedKeys.has(f.key));
+  const isJustificativa = section.id === "justificativa";
+  const isBuscarObjeto = section.id === "buscar_objeto";
 
   return (
     <div className="space-y-5">
@@ -66,9 +81,32 @@ export function StepFormRenderer({ section, formData, processoData, inheritedKey
           <Info className="h-4 w-4 text-success mt-0.5 shrink-0" />
           <p className="text-[11px] text-muted-foreground">
             Alguns campos foram preenchidos automaticamente com dados herdados de documentos anteriores.
-            Você pode editar esses valores livremente.
           </p>
         </div>
+      )}
+
+      {/* AI action buttons */}
+      {isBuscarObjeto && onValidarObjeto && (
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-1.5 text-xs border-primary/30 text-primary hover:bg-primary/5"
+          onClick={onValidarObjeto}
+          disabled={!formData.objeto_contratacao?.trim()}
+        >
+          <Shield className="h-3.5 w-3.5" /> Validar Objeto com IA
+        </Button>
+      )}
+
+      {isJustificativa && onGerarJustificativa && (
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-1.5 text-xs border-primary/30 text-primary hover:bg-primary/5"
+          onClick={onGerarJustificativa}
+        >
+          <Sparkles className="h-3.5 w-3.5" /> Gerar com IA
+        </Button>
       )}
 
       {/* Fields */}
@@ -76,12 +114,16 @@ export function StepFormRenderer({ section, formData, processoData, inheritedKey
         {section.fields.map((field) => {
           const value = getFieldValue(field);
           const isInherited = inheritedKeys.has(field.key);
+          const isRequired = field.required === true;
 
           return (
             <div key={field.key} className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
-                  <Label className="text-xs font-medium">{field.label}</Label>
+                  <Label className="text-xs font-medium">
+                    {field.label}
+                    {isRequired && <span className="text-destructive ml-0.5">*</span>}
+                  </Label>
                   {isInherited && (
                     <Badge variant="secondary" className="text-[8px] px-1.5 py-0 bg-success/10 text-success border-success/20">
                       preenchimento automático
