@@ -301,6 +301,14 @@ export type Database = {
         }
         Returns: string
       }
+      resolver_heranca: {
+        Args: {
+          p_parent_doc_id?: string
+          p_processo_id: string
+          p_tipo_documento: string
+        }
+        Returns: Json
+      }
     }
     Enums: {
       [_ in never]: never
