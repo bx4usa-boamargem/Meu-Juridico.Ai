@@ -1,23 +1,20 @@
 
 
-## Fix Logo Assets
+## Update Collapsed Sidebar Icon
 
 ### Problem
-The logo is not rendering correctly in the sidebar. The current SVG assets need to be replaced with the correct logo files provided by the user.
+The collapsed sidebar currently shows the wrong icon. It should display the "J" mark (the uploaded icon) when the sidebar is collapsed.
 
 ### Changes
 
-#### 1. Replace logo assets
-- Copy `user-uploads://image-10.png` to `src/assets/logo-full.png` (full logo: icon + "meu Juridico" text)
-- Copy `user-uploads://image-11.png` to `src/assets/logo-icon.png` (same image used as icon-only fallback for collapsed state)
+#### 1. Copy the new icon asset
+Copy `user-uploads://image-12.png` to `src/assets/logo-icon.png`, replacing the current file.
 
-#### 2. Update `src/components/layout/AppSidebar.tsx`
-- Change imports from `.svg` to `.png`:
-  - `logo-icon.svg` -> `logo-icon.png`
-  - `logo-full.svg` -> `logo-full.png`
+#### 2. No code changes needed
+The `AppSidebar.tsx` already imports `logo-icon.png` and renders it when collapsed with `brightness-0 invert`. Since the new icon is already white on transparent, the existing code will work correctly.
 
-#### 3. Update `src/pages/Auth.tsx`
-- Change import from `logo-full.svg` to `logo-full.png`
-
-No layout or functional changes. Only asset replacement.
+### Files affected
+| Action | File |
+|--------|------|
+| Replace | `src/assets/logo-icon.png` |
 
