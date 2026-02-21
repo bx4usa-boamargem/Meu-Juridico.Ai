@@ -291,7 +291,16 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      create_processo_com_documento_raiz: {
+        Args: {
+          p_cadeia_id: string
+          p_modalidade: string
+          p_numero_processo: string
+          p_objeto: string
+          p_orgao: string
+        }
+        Returns: string
+      }
     }
     Enums: {
       [_ in never]: never
