@@ -82,7 +82,7 @@ export function DocumentStepSidebar({
                 !isEnabled && "opacity-40"
               )}
               onClick={() => {
-                if (isEnabled) onSelectStep(section.id);
+                if (isEnabled && status !== "locked") onSelectStep(section.id);
               }}
             >
               {/* Status icon */}

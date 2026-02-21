@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -15,6 +16,7 @@ interface Props {
 }
 
 export function NovoProcessoDialog({ open, onOpenChange, onSuccess }: Props) {
+  const navigate = useNavigate();
   const [numero, setNumero] = useState("");
   const [orgao, setOrgao] = useState("");
   const [objeto, setObjeto] = useState("");
@@ -47,7 +49,7 @@ export function NovoProcessoDialog({ open, onOpenChange, onSuccess }: Props) {
     }
     setSaving(true);
     try {
-      const { error } = await supabase.rpc("create_processo_com_documento_raiz", {
+      const { data: processoId, error } = await supabase.rpc("create_processo_com_documento_raiz", {
         p_numero_processo: numero,
         p_orgao: orgao,
         p_objeto: objeto,
@@ -55,13 +57,24 @@ export function NovoProcessoDialog({ open, onOpenChange, onSuccess }: Props) {
         p_cadeia_id: cadeiaId,
       });
       if (error) throw error;
+
+      // Fetch the DFD document created automatically
+      const { data: doc } = await supabase
+        .from("documentos")
+        .select("id")
+        .eq("processo_id", processoId)
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+
       toast.success("Processo criado com sucesso!");
-      setNumero("");
-      setOrgao("");
-      setObjeto("");
-      setModalidade("");
-      setCadeiaId("");
-      onSuccess();
+      onOpenChange(false);
+
+      if (doc?.id) {
+        navigate(`/processo/${processoId}/documento/${doc.id}`);
+      } else {
+        navigate(`/processo/${processoId}`);
+      }
     } catch (err: any) {
       toast.error(err.message || "Erro ao criar processo");
     } finally {
