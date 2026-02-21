@@ -15,67 +15,79 @@ export interface SectionDef {
   unlocksNext: boolean;
 }
 
+export type StepStatus = "locked" | "editing" | "complete";
+
+export interface WorkflowState {
+  current_step: string;
+  steps: Record<string, { status: StepStatus; enabled: boolean }>;
+}
+
 const DFD_SECTIONS: SectionDef[] = [
   {
-    id: "identificacao",
-    label: "Identificação",
+    id: "informacoes_gerais",
+    label: "Informações gerais",
     required: true,
     unlocksNext: true,
     fields: [
       { key: "numero_processo", label: "Número do Processo", type: "text", readOnly: true, source: "processo" },
       { key: "orgao", label: "Órgão", type: "text", readOnly: true, source: "processo" },
       { key: "setor_demandante", label: "Setor Demandante", type: "text" },
-      { key: "responsavel", label: "Responsável", type: "text" },
+      { key: "responsavel", label: "Responsável pela Demanda", type: "text" },
+      { key: "categoria", label: "Categoria", type: "select", options: ["Bens", "Serviços", "Obras", "Serviços de Engenharia"] },
     ],
   },
   {
     id: "justificativa",
-    label: "Justificativa",
+    label: "Justificativa de necessidade",
     required: true,
     unlocksNext: true,
     fields: [
       { key: "justificativa_contratacao", label: "Justificativa da Contratação", type: "textarea" },
-      { key: "necessidade", label: "Necessidade", type: "textarea" },
+      { key: "necessidade", label: "Descrição da Necessidade", type: "textarea" },
+      { key: "alinhamento_estrategico", label: "Alinhamento Estratégico", type: "textarea" },
     ],
   },
   {
-    id: "itens",
-    label: "Itens / Serviços",
+    id: "materiais_servicos",
+    label: "Materiais / Serviços",
     required: true,
     unlocksNext: true,
     fields: [
       { key: "descricao_itens", label: "Descrição dos Itens/Serviços", type: "textarea" },
       { key: "quantidade", label: "Quantidade Estimada", type: "text" },
-    ],
-  },
-  {
-    id: "valor_estimado",
-    label: "Valor Estimado",
-    required: true,
-    unlocksNext: true,
-    fields: [
+      { key: "unidade_medida", label: "Unidade de Medida", type: "text" },
       { key: "valor_estimado", label: "Valor Estimado (R$)", type: "text" },
       { key: "fonte_pesquisa", label: "Fonte de Pesquisa de Preço", type: "text" },
     ],
   },
   {
-    id: "prioridade",
-    label: "Prioridade e Prazos",
+    id: "responsaveis",
+    label: "Responsáveis",
+    required: true,
+    unlocksNext: true,
+    fields: [
+      { key: "responsavel_tecnico", label: "Responsável Técnico", type: "text" },
+      { key: "fiscal_contrato", label: "Fiscal do Contrato", type: "text" },
+      { key: "ordenador_despesa", label: "Ordenador de Despesa", type: "text" },
+    ],
+  },
+  {
+    id: "acompanhamento",
+    label: "Acompanhamento",
     required: false,
     unlocksNext: true,
     fields: [
       { key: "prioridade", label: "Prioridade", type: "select", options: ["Alta", "Média", "Baixa"] },
       { key: "prazo_entrega", label: "Prazo de Entrega", type: "text" },
+      { key: "observacoes", label: "Observações Gerais", type: "textarea" },
     ],
   },
   {
-    id: "observacoes",
-    label: "Observações",
+    id: "visualizacao",
+    label: "Visualização",
     required: false,
     unlocksNext: false,
-    fields: [
-      { key: "observacoes", label: "Observações Gerais", type: "textarea" },
-    ],
+    fields: [],
   },
 ];
 
@@ -236,9 +248,13 @@ export function calculateSectionCompletion(
 
 export function calculateDocumentProgress(
   sections: SectionDef[],
-  data: Record<string, any>
+  data: Record<string, any>,
+  workflow?: WorkflowState
 ): number {
-  const allFields = sections.flatMap((s) => s.fields.filter((f) => !f.readOnly));
+  const enabledSections = workflow
+    ? sections.filter((s) => workflow.steps[s.id]?.enabled !== false)
+    : sections;
+  const allFields = enabledSections.flatMap((s) => s.fields.filter((f) => !f.readOnly));
   if (allFields.length === 0) return 0;
   const filled = allFields.filter((f) => {
     const val = data[f.key];
@@ -250,15 +266,33 @@ export function calculateDocumentProgress(
 export function isSectionUnlocked(
   sectionIndex: number,
   sections: SectionDef[],
-  data: Record<string, any>
+  data: Record<string, any>,
+  workflow?: WorkflowState
 ): boolean {
   if (sectionIndex === 0) return true;
   for (let i = 0; i < sectionIndex; i++) {
     const prev = sections[i];
+    // Skip disabled steps
+    if (workflow?.steps[prev.id]?.enabled === false) continue;
     if (prev.required && prev.unlocksNext) {
       const { complete } = calculateSectionCompletion(prev, data);
       if (!complete) return false;
     }
   }
   return true;
+}
+
+export function initializeWorkflow(sections: SectionDef[], existingWorkflow?: WorkflowState): WorkflowState {
+  const steps: Record<string, { status: StepStatus; enabled: boolean }> = {};
+  sections.forEach((s, i) => {
+    const existing = existingWorkflow?.steps[s.id];
+    steps[s.id] = {
+      status: existing?.status ?? (i === 0 ? "editing" : "locked"),
+      enabled: existing?.enabled ?? true,
+    };
+  });
+  return {
+    current_step: existingWorkflow?.current_step ?? sections[0]?.id ?? "",
+    steps,
+  };
 }

@@ -1,32 +1,39 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { FileText, ArrowLeft, Check, Circle, Lock, Link2, Save, Loader2 } from "lucide-react";
-import { SectionCard } from "@/components/documento/SectionCard";
-import { InheritedDataPanel } from "@/components/documento/InheritedDataPanel";
+import { ArrowLeft, ArrowRight, Check, Loader2, X } from "lucide-react";
+import { DocumentStepSidebar } from "@/components/documento/DocumentStepSidebar";
+import { StepFormRenderer } from "@/components/documento/StepFormRenderer";
+import { MelhorarDialog } from "@/components/documento/MelhorarDialog";
 import { useDocumentAutoSave } from "@/hooks/useDocumentAutoSave";
+import { toast } from "sonner";
 import {
   getSectionsForType,
   calculateDocumentProgress,
   calculateSectionCompletion,
   isSectionUnlocked,
+  initializeWorkflow,
+  type WorkflowState,
+  type FieldDef,
 } from "@/lib/document-sections";
 
 export default function Documento() {
   const { processoId, docId } = useParams<{ processoId: string; docId: string }>();
   const navigate = useNavigate();
 
-  const [activeSection, setActiveSection] = useState<string | null>(null);
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [inheritedKeys, setInheritedKeys] = useState<Set<string>>(new Set());
-  const sectionRefs = useRef<Record<string, React.RefObject<HTMLDivElement>>>({});
+  const [workflow, setWorkflow] = useState<WorkflowState | null>(null);
+  const [initialized, setInitialized] = useState(false);
+
+  // AI Melhorar state
+  const [melhorarOpen, setMelhorarOpen] = useState(false);
+  const [melhorarField, setMelhorarField] = useState<FieldDef | null>(null);
 
   const { data: documento, isLoading } = useQuery({
     queryKey: ["documento", docId],
@@ -56,7 +63,6 @@ export default function Documento() {
     enabled: !!processoId,
   });
 
-  // Preload inherited data
   const { data: inherited } = useQuery({
     queryKey: ["heranca-preload", processoId, documento?.tipo],
     queryFn: async () => {
@@ -71,61 +77,169 @@ export default function Documento() {
     enabled: !!processoId && !!documento?.tipo,
   });
 
-  const sections = getSectionsForType(documento?.tipo);
+  const sections = useMemo(() => getSectionsForType(documento?.tipo), [documento?.tipo]);
 
-  // Initialize form with existing data + inherited
+  // Initialize form + workflow from existing data
   useEffect(() => {
-    if (!documento) return;
+    if (!documento || initialized) return;
     const existing = (documento.dados_estruturados as Record<string, any>) ?? {};
     const merged = { ...existing };
     const keys = new Set<string>();
 
     if (inherited) {
-      for (const [k, v] of Object.entries(inherited)) {
-        if (v !== null && v !== undefined && v !== "" && !merged[k]) {
-          merged[k] = v;
-          keys.add(k);
+      // inherited is the full resolver_heranca response with nested structure
+      const herancaData = (inherited as any)?.heranca ?? inherited;
+      if (herancaData && typeof herancaData === "object") {
+        for (const [k, v] of Object.entries(herancaData)) {
+          if (v !== null && v !== undefined && v !== "" && !merged[k]) {
+            merged[k] = v;
+            keys.add(k);
+          }
         }
       }
     }
 
+    // Initialize workflow from persisted state or fresh
+    const existingWorkflow = (existing as any)?.meta?.workflow as WorkflowState | undefined;
+    const wf = initializeWorkflow(sections, existingWorkflow);
+
+    // Re-evaluate step statuses based on actual data
+    sections.forEach((s, i) => {
+      if (wf.steps[s.id]?.enabled === false) return;
+      const { complete } = calculateSectionCompletion(s, merged);
+      const unlocked = isSectionUnlocked(i, sections, merged, wf);
+      if (complete && unlocked) {
+        wf.steps[s.id].status = "complete";
+      } else if (unlocked) {
+        wf.steps[s.id].status = "editing";
+      } else {
+        wf.steps[s.id].status = "locked";
+      }
+    });
+
     setFormData(merged);
     setInheritedKeys(keys);
-    if (!activeSection && sections.length > 0) {
-      setActiveSection(sections[0].id);
-    }
-  }, [documento, inherited, sections.length]);
+    setWorkflow(wf);
+    setInitialized(true);
+  }, [documento, inherited, sections, initialized]);
 
-  const { saving, lastSaved } = useDocumentAutoSave(docId, formData);
+  // Persist workflow state into formData.meta.workflow whenever workflow changes
+  const dataWithWorkflow = useMemo(() => {
+    if (!workflow) return formData;
+    return { ...formData, meta: { ...((formData as any)?.meta ?? {}), workflow } };
+  }, [formData, workflow]);
+
+  const { saving, lastSaved } = useDocumentAutoSave(docId, dataWithWorkflow);
 
   const handleFieldChange = useCallback((key: string, value: string) => {
     setFormData((prev) => ({ ...prev, [key]: value }));
   }, []);
 
-  const handleApplyInherited = useCallback((key: string, value: string) => {
-    setFormData((prev) => ({ ...prev, [key]: value }));
-    setInheritedKeys((prev) => new Set(prev).add(key));
+  // Update workflow step statuses when formData changes
+  useEffect(() => {
+    if (!workflow || !initialized) return;
+    const updated = { ...workflow, steps: { ...workflow.steps } };
+    let changed = false;
+
+    sections.forEach((s, i) => {
+      if (updated.steps[s.id]?.enabled === false) return;
+      const { complete } = calculateSectionCompletion(s, formData);
+      const unlocked = isSectionUnlocked(i, sections, formData, updated);
+      const newStatus = complete && unlocked ? "complete" : unlocked ? "editing" : "locked";
+      if (updated.steps[s.id]?.status !== newStatus) {
+        updated.steps[s.id] = { ...updated.steps[s.id], status: newStatus };
+        changed = true;
+      }
+    });
+
+    if (changed) setWorkflow(updated);
+  }, [formData, sections, initialized]);
+
+  const handleSelectStep = useCallback((stepId: string) => {
+    setWorkflow((prev) => prev ? { ...prev, current_step: stepId } : prev);
   }, []);
 
-  // Ensure refs exist for each section
-  sections.forEach((s) => {
-    if (!sectionRefs.current[s.id]) {
-      sectionRefs.current[s.id] = { current: null } as React.RefObject<HTMLDivElement>;
+  const handleToggleStep = useCallback((stepId: string, enabled: boolean) => {
+    setWorkflow((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        steps: {
+          ...prev.steps,
+          [stepId]: { ...prev.steps[stepId], enabled },
+        },
+      };
+    });
+  }, []);
+
+  const handleNext = useCallback(() => {
+    if (!workflow) return;
+    const enabledSections = sections.filter((s) => workflow.steps[s.id]?.enabled !== false);
+    const currentIdx = enabledSections.findIndex((s) => s.id === workflow.current_step);
+    if (currentIdx < 0) return;
+
+    const currentSection = enabledSections[currentIdx];
+    const { complete } = calculateSectionCompletion(currentSection, formData);
+
+    if (currentSection.required && !complete) {
+      toast.error("Preencha todos os campos obrigatórios desta etapa antes de avançar.");
+      return;
     }
-  });
 
-  const scrollToSection = (sectionId: string) => {
-    setActiveSection(sectionId);
-    sectionRefs.current[sectionId]?.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-  };
+    // Mark current as complete and advance
+    const nextIdx = currentIdx + 1;
+    if (nextIdx >= enabledSections.length) {
+      toast.success("Documento completo!");
+      return;
+    }
 
-  const progress = calculateDocumentProgress(sections, formData);
-  const processoData = processo ? {
-    numero_processo: processo.numero_processo,
-    orgao: processo.orgao,
-    objeto: processo.objeto,
-    modalidade: processo.modalidade,
-  } : undefined;
+    const nextSection = enabledSections[nextIdx];
+    setWorkflow((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        current_step: nextSection.id,
+        steps: {
+          ...prev.steps,
+          [currentSection.id]: { ...prev.steps[currentSection.id], status: "complete" },
+          [nextSection.id]: { ...prev.steps[nextSection.id], status: "editing" },
+        },
+      };
+    });
+  }, [workflow, sections, formData]);
+
+  const handleMelhorar = useCallback((field: FieldDef) => {
+    setMelhorarField(field);
+    setMelhorarOpen(true);
+  }, []);
+
+  const handleMelhorarApply = useCallback((improved: string) => {
+    if (melhorarField) {
+      setFormData((prev) => ({ ...prev, [melhorarField.key]: improved }));
+    }
+  }, [melhorarField]);
+
+  const progress = workflow ? calculateDocumentProgress(sections, formData, workflow) : 0;
+  const currentSection = workflow ? sections.find((s) => s.id === workflow.current_step) : null;
+  const enabledSections = workflow
+    ? sections.filter((s) => workflow.steps[s.id]?.enabled !== false)
+    : sections;
+  const currentEnabledIdx = currentSection
+    ? enabledSections.findIndex((s) => s.id === currentSection.id)
+    : 0;
+  const isLastStep = currentEnabledIdx >= enabledSections.length - 1;
+  const currentCompletion = currentSection
+    ? calculateSectionCompletion(currentSection, formData)
+    : { filled: 0, total: 0, complete: false };
+
+  const processoData = processo
+    ? {
+        numero_processo: processo.numero_processo,
+        orgao: processo.orgao,
+        objeto: processo.objeto,
+        modalidade: processo.modalidade,
+      }
+    : undefined;
 
   if (isLoading) {
     return (
@@ -135,26 +249,37 @@ export default function Documento() {
     );
   }
 
-  if (!documento) {
+  if (!documento || !workflow) {
     return (
       <div className="flex flex-col items-center justify-center h-full py-20 gap-3">
         <p className="text-sm text-muted-foreground">Documento não encontrado.</p>
-        <Button variant="outline" size="sm" onClick={() => navigate(-1)}>Voltar</Button>
+        <Button variant="outline" size="sm" onClick={() => navigate(-1)}>
+          Voltar
+        </Button>
       </div>
     );
   }
 
   return (
     <div className="h-[calc(100svh-3rem)] flex flex-col">
-      {/* Top Document Bar */}
+      {/* TOP DOCUMENT BAR */}
       <div className="flex items-center justify-between border-b px-4 py-2 bg-background shrink-0">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" className="h-7 px-2" onClick={() => navigate(`/processo/${processoId}`)}>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 px-2"
+            onClick={() => navigate(`/processo/${processoId}`)}
+          >
             <ArrowLeft className="h-3.5 w-3.5" />
           </Button>
-          <FileText className="h-4 w-4 text-muted-foreground" />
           <span className="text-sm font-semibold">{documento.tipo ?? "Documento"}</span>
-          <Badge variant="secondary" className="text-[10px]">v{documento.versao ?? 1}</Badge>
+          {processo?.numero_processo && (
+            <span className="text-xs text-muted-foreground">• {processo.numero_processo}</span>
+          )}
+          <Badge variant="secondary" className="text-[10px]">
+            v{documento.versao ?? 1}
+          </Badge>
           <Badge
             variant={documento.status === "aprovado" ? "default" : "secondary"}
             className="text-[10px]"
@@ -162,142 +287,121 @@ export default function Documento() {
             {documento.status ?? "rascunho"}
           </Badge>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-4">
           <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
             {saving ? (
-              <><Loader2 className="h-3 w-3 animate-spin" /> Salvando...</>
+              <>
+                <Loader2 className="h-3 w-3 animate-spin" /> Salvando...
+              </>
             ) : lastSaved ? (
-              <><Check className="h-3 w-3 text-green-600" /> Salvo automaticamente</>
+              <>
+                <Check className="h-3 w-3 text-green-600" /> Salvo automaticamente
+              </>
             ) : null}
           </div>
           <div className="flex items-center gap-1.5">
             <span className="text-[10px] text-muted-foreground">{progress}%</span>
-            <Progress value={progress} className="w-20 h-1.5" />
+            <Progress value={progress} className="w-24 h-1.5" />
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 px-2 text-xs gap-1"
+            onClick={() => navigate(`/processo/${processoId}`)}
+          >
+            <X className="h-3 w-3" /> Sair
+          </Button>
+        </div>
+      </div>
+
+      {/* MAIN WORKSPACE */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* LEFT — Step Sidebar */}
+        <DocumentStepSidebar
+          sections={sections}
+          workflow={workflow}
+          formData={formData}
+          onSelectStep={handleSelectStep}
+          onToggleStep={handleToggleStep}
+        />
+
+        {/* CENTER — Form Engine */}
+        <div className="flex-1 flex flex-col min-w-0">
+          <ScrollArea className="flex-1">
+            <div className="p-6 max-w-2xl mx-auto">
+              {/* Section header */}
+              <div className="mb-6">
+                <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-semibold mb-1">
+                  Seção {currentEnabledIdx + 1} de {enabledSections.length}
+                </p>
+                <h2 className="text-lg font-semibold">{currentSection?.label}</h2>
+              </div>
+
+              {currentSection && (
+                <StepFormRenderer
+                  section={currentSection}
+                  formData={formData}
+                  processoData={processoData}
+                  inheritedKeys={inheritedKeys}
+                  onChange={handleFieldChange}
+                  onMelhorar={handleMelhorar}
+                />
+              )}
+            </div>
+          </ScrollArea>
+
+          {/* BOTTOM NAV BAR */}
+          <div className="border-t px-6 py-3 flex items-center justify-between bg-background shrink-0">
+            <div className="flex items-center gap-2">
+              <div className="h-2 w-2 rounded-full bg-yellow-500" />
+              <span className="text-xs text-muted-foreground">Documento em edição</span>
+              {currentSection && currentCompletion.total > 0 && (
+                <span className="text-[10px] text-muted-foreground ml-2">
+                  ({currentCompletion.filled}/{currentCompletion.total} campos preenchidos)
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              {currentEnabledIdx > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-xs gap-1"
+                  onClick={() => {
+                    const prevSection = enabledSections[currentEnabledIdx - 1];
+                    handleSelectStep(prevSection.id);
+                  }}
+                >
+                  <ArrowLeft className="h-3 w-3" /> Anterior
+                </Button>
+              )}
+              <Button
+                size="sm"
+                className="text-xs gap-1"
+                onClick={handleNext}
+                disabled={isLastStep && currentCompletion.complete}
+              >
+                {isLastStep ? "Finalizar" : "Próximo"} <ArrowRight className="h-3 w-3" />
+              </Button>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Three-column workspace */}
-      <ResizablePanelGroup direction="horizontal" className="flex-1">
-        {/* LEFT — Section Navigator */}
-        <ResizablePanel defaultSize={18} minSize={14} maxSize={25}>
-          <ScrollArea className="h-full">
-            <div className="p-3">
-              <p className="text-[10px] font-medium text-muted-foreground mb-3 uppercase tracking-wider">
-                Seções do Documento
-              </p>
-              <div className="space-y-1">
-                {sections.map((section, i) => {
-                  const unlocked = isSectionUnlocked(i, sections, formData);
-                  const { filled, total, complete } = calculateSectionCompletion(section, formData);
-                  const isActive_ = activeSection === section.id;
-
-                  return (
-                    <button
-                      key={section.id}
-                      onClick={() => unlocked && scrollToSection(section.id)}
-                      disabled={!unlocked}
-                      className={`flex items-center gap-2 w-full rounded-md px-2 py-2 text-xs text-left transition-colors ${
-                        isActive_
-                          ? "bg-primary/10 text-primary font-medium"
-                          : unlocked
-                          ? "hover:bg-muted text-foreground"
-                          : "text-muted-foreground/50 cursor-not-allowed"
-                      }`}
-                    >
-                      {!unlocked ? (
-                        <Lock className="h-3 w-3 shrink-0 text-muted-foreground/40" />
-                      ) : complete ? (
-                        <Check className="h-3 w-3 shrink-0 text-green-600" />
-                      ) : (
-                        <Circle className="h-3 w-3 shrink-0 text-yellow-500" />
-                      )}
-                      <span className="truncate flex-1">{section.label}</span>
-                      <span className="text-[9px] text-muted-foreground shrink-0">
-                        {filled}/{total}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          </ScrollArea>
-        </ResizablePanel>
-
-        <ResizableHandle withHandle />
-
-        {/* CENTER — Structured Form Engine */}
-        <ResizablePanel defaultSize={52} minSize={35}>
-          <ScrollArea className="h-full">
-            <div className="p-6 max-w-2xl mx-auto space-y-3">
-              {sections.map((section, i) => (
-                <SectionCard
-                  key={section.id}
-                  section={section}
-                  data={formData}
-                  processoData={processoData}
-                  inheritedKeys={inheritedKeys}
-                  onChange={handleFieldChange}
-                  isActive={activeSection === section.id}
-                  isUnlocked={isSectionUnlocked(i, sections, formData)}
-                  onActivate={() => setActiveSection(section.id)}
-                  sectionRef={sectionRefs.current[section.id]}
-                />
-              ))}
-            </div>
-          </ScrollArea>
-        </ResizablePanel>
-
-        <ResizableHandle withHandle />
-
-        {/* RIGHT — Inherited Data + Metadata */}
-        <ResizablePanel defaultSize={30} minSize={20} maxSize={40}>
-          <div className="h-full border-l bg-muted/10">
-            <Tabs defaultValue="herdados" className="h-full flex flex-col">
-              <TabsList className="w-full rounded-none border-b bg-transparent justify-start px-2 shrink-0">
-                <TabsTrigger value="herdados" className="text-xs gap-1">
-                  <Link2 className="h-3 w-3" /> Dados Herdados
-                </TabsTrigger>
-                <TabsTrigger value="metadata" className="text-xs gap-1">
-                  <FileText className="h-3 w-3" /> Metadata
-                </TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="herdados" className="flex-1 overflow-auto mt-0">
-                <InheritedDataPanel
-                  processoId={processoId!}
-                  tipoDocumento={documento.tipo ?? ""}
-                  parentDocId={documento.parent_doc_id}
-                  onApply={handleApplyInherited}
-                />
-              </TabsContent>
-
-              <TabsContent value="metadata" className="flex-1 overflow-auto p-4 mt-0">
-                <div className="space-y-3 text-xs">
-                  <Field label="Tipo" value={documento.tipo} />
-                  <Field label="Status" value={documento.status} />
-                  <Field label="Versão" value={String(documento.versao ?? 1)} />
-                  <Field label="Posição" value={String(documento.posicao_cadeia ?? "—")} />
-                  <Field label="Criado em" value={new Date(documento.created_at).toLocaleString("pt-BR")} />
-                  <Field label="Atualizado em" value={new Date(documento.updated_at).toLocaleString("pt-BR")} />
-                  {documento.aprovado_em && (
-                    <Field label="Aprovado em" value={new Date(documento.aprovado_em).toLocaleString("pt-BR")} />
-                  )}
-                </div>
-              </TabsContent>
-            </Tabs>
-          </div>
-        </ResizablePanel>
-      </ResizablePanelGroup>
-    </div>
-  );
-}
-
-function Field({ label, value }: { label: string; value: string | null | undefined }) {
-  return (
-    <div>
-      <span className="text-muted-foreground block">{label}</span>
-      <span className="font-medium">{value || "—"}</span>
+      {/* AI Melhorar Dialog */}
+      {melhorarField && (
+        <MelhorarDialog
+          open={melhorarOpen}
+          onOpenChange={setMelhorarOpen}
+          fieldLabel={melhorarField.label}
+          fieldValue={formData[melhorarField.key] ?? ""}
+          documentType={documento.tipo ?? "Documento"}
+          sectionLabel={currentSection?.label ?? ""}
+          dadosEstruturados={formData}
+          processoContext={processoData}
+          onApply={handleMelhorarApply}
+        />
+      )}
     </div>
   );
 }
