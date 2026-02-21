@@ -21,7 +21,6 @@ export function DocumentChainView({ processoId, cadeia, documentos }: Props) {
   const getDocForTipo = (tipo: string) =>
     documentos.find((d) => d.tipo === tipo);
 
-  // Find the first step that doesn't have a doc yet — that's the "next available"
   const nextAvailableIndex = cadeia.findIndex((tipo) => !getDocForTipo(tipo));
 
   return (
@@ -45,8 +44,8 @@ export function DocumentChainView({ processoId, cadeia, documentos }: Props) {
               disabled={!exists}
               className={cn(
                 "relative flex flex-col items-center gap-2 rounded-lg border-2 px-6 py-4 text-xs font-medium transition-all min-w-[100px]",
-                isAprovado && "border-green-500/60 bg-green-50 text-green-700",
-                isRascunho && "border-yellow-500/60 bg-yellow-50 text-yellow-700",
+                isAprovado && "border-success/60 bg-success/5 text-success",
+                isRascunho && "border-warning/60 bg-warning/5 text-warning",
                 !exists && !isNext && "border-border bg-muted/30 text-muted-foreground cursor-not-allowed opacity-50",
                 !exists && isNext && "border-primary/30 bg-primary/5 text-primary cursor-default",
                 exists && !isAprovado && !isRascunho && "border-border bg-card",
@@ -55,15 +54,15 @@ export function DocumentChainView({ processoId, cadeia, documentos }: Props) {
             >
               <div className={cn(
                 "flex h-8 w-8 items-center justify-center rounded-full",
-                isAprovado && "bg-green-100",
-                isRascunho && "bg-yellow-100",
+                isAprovado && "bg-success/10",
+                isRascunho && "bg-warning/10",
                 !exists && isNext && "bg-primary/10",
                 !exists && !isNext && "bg-muted",
               )}>
                 {isAprovado ? (
-                  <Check className="h-4 w-4 text-green-600" />
+                  <Check className="h-4 w-4 text-success" />
                 ) : isRascunho ? (
-                  <Circle className="h-4 w-4 text-yellow-500" />
+                  <Circle className="h-4 w-4 text-warning" />
                 ) : isNext ? (
                   <Circle className="h-4 w-4 text-primary/50" />
                 ) : (
@@ -73,8 +72,8 @@ export function DocumentChainView({ processoId, cadeia, documentos }: Props) {
               <span className="font-semibold text-[11px] tracking-wide uppercase">{tipo}</span>
               <span className={cn(
                 "text-[10px]",
-                isAprovado && "text-green-600",
-                isRascunho && "text-yellow-600",
+                isAprovado && "text-success",
+                isRascunho && "text-warning",
                 !exists && isNext && "text-primary/60",
                 !exists && !isNext && "text-muted-foreground/50",
               )}>

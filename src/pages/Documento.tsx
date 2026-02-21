@@ -295,7 +295,7 @@ export default function Documento() {
               </>
             ) : lastSaved ? (
               <>
-                <Check className="h-3 w-3 text-green-600" /> Salvo automaticamente
+                <Check className="h-3 w-3 text-success" /> Salvo automaticamente
               </>
             ) : null}
           </div>
@@ -353,7 +353,7 @@ export default function Documento() {
           {/* BOTTOM NAV BAR */}
           <div className="border-t px-6 py-3 flex items-center justify-between bg-background shrink-0">
             <div className="flex items-center gap-2">
-              <div className="h-2 w-2 rounded-full bg-yellow-500" />
+              <div className="h-2 w-2 rounded-full bg-warning" />
               <span className="text-xs text-muted-foreground">Documento em edição</span>
               {currentSection && currentCompletion.total > 0 && (
                 <span className="text-[10px] text-muted-foreground ml-2">

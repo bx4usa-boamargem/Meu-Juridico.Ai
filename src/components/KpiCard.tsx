@@ -13,8 +13,8 @@ export function KpiCard({ icon: Icon, label, value, description }: KpiCardProps)
     <Card>
       <CardContent className="p-4">
         <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-muted">
-            <Icon className="h-4 w-4 text-muted-foreground" />
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-primary/10">
+            <Icon className="h-4 w-4 text-primary" />
           </div>
           <div className="min-w-0">
             <p className="text-xs text-muted-foreground truncate">{label}</p>
