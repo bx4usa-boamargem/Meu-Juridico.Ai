@@ -311,7 +311,7 @@ export default function Documento() {
               {/* Section header */}
               <div className="mb-6">
                 <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-semibold mb-1">
-                  Sessão: {currentEnabledIdx + 1} de {enabledSections.length}
+                  Seção {currentEnabledIdx + 1} de {enabledSections.length}
                 </p>
                 <h2 className="text-lg font-semibold">{currentSection?.label}</h2>
               </div>

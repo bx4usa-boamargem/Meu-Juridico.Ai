@@ -1,10 +1,9 @@
-import { FileText, Check, Lock, Search, Pencil } from "lucide-react";
+import { FileText, Check, Pencil, Search } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 import type { SectionDef, WorkflowState } from "@/lib/document-sections";
-import { calculateSectionCompletion } from "@/lib/document-sections";
 
 interface Props {
   sections: SectionDef[];
@@ -71,29 +70,24 @@ export function DocumentStepSidebar({
           const isActive = workflow.current_step === section.id;
           const isEnabled = stepState?.enabled !== false;
           const status = stepState?.status ?? "locked";
-          const { filled, total } = calculateSectionCompletion(section, formData);
           const isComplete = status === "complete";
-          const isLocked = status === "locked";
 
           return (
             <div
               key={section.id}
               className={cn(
                 "flex items-center gap-2.5 rounded-lg px-3 py-2.5 transition-all cursor-pointer group",
-                isActive && "bg-primary/8 ring-1 ring-primary/20",
-                !isActive && !isLocked && "hover:bg-muted/50",
-                !isEnabled && "opacity-40",
-                isLocked && isEnabled && "opacity-60 cursor-not-allowed"
+                isActive && "bg-primary/10 border-l-[3px] border-l-primary",
+                !isActive && isEnabled && "hover:bg-muted/50",
+                !isEnabled && "opacity-40"
               )}
               onClick={() => {
-                if (isEnabled && !isLocked) onSelectStep(section.id);
+                if (isEnabled) onSelectStep(section.id);
               }}
             >
               {/* Status icon */}
               <div className="shrink-0">
-                {isLocked ? (
-                  <Lock className="h-3.5 w-3.5 text-muted-foreground/50" />
-                ) : isComplete ? (
+                {isComplete ? (
                   <div className="h-5 w-5 rounded-full bg-success flex items-center justify-center">
                     <Check className="h-3 w-3 text-success-foreground" />
                   </div>
@@ -116,11 +110,6 @@ export function DocumentStepSidebar({
                 >
                   {section.label}
                 </span>
-                {total > 0 && isEnabled && !isLocked && (
-                  <span className="text-[9px] text-muted-foreground">
-                    {filled}/{total} campos
-                  </span>
-                )}
               </div>
 
               {/* Toggle */}
