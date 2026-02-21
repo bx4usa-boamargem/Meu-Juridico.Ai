@@ -24,6 +24,7 @@ import {
   type WorkflowState,
   type FieldDef,
 } from "@/lib/document-sections";
+import { renderDfdTemplate } from "@/lib/dfd-template";
 
 export default function Documento() {
   const { processoId, docId } = useParams<{ processoId: string; docId: string }>();
@@ -86,6 +87,13 @@ export default function Documento() {
   });
 
   const sections = useMemo(() => getSectionsForType(documento?.tipo), [documento?.tipo]);
+
+  // Auto-redirect if document is already approved
+  useEffect(() => {
+    if (documento?.status === "aprovado" && processoId && docId) {
+      navigate(`/processo/${processoId}/documento/${docId}/view`, { replace: true });
+    }
+  }, [documento?.status, processoId, docId, navigate]);
 
   // Initialize form + workflow from existing data
   useEffect(() => {
@@ -209,13 +217,30 @@ export default function Documento() {
 
     const nextIdx = currentIdx + 1;
     if (nextIdx >= enabledSections.length) {
-      // Finalizar documento
-      await supabase.from("documentos").update({ status: "aprovado" }).eq("id", docId!);
+      // Generate final HTML via template engine
+      const htmlFinal = renderDfdTemplate(formData, processoData);
+
+      // Save first version
+      await supabase.from("document_versions").insert({
+        documento_id: docId!,
+        processo_id: processoId!,
+        conteudo_html: htmlFinal,
+        versao: 1,
+        gerado_por: user?.id,
+      });
+
+      // Update documento
+      await supabase.from("documentos").update({
+        status: "aprovado",
+        conteudo_final: htmlFinal,
+        workflow_status: "rascunho",
+      }).eq("id", docId!);
+
       await supabase.from("processos").update({ status: "DFD_APROVADO" }).eq("id", processoId!);
       queryClient.invalidateQueries({ queryKey: ["processo", processoId] });
       queryClient.invalidateQueries({ queryKey: ["pipeline", processoId] });
-      toast.success("DFD finalizado com sucesso!");
-      navigate(`/processo/${processoId}`);
+      toast.success("DFD finalizado! Redirecionando para visualização...");
+      navigate(`/processo/${processoId}/documento/${docId}/view`);
       return;
     }
 
