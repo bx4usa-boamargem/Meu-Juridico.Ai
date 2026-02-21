@@ -15,6 +15,7 @@ import Documento from "./pages/Documento";
 import DocumentView from "./pages/DocumentView";
 import Pesquisa from "./pages/Pesquisa";
 import Configuracoes from "./pages/Configuracoes";
+import SharedDocument from "./pages/SharedDocument";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -27,6 +28,7 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           <Route path="/auth" element={<Auth />} />
+          <Route path="/shared/:token" element={<SharedDocument />} />
           {/* Document workspace uses its own layout */}
           <Route
             path="/processo/:processoId/documento/:docId"
