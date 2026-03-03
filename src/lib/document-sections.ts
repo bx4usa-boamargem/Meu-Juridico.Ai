@@ -195,9 +195,9 @@ const TR_SECTIONS: SectionDef[] = [
     required: true,
     unlocksNext: true,
     fields: [
-      { key: "objeto_contratacao", label: "Objeto da Contratação", type: "textarea", required: true },
-      { key: "natureza_objeto", label: "Natureza do Objeto", type: "select", options: ["Bens", "Serviços", "Obras", "Serviços de Engenharia"], required: true },
-      { key: "justificativa_contratacao", label: "Justificativa da Contratação", type: "textarea", required: true },
+      { key: "objeto_contratacao", label: "Objeto da Contratação", type: "textarea", required: true, group: "basicas" },
+      { key: "natureza_objeto", label: "Natureza do Objeto", type: "select", options: ["Bens", "Serviços", "Obras", "Serviços de Engenharia"], required: true, group: "basicas" },
+      { key: "justificativa_contratacao", label: "Justificativa da Contratação", type: "textarea", required: true, group: "basicas" },
     ],
   },
   {
@@ -250,8 +250,8 @@ const TR_SECTIONS: SectionDef[] = [
     required: true,
     unlocksNext: false,
     fields: [
-      { key: "responsavel_tecnico", label: "Responsável Técnico", type: "text", required: true },
-      { key: "fiscal_contrato", label: "Fiscal do Contrato", type: "text" },
+      { key: "responsavel_tecnico", label: "Responsável Técnico", type: "text", required: true, group: "basicas" },
+      { key: "fiscal_contrato", label: "Fiscal do Contrato", type: "text", group: "basicas" },
     ],
   },
 ];
