@@ -3,9 +3,12 @@ import {
   Bold, Italic, Underline, Strikethrough,
   AlignLeft, AlignCenter, AlignRight, AlignJustify,
   List, ListOrdered, Heading1, Heading2, Heading3,
-  Table, Minus, Undo2, Redo2, Type
+  Table, Minus, Undo2, Redo2, Type, Palette, Highlighter
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Popover, PopoverContent, PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -52,6 +55,26 @@ const LINE_SPACINGS = [
   { value: "1.15", label: "1.15" },
   { value: "1.5", label: "1.5" },
   { value: "2", label: "2.0" },
+];
+
+const TEXT_COLORS = [
+  { label: "Preto", value: "#1a1a1a" },
+  { label: "Cinza escuro", value: "#444444" },
+  { label: "Cinza", value: "#666666" },
+  { label: "Azul", value: "#1e40af" },
+  { label: "Vermelho", value: "#dc2626" },
+  { label: "Verde", value: "#16a34a" },
+  { label: "Laranja", value: "#ea580c" },
+  { label: "Roxo", value: "#7c3aed" },
+];
+
+const HIGHLIGHT_COLORS = [
+  { label: "Amarelo", value: "#fef08a" },
+  { label: "Verde", value: "#bbf7d0" },
+  { label: "Azul", value: "#bfdbfe" },
+  { label: "Rosa", value: "#fecdd3" },
+  { label: "Laranja", value: "#fed7aa" },
+  { label: "Nenhum", value: "transparent" },
 ];
 
 type ToolbarAction = {
@@ -306,6 +329,50 @@ export function RichTextEditor({
 
           {/* Format */}
           {FORMAT_ACTIONS.map((a) => <ToolBtn key={a.command} action={a} onExec={execCommand} />)}
+
+          <Separator orientation="vertical" className="h-4 mx-1" />
+
+          {/* Text Color */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0">
+                <Palette className="h-3.5 w-3.5" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-2" side="bottom" align="start">
+              <p className="text-[10px] font-semibold text-muted-foreground mb-1.5">Cor do texto</p>
+              <div className="flex flex-wrap gap-1.5">
+                {TEXT_COLORS.map((c) => (
+                  <button key={c.value} title={c.label}
+                    className="h-5 w-5 rounded-full border border-border/60 hover:scale-110 transition-transform"
+                    style={{ backgroundColor: c.value }}
+                    onMouseDown={(e) => { e.preventDefault(); execCommand("foreColor", c.value); }}
+                  />
+                ))}
+              </div>
+            </PopoverContent>
+          </Popover>
+
+          {/* Highlight */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0">
+                <Highlighter className="h-3.5 w-3.5" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-2" side="bottom" align="start">
+              <p className="text-[10px] font-semibold text-muted-foreground mb-1.5">Destaque</p>
+              <div className="flex flex-wrap gap-1.5">
+                {HIGHLIGHT_COLORS.map((c) => (
+                  <button key={c.value} title={c.label}
+                    className="h-5 w-5 rounded-full border border-border/60 hover:scale-110 transition-transform"
+                    style={{ backgroundColor: c.value === "transparent" ? "#fff" : c.value }}
+                    onMouseDown={(e) => { e.preventDefault(); execCommand("hiliteColor", c.value); }}
+                  />
+                ))}
+              </div>
+            </PopoverContent>
+          </Popover>
 
           <Separator orientation="vertical" className="h-4 mx-1" />
 
