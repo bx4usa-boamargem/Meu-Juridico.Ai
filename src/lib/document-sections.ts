@@ -195,8 +195,9 @@ const TR_SECTIONS: SectionDef[] = [
     required: true,
     unlocksNext: true,
     fields: [
-      { key: "definicao_objeto", label: "Definição do Objeto", type: "textarea" },
-      { key: "justificativa_contratacao", label: "Justificativa da Contratação", type: "textarea" },
+      { key: "objeto_contratacao", label: "Objeto da Contratação", type: "textarea", required: true },
+      { key: "natureza_objeto", label: "Natureza do Objeto", type: "select", options: ["Bens", "Serviços", "Obras", "Serviços de Engenharia"], required: true },
+      { key: "justificativa_contratacao", label: "Justificativa da Contratação", type: "textarea", required: true },
     ],
   },
   {
@@ -205,8 +206,9 @@ const TR_SECTIONS: SectionDef[] = [
     required: true,
     unlocksNext: true,
     fields: [
-      { key: "especificacoes_tecnicas", label: "Especificações Técnicas", type: "textarea" },
-      { key: "requisitos_habilitacao", label: "Requisitos de Habilitação", type: "textarea" },
+      { key: "especificacoes_tecnicas", label: "Descrição Detalhada", type: "textarea", required: true },
+      { key: "requisitos_tecnicos", label: "Requisitos Técnicos Obrigatórios", type: "textarea" },
+      { key: "padroes_qualidade", label: "Padrões de Qualidade", type: "textarea" },
     ],
   },
   {
@@ -215,9 +217,10 @@ const TR_SECTIONS: SectionDef[] = [
     required: true,
     unlocksNext: true,
     fields: [
-      { key: "local_execucao", label: "Local de Execução", type: "text" },
-      { key: "prazo_execucao", label: "Prazo de Execução", type: "text" },
-      { key: "condicoes_pagamento", label: "Condições de Pagamento", type: "textarea" },
+      { key: "prazo_execucao", label: "Prazo de Execução", type: "text", required: true },
+      { key: "local_execucao", label: "Local de Execução / Entrega", type: "text", required: true },
+      { key: "condicoes_recebimento", label: "Condições de Recebimento", type: "textarea" },
+      { key: "criterios_aceitacao", label: "Critérios de Aceitação", type: "textarea" },
     ],
   },
   {
@@ -226,17 +229,29 @@ const TR_SECTIONS: SectionDef[] = [
     required: true,
     unlocksNext: true,
     fields: [
-      { key: "obrigacoes_contratante", label: "Obrigações do Contratante", type: "textarea" },
-      { key: "obrigacoes_contratado", label: "Obrigações do Contratado", type: "textarea" },
+      { key: "obrigacoes_contratante", label: "Obrigações da Contratante", type: "textarea", required: true },
+      { key: "obrigacoes_contratada", label: "Obrigações da Contratada", type: "textarea", required: true },
     ],
   },
   {
     id: "penalidades",
-    label: "Penalidades",
+    label: "Penalidades e Sanções",
     required: false,
-    unlocksNext: false,
+    unlocksNext: true,
     fields: [
       { key: "penalidades", label: "Penalidades Aplicáveis", type: "textarea" },
+      { key: "sancoes", label: "Sanções Administrativas", type: "textarea" },
+      { key: "anexos", label: "Anexos", type: "textarea" },
+    ],
+  },
+  {
+    id: "responsaveis_tr",
+    label: "Responsáveis",
+    required: true,
+    unlocksNext: false,
+    fields: [
+      { key: "responsavel_tecnico", label: "Responsável Técnico", type: "text", required: true },
+      { key: "fiscal_contrato", label: "Fiscal do Contrato", type: "text" },
     ],
   },
 ];
