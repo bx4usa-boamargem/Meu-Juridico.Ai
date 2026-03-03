@@ -3,9 +3,12 @@ import {
   Bold, Italic, Underline, Strikethrough,
   AlignLeft, AlignCenter, AlignRight, AlignJustify,
   List, ListOrdered, Heading1, Heading2, Heading3,
-  Table, Minus, Undo2, Redo2, Type
+  Table, Minus, Undo2, Redo2, Type, Palette, Highlighter
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Popover, PopoverContent, PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -52,6 +55,26 @@ const LINE_SPACINGS = [
   { value: "1.15", label: "1.15" },
   { value: "1.5", label: "1.5" },
   { value: "2", label: "2.0" },
+];
+
+const TEXT_COLORS = [
+  { label: "Preto", value: "#1a1a1a" },
+  { label: "Cinza escuro", value: "#444444" },
+  { label: "Cinza", value: "#666666" },
+  { label: "Azul", value: "#1e40af" },
+  { label: "Vermelho", value: "#dc2626" },
+  { label: "Verde", value: "#16a34a" },
+  { label: "Laranja", value: "#ea580c" },
+  { label: "Roxo", value: "#7c3aed" },
+];
+
+const HIGHLIGHT_COLORS = [
+  { label: "Amarelo", value: "#fef08a" },
+  { label: "Verde", value: "#bbf7d0" },
+  { label: "Azul", value: "#bfdbfe" },
+  { label: "Rosa", value: "#fecdd3" },
+  { label: "Laranja", value: "#fed7aa" },
+  { label: "Nenhum", value: "transparent" },
 ];
 
 type ToolbarAction = {
