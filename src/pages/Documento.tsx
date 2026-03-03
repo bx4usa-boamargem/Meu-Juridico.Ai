@@ -24,7 +24,7 @@ import {
   type WorkflowState,
   type FieldDef,
 } from "@/lib/document-sections";
-import { renderDfdTemplate } from "@/lib/dfd-template";
+import { renderDocumentTemplate, getProcessoStatusAfterApproval } from "@/lib/document-template-renderer";
 
 export default function Documento() {
   const { processoId, docId } = useParams<{ processoId: string; docId: string }>();
