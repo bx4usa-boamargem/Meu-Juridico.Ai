@@ -6,6 +6,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { RichTextEditor } from "@/components/documento/RichTextEditor";
 import { SignatureBlock, renderSignatureHtml } from "@/components/documento/SignatureBlock";
 import { sanitizeHtml } from "@/lib/html-sanitizer";
+import { getDocumentTypeLabel } from "@/lib/document-template-renderer";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -58,8 +59,9 @@ export default function DocumentView() {
       if (!html && doc.dados_estruturados) {
         const { data: proc } = await supabase
           .from("processos").select("*").eq("id", processoId).single();
-        const { renderDfdTemplate } = await import("@/lib/dfd-template");
-        html = renderDfdTemplate(doc.dados_estruturados as Record<string, any>, proc as any);
+        const { renderDocumentTemplate } = await import("@/lib/document-template-renderer");
+        const docMeta = await supabase.from("documentos").select("tipo").eq("id", docId!).single();
+        html = renderDocumentTemplate(docMeta.data?.tipo, doc.dados_estruturados as Record<string, any>, proc as any);
       }
       if (!html) return null;
 
@@ -111,8 +113,9 @@ export default function DocumentView() {
 
   const docCode = useMemo(() => {
     const num = processo?.numero_processo ?? "—";
-    return `DFD-${num}`;
-  }, [processo]);
+    const prefix = documento?.tipo ?? "DOC";
+    return `${prefix}-${num}`;
+  }, [processo, documento?.tipo]);
 
   const currentHtml = editedHtml ?? version?.conteudo_html ?? "";
   const hasChanges = editedHtml !== null && editedHtml !== version?.conteudo_html;
@@ -220,7 +223,7 @@ export default function DocumentView() {
   </div>
   <div class="print-header">
     <p class="org">${processo?.orgao ?? ""}</p>
-    <p class="title">DOCUMENTO DE FORMALIZAÇÃO DA DEMANDA</p>
+    <p class="title">${getDocumentTypeLabel(documento?.tipo)}</p>
     <p class="proc">Processo nº ${processo?.numero_processo ?? "—"}</p>
     <p class="meta">${docCode} • Versão ${version?.versao ?? 1} • ${generatedAt} • ${user?.email ?? ""}</p>
   </div>

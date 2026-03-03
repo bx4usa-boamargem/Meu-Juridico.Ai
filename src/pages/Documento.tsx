@@ -24,7 +24,7 @@ import {
   type WorkflowState,
   type FieldDef,
 } from "@/lib/document-sections";
-import { renderDfdTemplate } from "@/lib/dfd-template";
+import { renderDocumentTemplate, getProcessoStatusAfterApproval } from "@/lib/document-template-renderer";
 
 export default function Documento() {
   const { processoId, docId } = useParams<{ processoId: string; docId: string }>();
@@ -222,7 +222,7 @@ export default function Documento() {
         return;
       }
 
-      const htmlFinal = renderDfdTemplate(formData, processoData);
+      const htmlFinal = renderDocumentTemplate(documento?.tipo, formData, processoData);
 
       const { error: insertError } = await supabase
         .from("document_versions")
@@ -246,10 +246,11 @@ export default function Documento() {
         workflow_status: "rascunho",
       }).eq("id", docId);
 
-      await supabase.from("processos").update({ status: "DFD_APROVADO" }).eq("id", processoId);
+      const newProcessoStatus = getProcessoStatusAfterApproval(documento?.tipo);
+      await supabase.from("processos").update({ status: newProcessoStatus }).eq("id", processoId);
       queryClient.invalidateQueries({ queryKey: ["processo", processoId] });
       queryClient.invalidateQueries({ queryKey: ["pipeline", processoId] });
-      toast.success("DFD finalizado! Redirecionando para visualização...");
+      toast.success(`${documento?.tipo ?? "Documento"} finalizado! Redirecionando...`);
       navigate(`/processo/${processoId}/documento/${docId}/view`);
       return;
     }
