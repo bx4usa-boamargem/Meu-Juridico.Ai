@@ -6,6 +6,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { RichTextEditor } from "@/components/documento/RichTextEditor";
 import { SignatureBlock, renderSignatureHtml } from "@/components/documento/SignatureBlock";
 import { sanitizeHtml } from "@/lib/html-sanitizer";
+import { getDocumentTypeLabel } from "@/lib/document-template-renderer";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -222,7 +223,7 @@ export default function DocumentView() {
   </div>
   <div class="print-header">
     <p class="org">${processo?.orgao ?? ""}</p>
-    <p class="title">DOCUMENTO DE FORMALIZAÇÃO DA DEMANDA</p>
+    <p class="title">${getDocumentTypeLabel(documento?.tipo)}</p>
     <p class="proc">Processo nº ${processo?.numero_processo ?? "—"}</p>
     <p class="meta">${docCode} • Versão ${version?.versao ?? 1} • ${generatedAt} • ${user?.email ?? ""}</p>
   </div>
