@@ -4,6 +4,7 @@
  */
 import { renderDfdTemplate } from "./dfd-template";
 import { renderEtpTemplate } from "./etp-template";
+import { renderTrTemplate } from "./templates/tr-template";
 
 export function renderDocumentTemplate(
   tipo: string | null | undefined,
@@ -15,7 +16,8 @@ export function renderDocumentTemplate(
       return renderDfdTemplate(dados, processo);
     case "ETP":
       return renderEtpTemplate(dados, processo);
-    // Future: case "TR": return renderTrTemplate(dados, processo);
+    case "TR":
+      return renderTrTemplate(dados, processo);
     default:
       // Fallback: render a simple HTML with all data
       return renderGenericTemplate(tipo, dados, processo);
