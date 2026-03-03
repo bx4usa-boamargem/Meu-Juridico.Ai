@@ -16,10 +16,10 @@ function MarketingPanel() {
       <div>
         <img src={logoIcon} alt="MeuJurídico.ai" className="h-12 w-12 mb-10 brightness-0 invert" />
         <h1 className="text-4xl xl:text-5xl font-bold leading-tight mb-4">
-          Criar documentos de uma maneira inteligente
+          Seus documentos licitatórios com inteligência e agilidade
         </h1>
         <p className="text-primary-foreground/70 text-lg max-w-md">
-          Abra sua conta gratuita e explore todos os recursos por 30 dias, sem necessidade de cartão de crédito!
+          Gere DFDs, ETPs e Termos de Referência padronizados em minutos. Conformidade SEI e rastreabilidade completa para sua equipe.
         </p>
       </div>
 
