@@ -332,6 +332,50 @@ export function RichTextEditor({
 
           <Separator orientation="vertical" className="h-4 mx-1" />
 
+          {/* Text Color */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0">
+                <Palette className="h-3.5 w-3.5" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-2" side="bottom" align="start">
+              <p className="text-[10px] font-semibold text-muted-foreground mb-1.5">Cor do texto</p>
+              <div className="flex flex-wrap gap-1.5">
+                {TEXT_COLORS.map((c) => (
+                  <button key={c.value} title={c.label}
+                    className="h-5 w-5 rounded-full border border-border/60 hover:scale-110 transition-transform"
+                    style={{ backgroundColor: c.value }}
+                    onMouseDown={(e) => { e.preventDefault(); execCommand("foreColor", c.value); }}
+                  />
+                ))}
+              </div>
+            </PopoverContent>
+          </Popover>
+
+          {/* Highlight */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0">
+                <Highlighter className="h-3.5 w-3.5" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-2" side="bottom" align="start">
+              <p className="text-[10px] font-semibold text-muted-foreground mb-1.5">Destaque</p>
+              <div className="flex flex-wrap gap-1.5">
+                {HIGHLIGHT_COLORS.map((c) => (
+                  <button key={c.value} title={c.label}
+                    className="h-5 w-5 rounded-full border border-border/60 hover:scale-110 transition-transform"
+                    style={{ backgroundColor: c.value === "transparent" ? "#fff" : c.value }}
+                    onMouseDown={(e) => { e.preventDefault(); execCommand("hiliteColor", c.value); }}
+                  />
+                ))}
+              </div>
+            </PopoverContent>
+          </Popover>
+
+          <Separator orientation="vertical" className="h-4 mx-1" />
+
           {/* Alignment */}
           {ALIGN_ACTIONS.map((a) => <ToolBtn key={a.command} action={a} onExec={execCommand} />)}
 
