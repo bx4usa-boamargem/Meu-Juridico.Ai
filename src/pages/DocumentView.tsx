@@ -58,8 +58,9 @@ export default function DocumentView() {
       if (!html && doc.dados_estruturados) {
         const { data: proc } = await supabase
           .from("processos").select("*").eq("id", processoId).single();
-        const { renderDfdTemplate } = await import("@/lib/dfd-template");
-        html = renderDfdTemplate(doc.dados_estruturados as Record<string, any>, proc as any);
+        const { renderDocumentTemplate } = await import("@/lib/document-template-renderer");
+        const docMeta = await supabase.from("documentos").select("tipo").eq("id", docId!).single();
+        html = renderDocumentTemplate(docMeta.data?.tipo, doc.dados_estruturados as Record<string, any>, proc as any);
       }
       if (!html) return null;
 
@@ -111,8 +112,9 @@ export default function DocumentView() {
 
   const docCode = useMemo(() => {
     const num = processo?.numero_processo ?? "—";
-    return `DFD-${num}`;
-  }, [processo]);
+    const prefix = documento?.tipo ?? "DOC";
+    return `${prefix}-${num}`;
+  }, [processo, documento?.tipo]);
 
   const currentHtml = editedHtml ?? version?.conteudo_html ?? "";
   const hasChanges = editedHtml !== null && editedHtml !== version?.conteudo_html;
