@@ -56,6 +56,7 @@ export function StepFormRenderer({
   invalidFields,
   aiFilledFields,
   autoPreenchendo,
+  camposMeta,
   onChange,
   onMelhorar,
   onGerarJustificativa,
