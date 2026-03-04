@@ -314,7 +314,9 @@ export default function Documento() {
 
   // Incremental section generation - generate AI content for current section only
   const handleGenerateCurrentSection = useCallback(async () => {
-    if (!currentSection || !formData.objeto_contratacao) return;
+    if (!workflow || !formData.objeto_contratacao) return;
+    const curSection = sections.find(s => s.id === workflow.current_step);
+    if (!curSection) return;
     setGeneratingSectionAi(true);
     try {
       const { data, error } = await supabase.functions.invoke("ai-document-builder", {
@@ -328,8 +330,7 @@ export default function Documento() {
       if (error) throw error;
 
       if (data?.campos_preenchidos) {
-        // Only apply fields that belong to the current section
-        const sectionFieldKeys = new Set(currentSection.fields.map(f => f.key));
+        const sectionFieldKeys = new Set(curSection.fields.map(f => f.key));
         const newAiFields = new Set(aiFilledFields);
         setFormData((prev) => {
           const updated = { ...prev };
@@ -353,11 +354,10 @@ export default function Documento() {
     } finally {
       setGeneratingSectionAi(false);
     }
-  }, [currentSection, formData.objeto_contratacao, documento?.tipo, processo?.orgao, processoId, aiFilledFields]);
+  }, [workflow, sections, formData.objeto_contratacao, documento?.tipo, processo?.orgao, processoId, aiFilledFields]);
 
   // Handle adding suggested sections
   const handleAddSuggestedSection = useCallback((section: { id: string; label: string; reason: string }) => {
-    // Add to formData as a new section placeholder
     setFormData(prev => ({
       ...prev,
       [section.id]: prev[section.id] ?? "",
