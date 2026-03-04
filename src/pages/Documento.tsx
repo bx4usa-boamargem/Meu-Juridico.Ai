@@ -607,10 +607,29 @@ export default function Documento() {
           <AiBuilderOverlay isActive={aiBuilderActive} currentPhase={aiBuilderPhase} />
 
           <ScrollArea className="flex-1">
-            <div className="p-6 max-w-2xl mx-auto">
+            <div className="p-6 max-w-2xl mx-auto space-y-4">
+              {/* Realtime alert banner */}
+              {documento?.tipo && (
+                <AlertBanner
+                  docType={documento.tipo}
+                  onViewImpact={(alert) => {
+                    setShowNormativas(true);
+                    toast.info(`Alerta: ${alert.title}`, { description: `Fonte: ${alert.source}` });
+                  }}
+                />
+              )}
+
+              {/* Section suggestions for complex objects */}
+              {aiBuilderTriggered.current && formData.objeto_contratacao && (
+                <SectionSuggestionBanner
+                  objeto={formData.objeto_contratacao}
+                  onAddSection={handleAddSuggestedSection}
+                />
+              )}
+
               {/* Edital banner - TR approved */}
               {documento?.tipo === "edital" && approvedTR && currentEnabledIdx === 0 && (
-                <div className="mb-4 rounded-lg border border-primary/20 bg-primary/5 p-3 flex items-start gap-2">
+                <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 flex items-start gap-2">
                   <span className="text-base">💡</span>
                   <p className="text-xs text-foreground">
                     Este edital será gerado com base no TR aprovado em{" "}
@@ -625,7 +644,7 @@ export default function Documento() {
               )}
 
               {/* Section header */}
-              <div className="mb-6">
+              <div>
                 <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-semibold mb-1">
                   Seção {currentEnabledIdx + 1} de {enabledSections.length}
                 </p>
@@ -680,6 +699,22 @@ export default function Documento() {
               )}
             </div>
             <div className="flex items-center gap-2">
+              {/* Gerar seção com IA button */}
+              {currentSection && !currentCompletion.complete && formData.objeto_contratacao && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-xs gap-1.5 border-primary/30 text-primary hover:bg-primary/5"
+                  onClick={handleGenerateCurrentSection}
+                  disabled={generatingSectionAi}
+                >
+                  {generatingSectionAi ? (
+                    <><Loader2 className="h-3 w-3 animate-spin" /> Gerando...</>
+                  ) : (
+                    <><Sparkles className="h-3 w-3" /> Gerar seção com IA</>
+                  )}
+                </Button>
+              )}
               {currentEnabledIdx > 0 && (
                 <Button variant="outline" size="sm" className="text-xs gap-1" onClick={handlePrevious}>
                   <ArrowLeft className="h-3 w-3" /> Anterior
