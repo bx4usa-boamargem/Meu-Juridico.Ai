@@ -403,8 +403,9 @@ export default function Documento() {
           formData={formData}
           documentTitle={documento.tipo ?? "Documento"}
           documentNumber={processo?.numero_processo ?? undefined}
+          disabledSections={disabledSections}
           onSelectStep={handleSelectStep}
-          onToggleStep={handleToggleStep}
+          onToggleSection={handleToggleSection}
         />
 
         {/* CENTER — Workspace */}
