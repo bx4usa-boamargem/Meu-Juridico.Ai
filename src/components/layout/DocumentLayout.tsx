@@ -61,6 +61,9 @@ export function DocumentLayout({ children }: { children: React.ReactNode }) {
             <DropdownMenuItem className="text-xs text-muted-foreground" disabled>
               {user?.email}
             </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => navigate("/perfil")} className="text-xs">
+              Meu Perfil
+            </DropdownMenuItem>
             <DropdownMenuItem onClick={() => navigate("/configuracoes")} className="text-xs">
               Configurações
             </DropdownMenuItem>
