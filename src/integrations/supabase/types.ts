@@ -357,6 +357,8 @@ export type Database = {
           parent_doc_id: string | null
           posicao_cadeia: number | null
           processo_id: string
+          score_conformidade: number | null
+          section_memories: Json | null
           status: string | null
           tipo: string | null
           updated_at: string
@@ -377,6 +379,8 @@ export type Database = {
           parent_doc_id?: string | null
           posicao_cadeia?: number | null
           processo_id: string
+          score_conformidade?: number | null
+          section_memories?: Json | null
           status?: string | null
           tipo?: string | null
           updated_at?: string
@@ -397,6 +401,8 @@ export type Database = {
           parent_doc_id?: string | null
           posicao_cadeia?: number | null
           processo_id?: string
+          score_conformidade?: number | null
+          section_memories?: Json | null
           status?: string | null
           tipo?: string | null
           updated_at?: string
