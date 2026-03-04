@@ -134,6 +134,22 @@ export default function Documento() {
       }
     }
 
+    // Pre-populate from processo data if not already set
+    if (processo) {
+      const processoMapping: Record<string, string> = {
+        objeto_contratacao: processo.objeto,
+        orgao: processo.orgao,
+        numero_processo: processo.numero_processo,
+        modalidade: processo.modalidade,
+      };
+      for (const [field, value] of Object.entries(processoMapping)) {
+        if (value && !merged[field]) {
+          merged[field] = value;
+          keys.add(field);
+        }
+      }
+    }
+
     const existingWorkflow = (existing as any)?.meta?.workflow as WorkflowState | undefined;
     const wf = initializeWorkflow(sections, existingWorkflow);
 
@@ -154,7 +170,7 @@ export default function Documento() {
     setInheritedKeys(keys);
     setWorkflow(wf);
     setInitialized(true);
-  }, [documento, inherited, sections, initialized]);
+  }, [documento, inherited, processo, sections, initialized]);
 
   // Persist workflow state
   const dataWithWorkflow = useMemo(() => {
