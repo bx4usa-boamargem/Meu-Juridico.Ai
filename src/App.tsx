@@ -32,6 +32,17 @@ const App = () => (
           <Route path="/auth" element={<Auth />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/shared/:token" element={<SharedDocument />} />
+          {/* Document type selection */}
+          <Route
+            path="/processo/:processoId/novo-documento"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <SelecionarTipoDocumento />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
           {/* Document workspace uses its own layout */}
           <Route
             path="/processo/:processoId/documento/:docId"
