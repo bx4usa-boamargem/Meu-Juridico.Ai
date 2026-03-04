@@ -340,6 +340,14 @@ export function StepFormRenderer({
 
   return (
     <div className="space-y-5">
+      {/* AI auto-fill loading banner */}
+      {autoPreenchendo && (
+        <div className="flex items-center gap-2 text-sm text-primary bg-primary/5 border border-primary/20 px-4 py-2.5 rounded-lg">
+          <Loader2 className="w-4 h-4 animate-spin" />
+          Preenchendo campos com IA...
+        </div>
+      )}
+
       {/* Info banner */}
       <div className="flex items-start gap-2 rounded-lg bg-primary/5 border border-primary/20 p-3">
         <Info className="h-4 w-4 text-primary mt-0.5 shrink-0" />
