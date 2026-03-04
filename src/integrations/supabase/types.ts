@@ -238,6 +238,42 @@ export type Database = {
           },
         ]
       }
+      document_templates: {
+        Row: {
+          created_at: string
+          description: string | null
+          doc_type: string
+          icon: string | null
+          id: string
+          is_active: boolean
+          sections_plan: Json
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          doc_type: string
+          icon?: string | null
+          id?: string
+          is_active?: boolean
+          sections_plan?: Json
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          doc_type?: string
+          icon?: string | null
+          id?: string
+          is_active?: boolean
+          sections_plan?: Json
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       document_versions: {
         Row: {
           conteudo_html: string
@@ -472,6 +508,129 @@ export type Database = {
             referencedColumns: ["dfd_id"]
           },
         ]
+      }
+      monitoring_alerts: {
+        Row: {
+          affected_doc_types: string[] | null
+          created_at: string
+          detected_at: string
+          id: string
+          impact_analysis: string | null
+          is_relevant: boolean
+          severity: string
+          source: string
+          source_url: string | null
+          summary: string | null
+          title: string
+        }
+        Insert: {
+          affected_doc_types?: string[] | null
+          created_at?: string
+          detected_at?: string
+          id?: string
+          impact_analysis?: string | null
+          is_relevant?: boolean
+          severity?: string
+          source: string
+          source_url?: string | null
+          summary?: string | null
+          title: string
+        }
+        Update: {
+          affected_doc_types?: string[] | null
+          created_at?: string
+          detected_at?: string
+          id?: string
+          impact_analysis?: string | null
+          is_relevant?: boolean
+          severity?: string
+          source?: string
+          source_url?: string | null
+          summary?: string | null
+          title?: string
+        }
+        Relationships: []
+      }
+      monitoring_config: {
+        Row: {
+          cost_limit_usd: number
+          created_at: string
+          frequency: string
+          id: string
+          is_active: boolean
+          last_run_at: string | null
+          next_run_at: string | null
+          scope: Json
+          updated_at: string
+        }
+        Insert: {
+          cost_limit_usd?: number
+          created_at?: string
+          frequency?: string
+          id?: string
+          is_active?: boolean
+          last_run_at?: string | null
+          next_run_at?: string | null
+          scope?: Json
+          updated_at?: string
+        }
+        Update: {
+          cost_limit_usd?: number
+          created_at?: string
+          frequency?: string
+          id?: string
+          is_active?: boolean
+          last_run_at?: string | null
+          next_run_at?: string | null
+          scope?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      monitoring_runs: {
+        Row: {
+          alerts_generated: number | null
+          created_at: string
+          error_message: string | null
+          estimated_cost_usd: number | null
+          finished_at: string | null
+          id: string
+          items_analyzed_deep: number | null
+          items_analyzed_light: number | null
+          items_collected: number | null
+          items_filtered_out: number | null
+          started_at: string
+          status: string
+        }
+        Insert: {
+          alerts_generated?: number | null
+          created_at?: string
+          error_message?: string | null
+          estimated_cost_usd?: number | null
+          finished_at?: string | null
+          id?: string
+          items_analyzed_deep?: number | null
+          items_analyzed_light?: number | null
+          items_collected?: number | null
+          items_filtered_out?: number | null
+          started_at?: string
+          status?: string
+        }
+        Update: {
+          alerts_generated?: number | null
+          created_at?: string
+          error_message?: string | null
+          estimated_cost_usd?: number | null
+          finished_at?: string | null
+          id?: string
+          items_analyzed_deep?: number | null
+          items_analyzed_light?: number | null
+          items_collected?: number | null
+          items_filtered_out?: number | null
+          started_at?: string
+          status?: string
+        }
+        Relationships: []
       }
       org_knowledge_base: {
         Row: {

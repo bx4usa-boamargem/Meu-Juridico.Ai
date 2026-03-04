@@ -287,6 +287,10 @@ const SECTION_MAP: Record<string, SectionDef[]> = {
   TR: TR_SECTIONS,
   Edital: GENERIC_SECTIONS,
   Contrato: GENERIC_SECTIONS,
+  projeto_basico: GENERIC_SECTIONS,
+  mapa_risco: GENERIC_SECTIONS,
+  edital: GENERIC_SECTIONS,
+  custom: GENERIC_SECTIONS,
 };
 
 export function getSectionsForType(tipo: string | null | undefined): SectionDef[] {
