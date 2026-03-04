@@ -101,7 +101,7 @@ export default function SelecionarTipoDocumento() {
   };
 
   // Sort templates in specific order
-  const sortOrder = ["DFD", "ETP", "TR", "projeto_basico", "mapa_risco", "edital", "custom"];
+  const sortOrder = ["dfd", "etp", "tr", "projeto_basico", "mapa_risco", "edital", "custom"];
   const sorted = templates?.slice().sort((a, b) => {
     const ai = sortOrder.indexOf(a.doc_type);
     const bi = sortOrder.indexOf(b.doc_type);

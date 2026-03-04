@@ -186,7 +186,7 @@ serve(async (req) => {
       ? `Contexto do processo:\n- Objeto: ${processo_context.objeto ?? "N/A"}\n- Órgão: ${processo_context.orgao ?? "N/A"}\n- Modalidade: ${processo_context.modalidade ?? "N/A"}\n- Nº Processo: ${processo_context.numero_processo ?? "N/A"}`
       : "";
 
-    const sectionContext = `Tipo de documento: ${document_type ?? "DFD"}\nSeção: ${section_type ?? "geral"}`;
+    const sectionContext = `Tipo de documento: ${document_type ?? "dfd"}\nSeção: ${section_type ?? "geral"}`;
 
     const otherSectionsText = (other_sections ?? [])
       .map((s: any) => `[${s.field}]: ${String(s.value).substring(0, 300)}`)

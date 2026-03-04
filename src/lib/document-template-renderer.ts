@@ -12,11 +12,11 @@ export function renderDocumentTemplate(
   processo?: Record<string, any>
 ): string {
   switch (tipo) {
-    case "DFD":
+    case "dfd":
       return renderDfdTemplate(dados, processo);
-    case "ETP":
+    case "etp":
       return renderEtpTemplate(dados, processo);
-    case "TR":
+    case "tr":
       return renderTrTemplate(dados, processo);
     default:
       // Fallback: render a simple HTML with all data
@@ -61,9 +61,9 @@ function renderGenericTemplate(
 /** Maps document type to the status the processo should transition to after approval */
 export function getProcessoStatusAfterApproval(tipo: string | null | undefined): string {
   switch (tipo) {
-    case "DFD": return "DFD_APROVADO";
-    case "ETP": return "ETP_APROVADO";
-    case "TR": return "TR_APROVADO";
+    case "dfd": return "DFD_APROVADO";
+    case "etp": return "ETP_APROVADO";
+    case "tr": return "TR_APROVADO";
     default: return "DOCUMENTO_APROVADO";
   }
 }
@@ -71,9 +71,9 @@ export function getProcessoStatusAfterApproval(tipo: string | null | undefined):
 /** Returns a human-friendly label for the document type */
 export function getDocumentTypeLabel(tipo: string | null | undefined): string {
   switch (tipo) {
-    case "DFD": return "DOCUMENTO DE FORMALIZAÇÃO DA DEMANDA";
-    case "ETP": return "ESTUDO TÉCNICO PRELIMINAR";
-    case "TR": return "TERMO DE REFERÊNCIA";
+    case "dfd": return "DOCUMENTO DE FORMALIZAÇÃO DA DEMANDA";
+    case "etp": return "ESTUDO TÉCNICO PRELIMINAR";
+    case "tr": return "TERMO DE REFERÊNCIA";
     default: return (tipo ?? "DOCUMENTO").toUpperCase();
   }
 }

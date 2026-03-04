@@ -379,7 +379,7 @@ export default function DocumentView() {
               modalidade: processo?.modalidade,
               numero_processo: processo?.numero_processo,
             }}
-            documentType={documento?.tipo ?? "DFD"}
+            documentType={documento?.tipo ?? "dfd"}
             sectionType="documento_completo"
             dadosEstruturados={documento?.dados_estruturados as Record<string, any>}
             documentoId={docId}

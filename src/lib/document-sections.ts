@@ -282,14 +282,13 @@ const GENERIC_SECTIONS: SectionDef[] = [
 // ─── Section Map ─────────────────────────────────────────────────────
 
 const SECTION_MAP: Record<string, SectionDef[]> = {
-  DFD: DFD_SECTIONS,
-  ETP: ETP_SECTIONS,
-  TR: TR_SECTIONS,
-  Edital: GENERIC_SECTIONS,
-  Contrato: GENERIC_SECTIONS,
+  dfd: DFD_SECTIONS,
+  etp: ETP_SECTIONS,
+  tr: TR_SECTIONS,
+  edital: GENERIC_SECTIONS,
+  contrato: GENERIC_SECTIONS,
   projeto_basico: GENERIC_SECTIONS,
   mapa_risco: GENERIC_SECTIONS,
-  edital: GENERIC_SECTIONS,
   custom: GENERIC_SECTIONS,
 };
 
