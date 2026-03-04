@@ -93,7 +93,8 @@ export default function BaseConhecimento() {
     setUploading(true);
 
     try {
-      const filePath = `${orgId}/${Date.now()}_${file.name}`;
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+      const filePath = `${orgId}/${Date.now()}_${safeName}`;
       const { error: storageErr } = await supabase.storage
         .from("knowledge_files")
         .upload(filePath, file);
