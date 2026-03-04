@@ -73,12 +73,12 @@ export async function orchestrateDocument(
     // para que seções ed_02 (Objeto) e ed_05 (Critério) herdem dados
     // ──────────────────────────────────────────
     let linkedTrMemories: SectionMemory[] | null = null;
-    if (doc.doc_type === 'edital') {
+    if (doc.doc_type?.toLowerCase() === 'edital') {
       const { data: linkedTR } = await supabase
         .from('documents')
         .select('id, doc_type')
         .eq('process_id', doc.process_id)
-        .eq('doc_type', 'tr')
+        .in('doc_type', ['tr', 'TR'])
         .eq('status', 'approved')
         .single();
 
