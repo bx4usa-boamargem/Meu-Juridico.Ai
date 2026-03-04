@@ -258,6 +258,7 @@ export default function Documento() {
             form_data: formData,
             html_final: htmlFinal,
             generate_with_ai: true,
+            disabled_sections: Array.from(disabledSections),
           },
         });
 
@@ -339,8 +340,8 @@ export default function Documento() {
     return true;
   });
   const enabledSections = workflow
-    ? activeSections.filter((s) => workflow.steps[s.id]?.enabled !== false)
-    : activeSections;
+    ? activeSections.filter((s) => workflow.steps[s.id]?.enabled !== false && !disabledSections.has(s.id))
+    : activeSections.filter((s) => !disabledSections.has(s.id));
   const currentEnabledIdx = currentSection
     ? enabledSections.findIndex((s) => s.id === currentSection.id)
     : 0;
