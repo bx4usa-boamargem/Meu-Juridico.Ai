@@ -736,6 +736,45 @@ export type Database = {
         }
         Relationships: []
       }
+      notifications: {
+        Row: {
+          body: string | null
+          created_at: string
+          id: string
+          read: boolean
+          severity: string | null
+          source: string | null
+          source_id: string | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          id?: string
+          read?: boolean
+          severity?: string | null
+          source?: string | null
+          source_id?: string | null
+          title: string
+          type?: string
+          user_id: string
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          id?: string
+          read?: boolean
+          severity?: string | null
+          source?: string | null
+          source_id?: string | null
+          title?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       org_knowledge_base: {
         Row: {
           conteudo: string
@@ -911,6 +950,28 @@ export type Database = {
           p_orgao: string
         }
         Returns: string
+      }
+      get_alertas_documento: {
+        Args: { p_doc_type: string }
+        Returns: {
+          affected_doc_types: string[] | null
+          created_at: string
+          detected_at: string
+          id: string
+          impact_analysis: string | null
+          is_relevant: boolean
+          severity: string
+          source: string
+          source_url: string | null
+          summary: string | null
+          title: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "monitoring_alerts"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       get_user_orgao: { Args: { p_user_id: string }; Returns: string }
       match_knowledge_chunks: {
