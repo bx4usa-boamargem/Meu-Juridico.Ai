@@ -67,6 +67,45 @@ export async function orchestrateDocument(
       dados_base: doc.processes.dados_base || {},
     };
 
+    // ──────────────────────────────────────────
+    // LINKED DOCUMENT IMPORT: TR → Edital
+    // Quando doc_type === 'edital', importar memórias do TR aprovado
+    // para que seções ed_02 (Objeto) e ed_05 (Critério) herdem dados
+    // ──────────────────────────────────────────
+    let linkedTrMemories: SectionMemory[] | null = null;
+    if (doc.doc_type === 'edital') {
+      const { data: linkedTR } = await supabase
+        .from('documents')
+        .select('id, doc_type')
+        .eq('process_id', doc.process_id)
+        .eq('doc_type', 'tr')
+        .eq('status', 'approved')
+        .single();
+
+      if (linkedTR) {
+        const { data: trSections } = await supabase
+          .from('document_sections')
+          .select('*')
+          .eq('document_id', linkedTR.id)
+          .in('status', ['ai_generated', 'validated', 'approved']);
+
+        if (trSections && trSections.length > 0) {
+          linkedTrMemories = trSections.map(extractSectionMemory);
+          // Inject into processCtx so skills can access it
+          processCtx.dados_base = {
+            ...processCtx.dados_base,
+            linked_tr_id: linkedTR.id,
+            linked_tr_sections: linkedTrMemories,
+          };
+
+          await logAudit(supabase, {
+            org_id: doc.org_id, user_id: userId, action: 'orchestrator.linked_tr_imported',
+            entity_type: 'document', entity_id: documentId,
+            new_value: { linked_tr_id: linkedTR.id, sections_imported: trSections.length },
+          });
+        }
+      }
+    }
     // Resolver provider LLM da organização (SEM FALLBACK)
     let orgProvider: LLMProvider;
     try {
