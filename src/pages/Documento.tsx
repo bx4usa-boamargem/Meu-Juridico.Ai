@@ -1,6 +1,6 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -12,6 +12,9 @@ import { StepFormRenderer } from "@/components/documento/StepFormRenderer";
 import { MelhorarDialog } from "@/components/documento/MelhorarDialog";
 import { GerarJustificativaDialog } from "@/components/documento/GerarJustificativaDialog";
 import { ValidarObjetoDialog } from "@/components/documento/ValidarObjetoDialog";
+import { AiBuilderOverlay } from "@/components/documento/AiBuilderOverlay";
+import { NormativasSidebar } from "@/components/documento/NormativasSidebar";
+import { SectionActionBar } from "@/components/documento/SectionActionBar";
 import { useDocumentAutoSave } from "@/hooks/useDocumentAutoSave";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
@@ -25,6 +28,20 @@ import {
 } from "@/lib/document-sections";
 import { useDocumentTemplate } from "@/hooks/useDocumentTemplate";
 import { renderDocumentTemplate, getProcessoStatusAfterApproval } from "@/lib/document-template-renderer";
+
+interface FieldMeta {
+  confianca: string;
+  fontes: string[];
+  sugestao: string;
+}
+
+interface AlertaGlobal {
+  titulo: string;
+  fonte: string;
+  impacto: string;
+  url: string | null;
+  severidade: string;
+}
 
 export default function Documento() {
   const { processoId, docId } = useParams<{ processoId: string; docId: string }>();
@@ -41,6 +58,15 @@ export default function Documento() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [autoPreenchendo, setAutoPreenchendo] = useState(false);
   const [aiFilledFields, setAiFilledFields] = useState<Set<string>>(new Set());
+
+  // AI Builder state
+  const [aiBuilderActive, setAiBuilderActive] = useState(false);
+  const [aiBuilderPhase, setAiBuilderPhase] = useState(0);
+  const [camposMeta, setCamposMeta] = useState<Record<string, FieldMeta>>({});
+  const [alertasGlobais, setAlertasGlobais] = useState<AlertaGlobal[]>([]);
+  const [sectionActions, setSectionActions] = useState<Record<string, "keep" | "improve" | "edit">>({});
+  const [showNormativas, setShowNormativas] = useState(false);
+  const aiBuilderTriggered = useRef(false);
 
   // Dialog states
   const [melhorarOpen, setMelhorarOpen] = useState(false);
