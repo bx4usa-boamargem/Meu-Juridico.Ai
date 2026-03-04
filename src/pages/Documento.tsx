@@ -39,6 +39,8 @@ export default function Documento() {
   const [workflow, setWorkflow] = useState<WorkflowState | null>(null);
   const [initialized, setInitialized] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [autoPreenchendo, setAutoPreenchendo] = useState(false);
+  const [aiFilledFields, setAiFilledFields] = useState<Set<string>>(new Set());
 
   // Dialog states
   const [melhorarOpen, setMelhorarOpen] = useState(false);
