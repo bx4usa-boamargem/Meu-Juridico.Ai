@@ -390,6 +390,22 @@ export default function Documento() {
         <div className="flex-1 flex flex-col min-w-0">
           <ScrollArea className="flex-1">
             <div className="p-6 max-w-2xl mx-auto">
+              {/* Edital banner - TR approved */}
+              {documento?.tipo === "edital" && approvedTR && currentEnabledIdx === 0 && (
+                <div className="mb-4 rounded-lg border border-primary/20 bg-primary/5 p-3 flex items-start gap-2">
+                  <span className="text-base">💡</span>
+                  <p className="text-xs text-foreground">
+                    Este edital será gerado com base no TR aprovado em{" "}
+                    <span className="font-medium">
+                      {approvedTR.aprovado_em
+                        ? new Date(approvedTR.aprovado_em).toLocaleDateString("pt-BR")
+                        : "data não registrada"}
+                    </span>
+                    . Os dados serão importados automaticamente.
+                  </p>
+                </div>
+              )}
+
               {/* Section header */}
               <div className="mb-6">
                 <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-semibold mb-1">
