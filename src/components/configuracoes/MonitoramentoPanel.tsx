@@ -36,12 +36,12 @@ export function MonitoramentoPanel() {
     queryKey: ["monitoring_config"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("monitoring_config" as any)
+        .from("monitoring_config")
         .select("*")
         .limit(1)
         .single();
       if (error) throw error;
-      return data as any;
+      return data;
     },
   });
 

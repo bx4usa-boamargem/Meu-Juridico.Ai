@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Check } from "lucide-react";
 import { toast } from "sonner";
+import { CustomDocumentBuilder } from "@/components/documento/CustomDocumentBuilder";
 
 interface DocTemplate {
   id: string;
