@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 Deno.serve(async (req) => {
@@ -111,7 +111,7 @@ Itens:
 ${mockItems.map((item, i) => `${i}. [${item.source}] ${item.title}: ${item.summary}`).join("\n")}`;
 
         const filterRes = await fetch(
-          "https://api.lovable.dev/v1/chat/completions",
+          "https://ai.gateway.lovable.dev/v1/chat/completions",
           {
             method: "POST",
             headers: {
@@ -159,7 +159,7 @@ Responda em JSON com:
 }`;
 
         const analysisRes = await fetch(
-          "https://api.lovable.dev/v1/chat/completions",
+          "https://ai.gateway.lovable.dev/v1/chat/completions",
           {
             method: "POST",
             headers: {

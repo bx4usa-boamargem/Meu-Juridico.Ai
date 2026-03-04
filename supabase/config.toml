@@ -14,3 +14,9 @@ verify_jwt = false
 
 [functions.orchestrate_document]
 verify_jwt = false
+
+[functions.monitoring_agent]
+verify_jwt = false
+
+[functions.monitoring_scheduler]
+verify_jwt = false
