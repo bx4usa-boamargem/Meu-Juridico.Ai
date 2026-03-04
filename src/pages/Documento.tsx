@@ -213,7 +213,8 @@ export default function Documento() {
 
   const handleNext = useCallback(async () => {
     if (!workflow) return;
-    const enabledSections = sections.filter((s) => workflow.steps[s.id]?.enabled !== false);
+    const activeSects = sections.filter((s) => !s.condition || formData[s.condition.field] === s.condition.value);
+    const enabledSections = activeSects.filter((s) => workflow.steps[s.id]?.enabled !== false);
     const currentIdx = enabledSections.findIndex((s) => s.id === workflow.current_step);
     if (currentIdx < 0) return;
 
@@ -300,7 +301,8 @@ export default function Documento() {
   const handlePrevious = useCallback(() => {
     if (!workflow) return;
     setInvalidFields(new Set());
-    const enabledSections = sections.filter((s) => workflow.steps[s.id]?.enabled !== false);
+    const activeSects = sections.filter((s) => !s.condition || formData[s.condition.field] === s.condition.value);
+    const enabledSections = activeSects.filter((s) => workflow.steps[s.id]?.enabled !== false);
     const currentIdx = enabledSections.findIndex((s) => s.id === workflow.current_step);
     if (currentIdx <= 0) return;
     const prevSection = enabledSections[currentIdx - 1];
