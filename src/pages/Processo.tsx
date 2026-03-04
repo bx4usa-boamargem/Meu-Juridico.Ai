@@ -149,8 +149,7 @@ export default function Processo() {
           {pipeline ? (
             <DocumentChainView
               processoId={processo.processo_id}
-              cadeia={cadeia}
-              documentos={documentos}
+              pipeline={pipeline ?? []}
             />
           ) : (
             <div className="flex justify-center py-8">
