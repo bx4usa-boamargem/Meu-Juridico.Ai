@@ -414,9 +414,9 @@ export default function DocumentView() {
             </div>
           ) : shareLink ? (
             <div className="space-y-3">
-              <div className="flex items-center gap-2 rounded-md border p-2">
+              <div className="flex items-center gap-2 rounded-md border p-2 overflow-hidden">
                 <ExternalLink className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                <span className="text-xs truncate flex-1 font-mono overflow-hidden break-all min-w-0">{shareLink}</span>
+                <span className="text-xs flex-1 font-mono min-w-0 truncate">{shareLink}</span>
                 <Button variant="ghost" size="sm" className="h-6 text-xs gap-1 shrink-0"
                   onClick={() => { navigator.clipboard.writeText(shareLink); toast.success("Link copiado!"); }}>
                   <Copy className="h-3 w-3" /> Copiar
