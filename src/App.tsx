@@ -20,6 +20,7 @@ import SharedDocument from "./pages/SharedDocument";
 import SelecionarTipoDocumento from "./pages/SelecionarTipoDocumento";
 import Perfil from "./pages/Perfil";
 import BaseConhecimento from "./pages/BaseConhecimento";
+import AdminMonitoramento from "./pages/AdminMonitoramento";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -79,6 +80,7 @@ const App = () => (
                     <Route path="/pesquisa" element={<Pesquisa />} />
                     <Route path="/configuracoes" element={<Configuracoes />} />
                     <Route path="/base-conhecimento" element={<BaseConhecimento />} />
+                    <Route path="/admin/monitoramento" element={<AdminMonitoramento />} />
                     <Route path="/perfil" element={<Perfil />} />
                     <Route path="/" element={<Navigate to="/dashboard" replace />} />
                     <Route path="*" element={<NotFound />} />
