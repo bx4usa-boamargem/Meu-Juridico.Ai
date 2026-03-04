@@ -163,10 +163,11 @@ export default function Documento() {
 
   const { saving, lastSaved } = useDocumentAutoSave(docId, dataWithWorkflow);
 
-  const handleFieldChange = useCallback((key: string, value: string) => {
+  const handleFieldChange = useCallback((key: string, value: any) => {
     setFormData((prev) => ({ ...prev, [key]: value }));
     setInvalidFields((prev) => {
-      if (prev.has(key) && value?.trim()) {
+      const hasValue = typeof value === "string" ? !!value.trim() : !!value;
+      if (prev.has(key) && hasValue) {
         const next = new Set(prev);
         next.delete(key);
         return next;
