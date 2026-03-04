@@ -1,7 +1,8 @@
 import { useRef } from "react";
-import { Info, Sparkles, Shield, Copy, Loader2 } from "lucide-react";
+import { Info, Sparkles, Shield, Copy, Loader2, BookOpen } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +15,12 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import type { SectionDef, FieldDef } from "@/lib/document-sections";
 
+interface FieldMeta {
+  confianca: string;
+  fontes: string[];
+  sugestao: string;
+}
+
 interface Props {
   section: SectionDef;
   formData: Record<string, any>;
@@ -22,6 +29,7 @@ interface Props {
   invalidFields?: Set<string>;
   aiFilledFields?: Set<string>;
   autoPreenchendo?: boolean;
+  camposMeta?: Record<string, FieldMeta>;
   onChange: (key: string, value: any) => void;
   onMelhorar: (field: FieldDef) => void;
   onGerarJustificativa?: () => void;
@@ -49,6 +57,7 @@ export function StepFormRenderer({
   invalidFields,
   aiFilledFields,
   autoPreenchendo,
+  camposMeta,
   onChange,
   onMelhorar,
   onGerarJustificativa,
@@ -138,6 +147,9 @@ export function StepFormRenderer({
     const value = getFieldValue(field);
     const isInherited = inheritedKeys.has(field.key);
     const isAiFilled = aiFilledFields?.has(field.key) ?? false;
+    const fieldMeta = camposMeta?.[field.key];
+    const isLowConfidence = fieldMeta?.confianca === "baixa";
+    const hasSources = fieldMeta?.fontes && fieldMeta.fontes.length > 0;
     const isRequired = field.required === true;
     const isInvalid = invalidFields?.has(field.key) ?? false;
     const colSpan = field.colspan ?? (field.type === "textarea" ? 2 : 1);
@@ -244,10 +256,30 @@ export function StepFormRenderer({
             {isAiFilled && (
               <Badge
                 variant="secondary"
-                className="text-[8px] px-1.5 py-0 bg-primary/10 text-primary border-primary/20"
+                className={cn(
+                  "text-[8px] px-1.5 py-0",
+                  isLowConfidence
+                    ? "bg-amber-500/10 text-amber-600 border-amber-500/20"
+                    : "bg-primary/10 text-primary border-primary/20"
+                )}
               >
-                ✦ IA
+                ✦ IA {fieldMeta?.confianca === "alta" ? "✓" : fieldMeta?.confianca === "baixa" ? "⚠" : ""}
               </Badge>
+            )}
+            {hasSources && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button type="button" className="text-primary/60 hover:text-primary">
+                    <BookOpen className="h-3 w-3" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="text-[10px] max-w-xs">
+                  <p className="font-medium mb-1">Baseado em:</p>
+                  {fieldMeta!.fontes.map((f, i) => (
+                    <p key={i}>• {f}</p>
+                  ))}
+                </TooltipContent>
+              </Tooltip>
             )}
           </div>
           {field.type === "textarea" && !field.readOnly && (
@@ -275,7 +307,8 @@ export function StepFormRenderer({
                 "text-sm min-h-[100px]",
                 field.readOnly && "bg-muted cursor-not-allowed",
                 isInherited && "border-success/20 bg-success/5",
-                isAiFilled && "border-primary/20 bg-primary/5",
+                isAiFilled && !isLowConfidence && "border-primary/20 bg-primary/5",
+                isAiFilled && isLowConfidence && "border-amber-500/30 bg-amber-50",
                 isInvalid && "border-destructive"
               )}
             />
@@ -326,7 +359,8 @@ export function StepFormRenderer({
               "text-sm",
               field.readOnly && "bg-muted cursor-not-allowed",
               isInherited && "border-success/20 bg-success/5",
-              isAiFilled && "border-primary/20 bg-primary/5",
+              isAiFilled && !isLowConfidence && "border-primary/20 bg-primary/5",
+              isAiFilled && isLowConfidence && "border-amber-500/30 bg-amber-50",
               isInvalid && "border-destructive"
             )}
           />
@@ -334,6 +368,11 @@ export function StepFormRenderer({
 
         {isInvalid && (
           <p className="text-[10px] text-destructive">Campo obrigatório</p>
+        )}
+        {isAiFilled && isLowConfidence && fieldMeta?.sugestao && (
+          <p className="text-[10px] text-amber-600 flex items-center gap-1">
+            ⚠ Sugerimos revisar — {fieldMeta.sugestao}
+          </p>
         )}
       </div>
     );

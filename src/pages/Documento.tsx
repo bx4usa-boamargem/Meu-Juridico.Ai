@@ -1,6 +1,6 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -12,6 +12,9 @@ import { StepFormRenderer } from "@/components/documento/StepFormRenderer";
 import { MelhorarDialog } from "@/components/documento/MelhorarDialog";
 import { GerarJustificativaDialog } from "@/components/documento/GerarJustificativaDialog";
 import { ValidarObjetoDialog } from "@/components/documento/ValidarObjetoDialog";
+import { AiBuilderOverlay } from "@/components/documento/AiBuilderOverlay";
+import { NormativasSidebar } from "@/components/documento/NormativasSidebar";
+import { SectionActionBar } from "@/components/documento/SectionActionBar";
 import { useDocumentAutoSave } from "@/hooks/useDocumentAutoSave";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
@@ -25,6 +28,20 @@ import {
 } from "@/lib/document-sections";
 import { useDocumentTemplate } from "@/hooks/useDocumentTemplate";
 import { renderDocumentTemplate, getProcessoStatusAfterApproval } from "@/lib/document-template-renderer";
+
+interface FieldMeta {
+  confianca: string;
+  fontes: string[];
+  sugestao: string;
+}
+
+interface AlertaGlobal {
+  titulo: string;
+  fonte: string;
+  impacto: string;
+  url: string | null;
+  severidade: string;
+}
 
 export default function Documento() {
   const { processoId, docId } = useParams<{ processoId: string; docId: string }>();
@@ -41,6 +58,15 @@ export default function Documento() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [autoPreenchendo, setAutoPreenchendo] = useState(false);
   const [aiFilledFields, setAiFilledFields] = useState<Set<string>>(new Set());
+
+  // AI Builder state
+  const [aiBuilderActive, setAiBuilderActive] = useState(false);
+  const [aiBuilderPhase, setAiBuilderPhase] = useState(0);
+  const [camposMeta, setCamposMeta] = useState<Record<string, FieldMeta>>({});
+  const [alertasGlobais, setAlertasGlobais] = useState<AlertaGlobal[]>([]);
+  const [sectionActions, setSectionActions] = useState<Record<string, "keep" | "improve" | "edit">>({});
+  const [showNormativas, setShowNormativas] = useState(false);
+  const aiBuilderTriggered = useRef(false);
 
   // Dialog states
   const [melhorarOpen, setMelhorarOpen] = useState(false);
@@ -204,28 +230,34 @@ export default function Documento() {
     });
   }, []);
 
-  const handleAutoPreencherIA = useCallback(async (objetoValue: string) => {
-    if (!objetoValue || objetoValue.length < 10) return;
-    setAutoPreenchendo(true);
+  // AI Document Builder - full section-by-section generation
+  const handleAiDocumentBuilder = useCallback(async (objetoValue: string) => {
+    if (!objetoValue || objetoValue.length < 10 || aiBuilderTriggered.current) return;
+    aiBuilderTriggered.current = true;
+    setAiBuilderActive(true);
+    setAiBuilderPhase(0);
+
+    // Animated phase progression
+    const phaseTimer1 = setTimeout(() => setAiBuilderPhase(1), 1500);
+    const phaseTimer2 = setTimeout(() => setAiBuilderPhase(2), 3000);
+
     try {
-      const { data, error } = await supabase.functions.invoke("ai-autopreencher", {
+      const { data, error } = await supabase.functions.invoke("ai-document-builder", {
         body: {
-          objeto_contratacao: objetoValue,
+          objeto: objetoValue,
           doc_type: documento?.tipo ?? "dfd",
-          processo_dados: {
-            orgao: processo?.orgao,
-            modalidade: processo?.modalidade,
-          },
+          orgao: processo?.orgao ?? "",
+          processo_id: processoId,
         },
       });
       if (error) throw error;
+
       if (data?.campos_preenchidos) {
         const newAiFields = new Set<string>();
         setFormData((prev) => {
           const updated = { ...prev };
           for (const [key, value] of Object.entries(data.campos_preenchidos)) {
             if (value !== null && value !== undefined) {
-              // Only fill if user hasn't already typed something
               if (!updated[key] || (typeof updated[key] === "string" && !updated[key].trim())) {
                 updated[key] = value;
                 newAiFields.add(key);
@@ -235,16 +267,41 @@ export default function Documento() {
           return updated;
         });
         setAiFilledFields(newAiFields);
+
+        if (data.campos_meta) {
+          setCamposMeta(data.campos_meta);
+        }
+        if (data.alertas_globais) {
+          setAlertasGlobais(data.alertas_globais);
+          setShowNormativas(data.alertas_globais.length > 0);
+        }
+
         const count = Object.keys(data.campos_preenchidos).length;
-        toast.success(`IA preencheu ${count} campos automaticamente!`);
+        toast.success(`IA preencheu ${count} campos automaticamente!`, {
+          description: data.contexto?.alertas_encontrados
+            ? `${data.contexto.alertas_encontrados} alertas normativos integrados.`
+            : undefined,
+        });
       }
     } catch (err: any) {
-      console.error("Erro no autopreenchimento:", err);
-      toast.error("Erro ao preencher com IA. Tente novamente.");
+      console.error("Erro no AI Document Builder:", err);
+      toast.error("Erro ao construir documento com IA. Tente novamente.");
+      aiBuilderTriggered.current = false;
     } finally {
-      setAutoPreenchendo(false);
+      clearTimeout(phaseTimer1);
+      clearTimeout(phaseTimer2);
+      setAiBuilderPhase(3);
+      setTimeout(() => setAiBuilderActive(false), 500);
     }
-  }, [documento?.tipo, processo?.orgao, processo?.modalidade]);
+  }, [documento?.tipo, processo?.orgao, processoId]);
+
+  // Legacy auto-fill (triggered by onBlur on objeto field)
+  const handleAutoPreencherIA = useCallback(async (objetoValue: string) => {
+    if (!objetoValue || objetoValue.length < 10) return;
+    // If builder already ran, skip simple auto-fill
+    if (aiBuilderTriggered.current) return;
+    handleAiDocumentBuilder(objetoValue);
+  }, [handleAiDocumentBuilder]);
 
   // Update workflow step statuses when formData changes
   useEffect(() => {
@@ -479,7 +536,10 @@ export default function Documento() {
         />
 
         {/* CENTER — Workspace */}
-        <div className="flex-1 flex flex-col min-w-0">
+        <div className="flex-1 flex flex-col min-w-0 relative">
+          {/* AI Builder Overlay */}
+          <AiBuilderOverlay isActive={aiBuilderActive} currentPhase={aiBuilderPhase} />
+
           <ScrollArea className="flex-1">
             <div className="p-6 max-w-2xl mx-auto">
               {/* Edital banner - TR approved */}
@@ -506,6 +566,21 @@ export default function Documento() {
                 <h2 className="text-lg font-semibold">{currentSection?.label}</h2>
               </div>
 
+              {/* Section action bar (Manter/Melhorar/Editar) */}
+              {currentSection && (
+                <SectionActionBar
+                  currentAction={sectionActions[currentSection.id] ?? null}
+                  onAction={(action) => {
+                    setSectionActions(prev => ({ ...prev, [currentSection.id]: action }));
+                    if (action === "improve" && currentSection) {
+                      const textareaField = currentSection.fields.find(f => f.type === "textarea" && !f.readOnly);
+                      if (textareaField) handleMelhorar(textareaField);
+                    }
+                  }}
+                  hasAiContent={currentSection.fields.some(f => aiFilledFields.has(f.key))}
+                />
+              )}
+
               {currentSection && (
                 <StepFormRenderer
                   section={currentSection}
@@ -515,6 +590,7 @@ export default function Documento() {
                   invalidFields={invalidFields}
                   aiFilledFields={aiFilledFields}
                   autoPreenchendo={autoPreenchendo}
+                  camposMeta={camposMeta}
                   onChange={handleFieldChange}
                   onMelhorar={handleMelhorar}
                   onGerarJustificativa={() => setJustificativaOpen(true)}
@@ -563,15 +639,23 @@ export default function Documento() {
           </div>
         </div>
 
-        {/* RIGHT — Tools Bar */}
-        <DocumentToolsBar
-          onMelhorarClick={() => {
-            if (currentSection) {
-              const textareaField = currentSection.fields.find((f) => f.type === "textarea" && !f.readOnly);
-              if (textareaField) handleMelhorar(textareaField);
-            }
-          }}
-        />
+        {/* RIGHT — Normativas Sidebar or Tools Bar */}
+        {showNormativas && alertasGlobais.length > 0 ? (
+          <NormativasSidebar
+            alertas={alertasGlobais}
+            camposMeta={camposMeta}
+            currentSectionFields={currentSection?.fields.map(f => f.key)}
+          />
+        ) : (
+          <DocumentToolsBar
+            onMelhorarClick={() => {
+              if (currentSection) {
+                const textareaField = currentSection.fields.find((f) => f.type === "textarea" && !f.readOnly);
+                if (textareaField) handleMelhorar(textareaField);
+              }
+            }}
+          />
+        )}
       </div>
 
       {/* DIALOGS */}
