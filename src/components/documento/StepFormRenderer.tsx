@@ -8,6 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { RichTextEditor } from "@/components/documento/RichTextEditor";
+import { TextAreaComIA } from "@/components/documento/TextAreaComIA";
+import { TeamListField } from "@/components/documento/TeamListField";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import type { SectionDef, FieldDef } from "@/lib/document-sections";
@@ -18,10 +20,11 @@ interface Props {
   processoData?: Record<string, any>;
   inheritedKeys: Set<string>;
   invalidFields?: Set<string>;
-  onChange: (key: string, value: string) => void;
+  onChange: (key: string, value: any) => void;
   onMelhorar: (field: FieldDef) => void;
   onGerarJustificativa?: () => void;
   onValidarObjeto?: () => void;
+  documentType?: string;
 }
 
 // Dynamic tokens for the Visualização step
@@ -45,6 +48,7 @@ export function StepFormRenderer({
   onMelhorar,
   onGerarJustificativa,
   onValidarObjeto,
+  documentType,
 }: Props) {
   const editorRef = useRef<{ insertToken: (token: string) => void } | null>(null);
 
@@ -59,14 +63,11 @@ export function StepFormRenderer({
   if (section.fields.length === 0) {
     return (
       <div className="flex gap-6">
-        {/* Rich Text Editor */}
         <div className="flex-1 space-y-4">
           <RichTextEditor
             value={formData.conteudo_final ?? ""}
             onChange={(html) => onChange("conteudo_final", html)}
           />
-
-          {/* Summary of filled fields */}
           <div className="space-y-2">
             <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
               Resumo dos dados preenchidos
@@ -84,8 +85,6 @@ export function StepFormRenderer({
               ))}
           </div>
         </div>
-
-        {/* Dynamic tokens sidebar */}
         <div className="w-48 shrink-0 space-y-3">
           <h4 className="text-xs font-semibold text-foreground">Dados dinâmicos</h4>
           <p className="text-[10px] text-muted-foreground">
@@ -97,7 +96,6 @@ export function StepFormRenderer({
                 key={token.key}
                 className="w-full flex items-center gap-2 rounded-md border border-border/50 px-2.5 py-1.5 text-left hover:bg-muted/50 transition-colors group"
                 onClick={() => {
-                  // Try to insert into editor at cursor
                   const editor = document.querySelector('[contenteditable="true"]') as HTMLDivElement | null;
                   if (editor) {
                     editor.focus();
@@ -136,6 +134,85 @@ export function StepFormRenderer({
     const isRequired = field.required === true;
     const isInvalid = invalidFields?.has(field.key) ?? false;
     const colSpan = field.colspan ?? (field.type === "textarea" ? 2 : 1);
+
+    // Radio cards
+    if (field.type === "radio_cards" && field.radioOptions) {
+      return (
+        <div key={field.key} className={cn("space-y-2", colSpan === 2 ? "col-span-2" : "col-span-1")}>
+          <Label className="text-xs font-medium">
+            {field.label}
+            {isRequired && <span className="text-destructive ml-0.5">*</span>}
+          </Label>
+          <div className="flex gap-3">
+            {field.radioOptions.map((opt) => {
+              const isActive = value === opt.value;
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => onChange(field.key, opt.value)}
+                  className={cn(
+                    "flex-1 rounded-lg border-2 px-4 py-3 text-left transition-all",
+                    isActive
+                      ? "border-[#0F6FDE] bg-[#0F6FDE]/5"
+                      : "border-border hover:border-border/80"
+                  )}
+                >
+                  <div className="flex items-center gap-2">
+                    <div
+                      className={cn(
+                        "h-4 w-4 rounded-full border-2 flex items-center justify-center shrink-0",
+                        isActive ? "border-[#0F6FDE]" : "border-muted-foreground/40"
+                      )}
+                    >
+                      {isActive && <div className="h-2 w-2 rounded-full bg-[#0F6FDE]" />}
+                    </div>
+                    <span className={cn("text-xs font-medium", isActive ? "text-[#0F6FDE]" : "text-foreground")}>
+                      {opt.label}
+                    </span>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+          {isInvalid && <p className="text-[10px] text-destructive">Selecione uma opção</p>}
+        </div>
+      );
+    }
+
+    // Team list
+    if (field.type === "team_list") {
+      return (
+        <div key={field.key} className={cn("space-y-1.5", colSpan === 2 ? "col-span-2" : "col-span-1")}>
+          <Label className="text-xs font-medium">{field.label}</Label>
+          <TeamListField
+            value={formData[field.key] ?? []}
+            onChange={(members) => onChange(field.key, members)}
+          />
+        </div>
+      );
+    }
+
+    // Textarea with AI (for fields that have showMelhorar or showGerarTexto)
+    if (field.type === "textarea" && (field.showMelhorar || field.showGerarTexto)) {
+      return (
+        <div key={field.key} className={cn(colSpan === 2 ? "col-span-2" : "col-span-1")}>
+          <TextAreaComIA
+            label={field.label}
+            value={value}
+            onChange={(v) => onChange(field.key, v)}
+            required={isRequired}
+            showMelhorar={field.showMelhorar}
+            showGerarTexto={field.showGerarTexto}
+            contextoSecao={field.contextoSecao}
+            documentType={documentType}
+            formData={formData}
+            isInvalid={isInvalid}
+            placeholder={`Digite ${field.label.toLowerCase()}...`}
+          />
+        </div>
+      );
+    }
 
     return (
       <div
@@ -289,7 +366,7 @@ export function StepFormRenderer({
               <Info className="h-3.5 w-3.5 text-success mt-0.5 shrink-0" />
               <p className="text-[10px] text-muted-foreground">
                 <span className="font-medium text-success">Preenchimento automático</span> — Dados
-                obtidos durante a construção do ETP
+                herdados do processo
               </p>
             </div>
           </CardHeader>

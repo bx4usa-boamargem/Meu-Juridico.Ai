@@ -37,6 +37,7 @@ export default function Documento() {
   const [invalidFields, setInvalidFields] = useState<Set<string>>(new Set());
   const [workflow, setWorkflow] = useState<WorkflowState | null>(null);
   const [initialized, setInitialized] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
 
   // Dialog states
   const [melhorarOpen, setMelhorarOpen] = useState(false);
@@ -242,6 +243,7 @@ export default function Documento() {
 
       const htmlFinal = renderDocumentTemplate(documento?.tipo, formData, processoData);
 
+      setIsGenerating(true);
       try {
         const { data: result, error } = await supabase.functions.invoke("orchestrate_document", {
           body: {
@@ -250,18 +252,31 @@ export default function Documento() {
             doc_type: documento?.tipo ?? "custom",
             form_data: formData,
             html_final: htmlFinal,
+            generate_with_ai: true,
           },
         });
 
         if (error) throw error;
 
+        // MANDATORY: refetch AI-generated content from database
+        const { data: docAtualizado } = await supabase
+          .from("documentos")
+          .select("conteudo_final, score_conformidade, section_memories")
+          .eq("id", docId!)
+          .maybeSingle();
+
+        // Invalidate queries so views show fresh data
+        queryClient.invalidateQueries({ queryKey: ["documento", docId] });
         queryClient.invalidateQueries({ queryKey: ["processo", processoId] });
         queryClient.invalidateQueries({ queryKey: ["pipeline", processoId] });
-        toast.success(`${documento?.tipo ?? "Documento"} finalizado! Redirecionando...`);
+
+        toast.success(`${documento?.tipo ?? "Documento"} finalizado com IA!`);
         navigate(`/processo/${processoId}/documento/${docId}/view`);
       } catch (err: any) {
         console.error("Erro ao finalizar documento:", err);
         toast.error("Erro ao finalizar documento. Tente novamente.");
+      } finally {
+        setIsGenerating(false);
       }
       return;
     }
