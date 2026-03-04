@@ -35,3 +35,6 @@ verify_jwt = false
 
 [functions.price-research]
 verify_jwt = false
+
+[functions.risk-map]
+verify_jwt = false
