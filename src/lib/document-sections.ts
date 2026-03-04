@@ -1,14 +1,23 @@
+export interface RadioCardOption {
+  value: string;
+  label: string;
+}
+
 export interface FieldDef {
   key: string;
   label: string;
-  type: "text" | "textarea" | "date" | "select";
+  type: "text" | "textarea" | "date" | "select" | "radio_cards" | "team_list";
   readOnly?: boolean;
   source?: "processo";
   options?: string[];
+  radioOptions?: RadioCardOption[];
   required?: boolean;
   maxLength?: number;
   colspan?: number; // 1 (half) or 2 (full width) — default inferred from type
   group?: string; // group fields into sub-section cards
+  showMelhorar?: boolean;
+  showGerarTexto?: boolean;
+  contextoSecao?: string;
 }
 
 export interface SectionDef {
@@ -17,6 +26,7 @@ export interface SectionDef {
   fields: FieldDef[];
   required: boolean;
   unlocksNext: boolean;
+  condition?: { field: string; value: string };
 }
 
 export type StepStatus = "locked" | "editing" | "complete";
@@ -129,59 +139,131 @@ const DFD_SECTIONS: SectionDef[] = [
   },
 ];
 
-// ─── ETP Sections ────────────────────────────────────────────────────
+// ─── ETP Sections (Figma-aligned, 6 sections) ───────────────────────
 
 const ETP_SECTIONS: SectionDef[] = [
   {
-    id: "descricao_necessidade",
-    label: "Descrição da Necessidade",
+    id: "informacoes_basicas_etp",
+    label: "Informações básicas",
     required: true,
     unlocksNext: true,
     fields: [
-      { key: "necessidade_contratacao", label: "Necessidade da Contratação", type: "textarea" },
-      { key: "alinhamento_pca", label: "Alinhamento com o PCA", type: "textarea" },
+      { key: "objeto_contratacao", label: "Objeto da contratação", type: "textarea", required: true, colspan: 2, source: "processo", readOnly: true, group: "basicas" },
+      { key: "numero_processo", label: "Número do Processo", type: "text", readOnly: true, source: "processo", group: "basicas" },
+      { key: "orgao", label: "Órgão", type: "text", readOnly: true, source: "processo", group: "basicas" },
+      {
+        key: "registro_preco",
+        label: "Registro de preço",
+        type: "radio_cards",
+        radioOptions: [
+          { value: "nao", label: "Não é registro de preço" },
+          { value: "sim", label: "Sim, é registro de preço" },
+        ],
+        required: true,
+        colspan: 2,
+      },
+      {
+        key: "valor_global",
+        label: "Valor global",
+        type: "radio_cards",
+        radioOptions: [
+          { value: "por_lote", label: "Por lote" },
+          { value: "por_item", label: "Item" },
+          { value: "por_grupo", label: "Grupo de itens" },
+        ],
+        required: true,
+        colspan: 2,
+      },
     ],
   },
   {
-    id: "area_requisitante",
-    label: "Área Requisitante",
+    id: "necessidades",
+    label: "Descrição das necessidades",
     required: true,
     unlocksNext: true,
     fields: [
-      { key: "area_requisitante", label: "Área Requisitante", type: "text" },
-      { key: "responsavel_demanda", label: "Responsável pela Demanda", type: "text" },
+      {
+        key: "descricao_necessidade",
+        label: "Necessidades",
+        type: "textarea",
+        required: true,
+        colspan: 2,
+        showMelhorar: true,
+        showGerarTexto: true,
+        contextoSecao: "Descrição da necessidade da contratação conforme Art. 18 da Lei 14.133/2021",
+      },
     ],
   },
   {
-    id: "estimativas",
-    label: "Estimativas e Preços",
+    id: "solucao",
+    label: "Solução",
     required: true,
     unlocksNext: true,
     fields: [
-      { key: "estimativa_quantidade", label: "Estimativa de Quantidade", type: "textarea" },
-      { key: "estimativa_preco", label: "Estimativa de Preço", type: "text" },
-      { key: "metodologia_preco", label: "Metodologia de Pesquisa de Preço", type: "textarea" },
+      {
+        key: "descricao_solucao",
+        label: "Descrição da solução",
+        type: "textarea",
+        required: true,
+        colspan: 2,
+        showMelhorar: true,
+        showGerarTexto: true,
+        contextoSecao: "Solução de mercado escolhida para a contratação",
+      },
+      {
+        key: "sobre_opcao",
+        label: "Sobre a opção escolhida",
+        type: "textarea",
+        colspan: 2,
+        showMelhorar: true,
+        showGerarTexto: false,
+        contextoSecao: "Justificativa da opção escolhida",
+      },
     ],
   },
   {
-    id: "solucoes",
-    label: "Levantamento de Soluções",
-    required: true,
-    unlocksNext: true,
-    fields: [
-      { key: "solucoes_mercado", label: "Soluções de Mercado", type: "textarea" },
-      { key: "solucao_escolhida", label: "Solução Escolhida", type: "textarea" },
-      { key: "justificativa_escolha", label: "Justificativa da Escolha", type: "textarea" },
-    ],
-  },
-  {
-    id: "riscos",
-    label: "Análise de Riscos",
+    id: "equipe_planejamento",
+    label: "Equipe de planejamento",
     required: false,
+    unlocksNext: true,
+    fields: [
+      { key: "equipe_planejamento", label: "Equipe de planejamento", type: "team_list", colspan: 2 },
+    ],
+  },
+  {
+    id: "viabilidade",
+    label: "Justificativa registro de preços",
+    required: false,
+    unlocksNext: true,
+    condition: { field: "registro_preco", value: "sim" },
+    fields: [
+      {
+        key: "justificativa_registro_preco",
+        label: "Justificativa do registro de preços",
+        type: "textarea",
+        colspan: 2,
+        showMelhorar: true,
+        showGerarTexto: true,
+        contextoSecao: "Justificativa para adoção do Sistema de Registro de Preços conforme Art. 6º, XLV da Lei 14.133/2021",
+      },
+    ],
+  },
+  {
+    id: "requisitos",
+    label: "Descrição dos Requisitos",
+    required: true,
     unlocksNext: false,
     fields: [
-      { key: "riscos_principais", label: "Riscos Principais", type: "textarea" },
-      { key: "mitigacao", label: "Ações de Mitigação", type: "textarea" },
+      {
+        key: "requisitos_contratacao",
+        label: "Necessidades do objeto",
+        type: "textarea",
+        required: true,
+        colspan: 2,
+        showMelhorar: true,
+        showGerarTexto: false,
+        contextoSecao: "Requisitos da contratação e necessidades institucionais",
+      },
     ],
   },
 ];

@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ArrowLeft, ArrowRight } from "lucide-react";
+import { ArrowLeft, ArrowRight, Loader2 } from "lucide-react";
 import { DocumentStepSidebar } from "@/components/documento/DocumentStepSidebar";
 import { DocumentMetaBar } from "@/components/documento/DocumentMetaBar";
 import { DocumentToolsBar } from "@/components/documento/DocumentToolsBar";
@@ -37,6 +37,7 @@ export default function Documento() {
   const [invalidFields, setInvalidFields] = useState<Set<string>>(new Set());
   const [workflow, setWorkflow] = useState<WorkflowState | null>(null);
   const [initialized, setInitialized] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
 
   // Dialog states
   const [melhorarOpen, setMelhorarOpen] = useState(false);
@@ -242,6 +243,7 @@ export default function Documento() {
 
       const htmlFinal = renderDocumentTemplate(documento?.tipo, formData, processoData);
 
+      setIsGenerating(true);
       try {
         const { data: result, error } = await supabase.functions.invoke("orchestrate_document", {
           body: {
@@ -250,18 +252,31 @@ export default function Documento() {
             doc_type: documento?.tipo ?? "custom",
             form_data: formData,
             html_final: htmlFinal,
+            generate_with_ai: true,
           },
         });
 
         if (error) throw error;
 
+        // MANDATORY: refetch AI-generated content from database
+        const { data: docAtualizado } = await supabase
+          .from("documentos")
+          .select("conteudo_final, score_conformidade, section_memories")
+          .eq("id", docId!)
+          .maybeSingle();
+
+        // Invalidate queries so views show fresh data
+        queryClient.invalidateQueries({ queryKey: ["documento", docId] });
         queryClient.invalidateQueries({ queryKey: ["processo", processoId] });
         queryClient.invalidateQueries({ queryKey: ["pipeline", processoId] });
-        toast.success(`${documento?.tipo ?? "Documento"} finalizado! Redirecionando...`);
+
+        toast.success(`${documento?.tipo ?? "Documento"} finalizado com IA!`);
         navigate(`/processo/${processoId}/documento/${docId}/view`);
       } catch (err: any) {
         console.error("Erro ao finalizar documento:", err);
         toast.error("Erro ao finalizar documento. Tente novamente.");
+      } finally {
+        setIsGenerating(false);
       }
       return;
     }
@@ -311,9 +326,15 @@ export default function Documento() {
 
   const progress = workflow ? calculateDocumentProgress(sections, formData, workflow) : 0;
   const currentSection = workflow ? sections.find((s) => s.id === workflow.current_step) : null;
+  const activeSections = sections.filter((s) => {
+    if (s.condition) {
+      return formData[s.condition.field] === s.condition.value;
+    }
+    return true;
+  });
   const enabledSections = workflow
-    ? sections.filter((s) => workflow.steps[s.id]?.enabled !== false)
-    : sections;
+    ? activeSections.filter((s) => workflow.steps[s.id]?.enabled !== false)
+    : activeSections;
   const currentEnabledIdx = currentSection
     ? enabledSections.findIndex((s) => s.id === currentSection.id)
     : 0;
@@ -371,7 +392,7 @@ export default function Documento() {
       <div className="flex flex-1 overflow-hidden">
         {/* LEFT — Pipeline Sidebar */}
         <DocumentStepSidebar
-          sections={sections}
+          sections={activeSections}
           workflow={workflow}
           formData={formData}
           documentTitle={documento.tipo ?? "Documento"}
@@ -419,6 +440,7 @@ export default function Documento() {
                   onMelhorar={handleMelhorar}
                   onGerarJustificativa={() => setJustificativaOpen(true)}
                   onValidarObjeto={() => setValidarObjetoOpen(true)}
+                  documentType={documento.tipo ?? "etp"}
                 />
               )}
             </div>
@@ -445,8 +467,17 @@ export default function Documento() {
                 size="sm"
                 className="text-xs gap-1"
                 onClick={handleNext}
+                disabled={isGenerating}
               >
-                {isLastStep ? "Finalizar" : "Próximo"} <ArrowRight className="h-3 w-3" />
+                {isGenerating ? (
+                  <>
+                    <Loader2 className="h-3 w-3 animate-spin" /> Gerando com IA...
+                  </>
+                ) : (
+                  <>
+                    {isLastStep ? "Finalizar" : "Próximo"} <ArrowRight className="h-3 w-3" />
+                  </>
+                )}
               </Button>
             </div>
           </div>
