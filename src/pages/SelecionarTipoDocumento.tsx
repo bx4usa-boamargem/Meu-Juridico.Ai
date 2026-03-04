@@ -111,6 +111,16 @@ export default function SelecionarTipoDocumento() {
   const getExistingDoc = (docType: string) =>
     existingDocs?.find((d) => d.tipo === docType);
 
+  // Show custom builder if selected
+  if (showCustomBuilder) {
+    return (
+      <CustomDocumentBuilder
+        onConfirm={(sections) => createDocument("custom", sections)}
+        onBack={() => setShowCustomBuilder(false)}
+      />
+    );
+  }
+
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-6">
       {/* Header */}
@@ -143,7 +153,7 @@ export default function SelecionarTipoDocumento() {
                   relative text-left rounded-xl border-2 p-5 transition-all duration-200 cursor-pointer
                   hover:shadow-[0_4px_12px_rgba(27,79,216,0.15)] hover:border-primary
                   ${isSelected
-                    ? "bg-[hsl(217,100%,97%)] border-primary shadow-[0_4px_12px_rgba(27,79,216,0.15)]"
+                    ? "bg-accent border-primary shadow-[0_4px_12px_rgba(27,79,216,0.15)]"
                     : "bg-card border-border"
                   }
                 `}
@@ -157,12 +167,12 @@ export default function SelecionarTipoDocumento() {
                 <h3 className="text-sm font-semibold mb-1">{tmpl.title}</h3>
                 <p className="text-xs text-muted-foreground leading-relaxed">{tmpl.description}</p>
                 <Badge variant="secondary" className="mt-3 text-[10px]">
-                  {tmpl.sections_plan?.length || 0} seções
+                  {(tmpl.sections_plan as any[])?.length || 0} seções
                 </Badge>
 
                 {existing && (
                   <div className="mt-2 text-[10px] text-muted-foreground flex items-center gap-1">
-                    <Check className="h-3 w-3 text-green-600" />
+                    <Check className="h-3 w-3 text-emerald-600" />
                     <span>{existing.status === "aprovado" ? "Aprovado" : "Em andamento"}</span>
                   </div>
                 )}

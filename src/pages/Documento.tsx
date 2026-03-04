@@ -86,6 +86,24 @@ export default function Documento() {
     enabled: !!processoId && !!documento?.tipo,
   });
 
+  // Check for approved TR when editing Edital
+  const { data: approvedTR } = useQuery({
+    queryKey: ["approved-tr", processoId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("documentos")
+        .select("id, tipo, aprovado_em")
+        .eq("processo_id", processoId!)
+        .eq("tipo", "TR")
+        .eq("status", "aprovado")
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!processoId && documento?.tipo === "edital",
+  });
+
   const sections = useMemo(() => getSectionsForType(documento?.tipo), [documento?.tipo]);
 
   // Auto-redirect if document is already approved
