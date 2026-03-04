@@ -275,6 +275,7 @@ export function StepFormRenderer({
                 "text-sm min-h-[100px]",
                 field.readOnly && "bg-muted cursor-not-allowed",
                 isInherited && "border-success/20 bg-success/5",
+                isAiFilled && "border-primary/20 bg-primary/5",
                 isInvalid && "border-destructive"
               )}
             />
