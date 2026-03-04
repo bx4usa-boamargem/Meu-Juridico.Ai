@@ -16,7 +16,6 @@ import { useDocumentAutoSave } from "@/hooks/useDocumentAutoSave";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import {
-  getSectionsForType,
   calculateDocumentProgress,
   calculateSectionCompletion,
   isSectionUnlocked,
@@ -24,6 +23,7 @@ import {
   type WorkflowState,
   type FieldDef,
 } from "@/lib/document-sections";
+import { useDocumentTemplate } from "@/hooks/useDocumentTemplate";
 import { renderDocumentTemplate, getProcessoStatusAfterApproval } from "@/lib/document-template-renderer";
 
 export default function Documento() {
@@ -104,7 +104,7 @@ export default function Documento() {
     enabled: !!processoId && documento?.tipo === "edital",
   });
 
-  const sections = useMemo(() => getSectionsForType(documento?.tipo), [documento?.tipo]);
+  const { sections, loading: sectionsLoading } = useDocumentTemplate(documento?.tipo);
 
   // Auto-redirect if document is already approved
   useEffect(() => {

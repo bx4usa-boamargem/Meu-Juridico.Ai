@@ -39,7 +39,7 @@ export function MonitoramentoPanel() {
         .from("monitoring_config")
         .select("*")
         .limit(1)
-        .single();
+        .maybeSingle();
       if (error) throw error;
       return data;
     },
@@ -121,9 +121,18 @@ export function MonitoramentoPanel() {
   const formatDate = (d: string | null) =>
     d ? new Date(d).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—";
 
+  if (!config) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 gap-4">
+        <Activity className="h-10 w-10 text-muted-foreground" />
+        <p className="text-sm text-muted-foreground">Monitoramento ainda não configurado.</p>
+        <p className="text-xs text-muted-foreground">O registro de configuração será criado pelo administrador do sistema.</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
-      {/* 5a — Control Card */}
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
