@@ -23,17 +23,18 @@ export default function SelecionarTipoDocumento() {
   const navigate = useNavigate();
   const [selected, setSelected] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const [showCustomBuilder, setShowCustomBuilder] = useState(false);
 
   const { data: templates, isLoading } = useQuery({
     queryKey: ["document_templates"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("document_templates" as any)
+        .from("document_templates")
         .select("*")
         .eq("is_active", true)
         .order("doc_type");
       if (error) throw error;
-      return (data as any[]) as DocTemplate[];
+      return data as DocTemplate[];
     },
   });
 
@@ -53,27 +54,39 @@ export default function SelecionarTipoDocumento() {
 
   const handleCreate = async () => {
     if (!selected || !processoId) return;
+    
+    // For 'custom' type, show the custom builder
+    if (selected === "custom") {
+      setShowCustomBuilder(true);
+      return;
+    }
+
+    await createDocument(selected);
+  };
+
+  const createDocument = async (docType: string, customSections?: any[]) => {
     setCreating(true);
     try {
       const { data: user } = await supabase.auth.getUser();
       if (!user.user) throw new Error("Não autenticado");
 
-      // For 'custom' type, navigate to custom builder
-      if (selected === "custom") {
-        navigate(`/processo/${processoId}/novo-documento/custom`);
-        return;
+      // Create document
+      const insertData: any = {
+        processo_id: processoId,
+        tipo: docType,
+        status: "rascunho",
+        workflow_status: "rascunho",
+        gerado_por: user.user.id,
+      };
+      
+      // If custom sections were provided, store them in dados_estruturados
+      if (customSections) {
+        insertData.dados_estruturados = { custom_sections: customSections };
       }
 
-      // Create document
       const { data: doc, error } = await supabase
         .from("documentos")
-        .insert({
-          processo_id: processoId,
-          tipo: selected,
-          status: "rascunho",
-          workflow_status: "rascunho",
-          gerado_por: user.user.id,
-        })
+        .insert(insertData)
         .select("id")
         .single();
 
