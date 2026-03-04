@@ -1,8 +1,11 @@
 import { useNavigate } from "react-router-dom";
-import { Pencil, Menu, Calendar, Loader2, Check } from "lucide-react";
+import { Pencil, Menu, Calendar, Loader2, Check, Download } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { useState } from "react";
 
 interface Props {
   tipo: string | null;
@@ -11,7 +14,9 @@ interface Props {
   saving: boolean;
   lastSaved: Date | null;
   processoId: string;
+  docId?: string;
   userEmail?: string;
+  conformityScore?: number | null;
 }
 
 export function DocumentMetaBar({ tipo, numero, status, saving, lastSaved, processoId, userEmail }: Props) {
