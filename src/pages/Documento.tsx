@@ -94,7 +94,7 @@ export default function Documento() {
         .from("documentos")
         .select("id, tipo, aprovado_em")
         .eq("processo_id", processoId!)
-        .eq("tipo", "TR")
+        .eq("tipo", "tr")
         .eq("status", "aprovado")
         .limit(1)
         .maybeSingle();

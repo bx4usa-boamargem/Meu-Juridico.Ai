@@ -55,7 +55,7 @@ export function AiRewriteDialog({
           selected_text: selectedText,
           action,
           section_type: sectionType ?? "geral",
-          document_type: documentType ?? "DFD",
+          document_type: documentType ?? "dfd",
           processo_context: processoContext,
           dados_estruturados: dadosEstruturados,
           other_sections: otherSections ?? [],

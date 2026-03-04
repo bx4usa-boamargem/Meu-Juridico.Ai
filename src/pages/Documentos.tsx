@@ -9,9 +9,9 @@ import { toast } from "sonner";
 
 const FILTER_TABS = [
   { key: "all", label: "Todos" },
-  { key: "DFD", label: "DFD" },
-  { key: "ETP", label: "ETP" },
-  { key: "TR", label: "TR" },
+  { key: "dfd", label: "DFD" },
+  { key: "etp", label: "ETP" },
+  { key: "tr", label: "TR" },
   { key: "projeto_basico", label: "Projeto Básico" },
   { key: "mapa_risco", label: "Mapa de Risco" },
   { key: "edital", label: "Edital" },
