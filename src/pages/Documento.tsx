@@ -61,6 +61,9 @@ export default function Documento() {
   const [autoPreenchendo, setAutoPreenchendo] = useState(false);
   const [aiFilledFields, setAiFilledFields] = useState<Set<string>>(new Set());
 
+  // CORREÇÃO 1+2: No auto AI builder on open. User must confirm objeto first.
+  const [objetoConfirmado, setObjetoConfirmado] = useState(false);
+
   // AI Builder state
   const [aiBuilderActive, setAiBuilderActive] = useState(false);
   const [aiBuilderPhase, setAiBuilderPhase] = useState(0);
@@ -69,7 +72,6 @@ export default function Documento() {
   const [sectionActions, setSectionActions] = useState<Record<string, "keep" | "improve" | "edit">>({});
   const [showNormativas, setShowNormativas] = useState(false);
   const [generatingSectionAi, setGeneratingSectionAi] = useState(false);
-  const aiBuilderTriggered = useRef(false);
 
   // Dialog states
   const [melhorarOpen, setMelhorarOpen] = useState(false);
@@ -119,7 +121,6 @@ export default function Documento() {
     enabled: !!processoId && !!documento?.tipo,
   });
 
-  // Check for approved TR when editing Edital
   const { data: approvedTR } = useQuery({
     queryKey: ["approved-tr", processoId],
     queryFn: async () => {
@@ -147,6 +148,7 @@ export default function Documento() {
   }, [documento?.status, processoId, docId, navigate]);
 
   // Initialize form + workflow from existing data
+  // CORREÇÃO 1: NO auto-trigger AI builder
   useEffect(() => {
     if (!documento || initialized) return;
     const existing = (documento.dados_estruturados as Record<string, any>) ?? {};
@@ -184,8 +186,21 @@ export default function Documento() {
     const existingWorkflow = (existing as any)?.meta?.workflow as WorkflowState | undefined;
     const wf = initializeWorkflow(sections, existingWorkflow);
 
+    // CORREÇÃO 2: Check if objeto is already filled to determine if sections should be unlocked
+    const objetoValue = merged.objeto_contratacao || merged.objeto;
+    const hasObjeto = !!objetoValue && typeof objetoValue === "string" && objetoValue.trim().length >= 5;
+
+    if (hasObjeto) {
+      setObjetoConfirmado(true);
+    }
+
     sections.forEach((s, i) => {
       if (wf.steps[s.id]?.enabled === false) return;
+      // CORREÇÃO 2: If objeto not confirmed, only first section is unlocked
+      if (!hasObjeto && i > 0) {
+        wf.steps[s.id].status = "locked";
+        return;
+      }
       const { complete } = calculateSectionCompletion(s, merged);
       const unlocked = isSectionUnlocked(i, sections, merged, wf);
       if (complete && unlocked) {
@@ -201,13 +216,7 @@ export default function Documento() {
     setInheritedKeys(keys);
     setWorkflow(wf);
     setInitialized(true);
-
-    // Auto-trigger AI Document Builder if objeto is pre-populated from processo
-    const objetoValue = merged.objeto_contratacao || merged.objeto;
-    if (objetoValue && typeof objetoValue === "string" && objetoValue.length >= 10 && !aiBuilderTriggered.current) {
-      // Small delay to let the UI render first
-      setTimeout(() => handleAiDocumentBuilder(objetoValue), 500);
-    }
+    // CORREÇÃO 1: Removed auto-trigger of AI Document Builder
   }, [documento, inherited, processo, sections, initialized]);
 
   // Persist workflow state
@@ -240,14 +249,43 @@ export default function Documento() {
     });
   }, []);
 
-  // AI Document Builder - full section-by-section generation
-  const handleAiDocumentBuilder = useCallback(async (objetoValue: string) => {
-    if (!objetoValue || objetoValue.length < 10 || aiBuilderTriggered.current) return;
-    aiBuilderTriggered.current = true;
+  // CORREÇÃO 2: Confirm objeto and unlock sections
+  const handleConfirmarObjeto = useCallback(() => {
+    const objetoValue = formData.objeto_contratacao || formData.objeto;
+    if (!objetoValue || (typeof objetoValue === "string" && objetoValue.trim().length < 5)) {
+      toast.error("Preencha o objeto da contratação antes de confirmar.");
+      return;
+    }
+    setObjetoConfirmado(true);
+    // Unlock all sections
+    setWorkflow((prev) => {
+      if (!prev) return prev;
+      const updated = { ...prev, steps: { ...prev.steps } };
+      sections.forEach((s, i) => {
+        if (i === 0) return; // buscar_objeto already editing
+        if (updated.steps[s.id]?.enabled === false) return;
+        const { complete } = calculateSectionCompletion(s, formData);
+        const unlocked = isSectionUnlocked(i, sections, formData, updated);
+        updated.steps[s.id] = {
+          ...updated.steps[s.id],
+          status: complete && unlocked ? "complete" : unlocked ? "editing" : "locked",
+        };
+      });
+      return updated;
+    });
+    toast.success("Objeto confirmado! Seções desbloqueadas.");
+  }, [formData, sections]);
+
+  // AI Document Builder - explicit user action only (CORREÇÃO 1)
+  const handleAiDocumentBuilder = useCallback(async () => {
+    const objetoValue = formData.objeto_contratacao || formData.objeto;
+    if (!objetoValue || (typeof objetoValue === "string" && objetoValue.length < 10)) {
+      toast.error("Preencha o objeto da contratação primeiro.");
+      return;
+    }
     setAiBuilderActive(true);
     setAiBuilderPhase(0);
 
-    // Animated phase progression
     const phaseTimer1 = setTimeout(() => setAiBuilderPhase(1), 1500);
     const phaseTimer2 = setTimeout(() => setAiBuilderPhase(2), 3000);
 
@@ -268,6 +306,8 @@ export default function Documento() {
           const updated = { ...prev };
           for (const [key, value] of Object.entries(data.campos_preenchidos)) {
             if (value !== null && value !== undefined) {
+              // CORREÇÃO 3: Never overwrite objeto_contratacao - that's user's input
+              if (key === "objeto_contratacao" || key === "objeto") continue;
               if (!updated[key] || (typeof updated[key] === "string" && !updated[key].trim())) {
                 updated[key] = value;
                 newAiFields.add(key);
@@ -286,33 +326,23 @@ export default function Documento() {
           setShowNormativas(data.alertas_globais.length > 0);
         }
 
-        const count = Object.keys(data.campos_preenchidos).length;
-        toast.success(`IA preencheu ${count} campos automaticamente!`, {
-          description: data.contexto?.alertas_encontrados
-            ? `${data.contexto.alertas_encontrados} alertas normativos integrados.`
-            : undefined,
+        const count = Object.keys(data.campos_preenchidos).filter(k => k !== "objeto_contratacao" && k !== "objeto").length;
+        toast.success(`IA preencheu ${count} campos!`, {
+          description: "Revise cada seção antes de avançar.",
         });
       }
     } catch (err: any) {
       console.error("Erro no AI Document Builder:", err);
-      toast.error("Erro ao construir documento com IA. Tente novamente.");
-      aiBuilderTriggered.current = false;
+      toast.error("Erro ao preencher com IA. Tente novamente.");
     } finally {
       clearTimeout(phaseTimer1);
       clearTimeout(phaseTimer2);
       setAiBuilderPhase(3);
       setTimeout(() => setAiBuilderActive(false), 500);
     }
-  }, [documento?.tipo, processo?.orgao, processoId]);
+  }, [formData, documento?.tipo, processo?.orgao, processoId]);
 
-  // Legacy auto-fill (triggered by onBlur on objeto field)
-  const handleAutoPreencherIA = useCallback(async (objetoValue: string) => {
-    if (!objetoValue || objetoValue.length < 10) return;
-    if (aiBuilderTriggered.current) return;
-    handleAiDocumentBuilder(objetoValue);
-  }, [handleAiDocumentBuilder]);
-
-  // Incremental section generation - generate AI content for current section only
+  // Incremental section generation
   const handleGenerateCurrentSection = useCallback(async () => {
     if (!workflow || !formData.objeto_contratacao) return;
     const curSection = sections.find(s => s.id === workflow.current_step);
@@ -336,6 +366,8 @@ export default function Documento() {
           const updated = { ...prev };
           for (const [key, value] of Object.entries(data.campos_preenchidos)) {
             if (sectionFieldKeys.has(key) && value !== null && value !== undefined) {
+              // Don't overwrite objeto
+              if (key === "objeto_contratacao" || key === "objeto") continue;
               updated[key] = value;
               newAiFields.add(key);
             }
@@ -345,7 +377,7 @@ export default function Documento() {
         setAiFilledFields(newAiFields);
         if (data.campos_meta) setCamposMeta(prev => ({ ...prev, ...data.campos_meta }));
 
-        const filled = Object.keys(data.campos_preenchidos).filter(k => sectionFieldKeys.has(k)).length;
+        const filled = Object.keys(data.campos_preenchidos).filter(k => sectionFieldKeys.has(k) && k !== "objeto_contratacao").length;
         toast.success(`IA preencheu ${filled} campos desta seção!`);
       }
     } catch (err: any) {
@@ -377,6 +409,14 @@ export default function Documento() {
 
     sections.forEach((s, i) => {
       if (updated.steps[s.id]?.enabled === false) return;
+      // CORREÇÃO 2: Keep sections locked if objeto not confirmed
+      if (!objetoConfirmado && i > 0) {
+        if (updated.steps[s.id]?.status !== "locked") {
+          updated.steps[s.id] = { ...updated.steps[s.id], status: "locked" };
+          changed = true;
+        }
+        return;
+      }
       const { complete } = calculateSectionCompletion(s, formData);
       const unlocked = isSectionUnlocked(i, sections, formData, updated);
       const newStatus = complete && unlocked ? "complete" : unlocked ? "editing" : "locked";
@@ -387,7 +427,7 @@ export default function Documento() {
     });
 
     if (changed) setWorkflow(updated);
-  }, [formData, sections, initialized]);
+  }, [formData, sections, initialized, objetoConfirmado]);
 
   const handleSelectStep = useCallback((stepId: string) => {
     setInvalidFields(new Set());
@@ -414,10 +454,17 @@ export default function Documento() {
     if (currentIdx < 0) return;
 
     const currentSection = enabledSections[currentIdx];
+
+    // CORREÇÃO 2: If on buscar_objeto, confirm objeto first
+    if (currentSection.id === "buscar_objeto" && !objetoConfirmado) {
+      handleConfirmarObjeto();
+      // Don't advance yet - let user see the unlocked sections and optionally use AI
+      return;
+    }
+
     const { complete } = calculateSectionCompletion(currentSection, formData);
 
     if (currentSection.required && !complete) {
-      // Identify which required fields are empty
       const missingKeys = currentSection.fields
         .filter((f) => {
           if (f.readOnly) return false;
@@ -456,14 +503,12 @@ export default function Documento() {
 
         if (error) throw error;
 
-        // MANDATORY: refetch AI-generated content from database
         const { data: docAtualizado } = await supabase
           .from("documentos")
           .select("conteudo_final, score_conformidade, section_memories")
           .eq("id", docId!)
           .maybeSingle();
 
-        // Invalidate queries so views show fresh data
         queryClient.invalidateQueries({ queryKey: ["documento", docId] });
         queryClient.invalidateQueries({ queryKey: ["processo", processoId] });
         queryClient.invalidateQueries({ queryKey: ["pipeline", processoId] });
@@ -492,7 +537,7 @@ export default function Documento() {
         },
       };
     });
-  }, [workflow, sections, formData, docId, processoId, queryClient, navigate]);
+  }, [workflow, sections, formData, docId, processoId, queryClient, navigate, objetoConfirmado, handleConfirmarObjeto]);
 
   const handlePrevious = useCallback(() => {
     if (!workflow) return;
@@ -523,6 +568,27 @@ export default function Documento() {
     setFormData((prev) => ({ ...prev, justificativa_contratacao: text }));
   }, []);
 
+  // CORREÇÃO 5: Handle section action (keep/improve/edit)
+  const handleSectionAction = useCallback((action: "keep" | "improve" | "edit") => {
+    if (!currentSection) return;
+    setSectionActions(prev => ({ ...prev, [currentSection.id]: action }));
+    if (action === "keep") {
+      // Remove AI badges for this section's fields - user accepted
+      toast.success("Conteúdo mantido!");
+    } else if (action === "edit") {
+      // Remove AI badges - user wants to edit manually
+      const sectionFieldKeys = new Set(currentSection.fields.map(f => f.key));
+      setAiFilledFields(prev => {
+        const next = new Set(prev);
+        sectionFieldKeys.forEach(k => next.delete(k));
+        return next;
+      });
+    } else if (action === "improve") {
+      const textareaField = currentSection.fields.find(f => f.type === "textarea" && !f.readOnly);
+      if (textareaField) handleMelhorar(textareaField);
+    }
+  }, [handleMelhorar]);
+
   const progress = workflow ? calculateDocumentProgress(sections, formData, workflow) : 0;
   const currentSection = workflow ? sections.find((s) => s.id === workflow.current_step) : null;
   const activeSections = sections.filter((s) => {
@@ -544,6 +610,8 @@ export default function Documento() {
   const canAdvance = currentSection
     ? !currentSection.required || currentCompletion.complete
     : false;
+
+  const isBuscarObjetoStep = currentSection?.id === "buscar_objeto";
 
   const processoData = processo
     ? {
@@ -619,8 +687,8 @@ export default function Documento() {
                 />
               )}
 
-              {/* Section suggestions for complex objects */}
-              {aiBuilderTriggered.current && formData.objeto_contratacao && (
+              {/* CORREÇÃO 6: Section suggestions after confirming objeto */}
+              {objetoConfirmado && formData.objeto_contratacao && isBuscarObjetoStep && (
                 <SectionSuggestionBanner
                   objeto={formData.objeto_contratacao}
                   onAddSection={handleAddSuggestedSection}
@@ -651,17 +719,11 @@ export default function Documento() {
                 <h2 className="text-lg font-semibold">{currentSection?.label}</h2>
               </div>
 
-              {/* Section action bar (Manter/Melhorar/Editar) */}
+              {/* CORREÇÃO 5: Section action bar only when AI filled content */}
               {currentSection && (
                 <SectionActionBar
                   currentAction={sectionActions[currentSection.id] ?? null}
-                  onAction={(action) => {
-                    setSectionActions(prev => ({ ...prev, [currentSection.id]: action }));
-                    if (action === "improve" && currentSection) {
-                      const textareaField = currentSection.fields.find(f => f.type === "textarea" && !f.readOnly);
-                      if (textareaField) handleMelhorar(textareaField);
-                    }
-                  }}
+                  onAction={handleSectionAction}
                   hasAiContent={currentSection.fields.some(f => aiFilledFields.has(f.key))}
                 />
               )}
@@ -680,9 +742,28 @@ export default function Documento() {
                   onMelhorar={handleMelhorar}
                   onGerarJustificativa={() => setJustificativaOpen(true)}
                   onValidarObjeto={() => setValidarObjetoOpen(true)}
-                  onAutoPreencherIA={handleAutoPreencherIA}
                   documentType={documento.tipo ?? "etp"}
                 />
+              )}
+
+              {/* CORREÇÃO 2: After confirming objeto on buscar_objeto step, show "Preencher com IA" button */}
+              {isBuscarObjetoStep && objetoConfirmado && (
+                <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-foreground">Objeto confirmado ✓</p>
+                    <p className="text-xs text-muted-foreground">
+                      Você pode preencher as seções manualmente ou deixar a IA sugerir o conteúdo.
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    className="gap-1.5 text-xs"
+                    onClick={handleAiDocumentBuilder}
+                    disabled={aiBuilderActive}
+                  >
+                    <Sparkles className="h-3.5 w-3.5" /> Preencher documento com IA
+                  </Button>
+                </div>
               )}
             </div>
           </ScrollArea>
@@ -699,8 +780,8 @@ export default function Documento() {
               )}
             </div>
             <div className="flex items-center gap-2">
-              {/* Gerar seção com IA button */}
-              {currentSection && !currentCompletion.complete && formData.objeto_contratacao && (
+              {/* Gerar seção com IA button - only when objeto confirmed and not on buscar_objeto */}
+              {currentSection && !isBuscarObjetoStep && objetoConfirmado && !currentCompletion.complete && formData.objeto_contratacao && (
                 <Button
                   variant="outline"
                   size="sm"
@@ -732,7 +813,7 @@ export default function Documento() {
                   </>
                 ) : (
                   <>
-                    {isLastStep ? "Finalizar" : "Próximo"} <ArrowRight className="h-3 w-3" />
+                    {isBuscarObjetoStep && !objetoConfirmado ? "Confirmar Objeto" : isLastStep ? "Finalizar" : "Próximo"} <ArrowRight className="h-3 w-3" />
                   </>
                 )}
               </Button>

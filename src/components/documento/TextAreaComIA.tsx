@@ -1,5 +1,4 @@
-import { useState } from "react";
-import { Textarea } from "@/components/ui/textarea";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -29,7 +28,7 @@ export function TextAreaComIA({
   value,
   onChange,
   placeholder,
-  minHeight = 200,
+  minHeight = 80,
   required,
   showMelhorar = true,
   showGerarTexto = false,
@@ -43,6 +42,19 @@ export function TextAreaComIA({
   const [melhorarOpen, setMelhorarOpen] = useState(false);
   const [suggestion, setSuggestion] = useState<string | null>(null);
   const [melhorarLoading, setMelhorarLoading] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // CORREÇÃO 4: Auto-resize textarea
+  const autoResize = useCallback(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = el.scrollHeight + "px";
+  }, []);
+
+  useEffect(() => {
+    autoResize();
+  }, [value, autoResize]);
 
   const handleMelhorar = async () => {
     if (!value?.trim()) {
@@ -114,15 +126,21 @@ export function TextAreaComIA({
       </Label>
 
       <div className="relative">
-        <Textarea
+        {/* CORREÇÃO 4: Native textarea with auto-resize, no internal scroll */}
+        <textarea
+          ref={textareaRef}
           value={value}
-          onChange={(e) => onChange(e.target.value)}
+          onChange={(e) => {
+            onChange(e.target.value);
+            autoResize();
+          }}
           placeholder={placeholder ?? `Digite ${label.toLowerCase()}...`}
           disabled={disabled || loading}
           className={cn(
-            "text-sm resize-none",
+            "flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
+            "resize-none overflow-hidden",
             isInvalid && "border-destructive",
-            "bg-[#F8FAFC] border-[#E2E8F0]"
+            "bg-[hsl(var(--muted)/0.3)] border-border"
           )}
           style={{ minHeight }}
         />
@@ -138,7 +156,7 @@ export function TextAreaComIA({
             type="button"
             onClick={handleMelhorar}
             disabled={disabled || !value?.trim()}
-            className="absolute bottom-2 right-2 text-[11px] font-medium text-[#0F6FDE] hover:underline disabled:opacity-40 disabled:no-underline"
+            className="absolute bottom-2 right-2 text-[11px] font-medium text-primary hover:underline disabled:opacity-40 disabled:no-underline"
           >
             Melhorar
           </button>
@@ -150,7 +168,7 @@ export function TextAreaComIA({
           type="button"
           onClick={handleGerarTexto}
           disabled={disabled || loading}
-          className="text-[11px] font-medium text-[#0F6FDE] hover:underline disabled:opacity-40"
+          className="text-[11px] font-medium text-primary hover:underline disabled:opacity-40"
         >
           Gerar texto
         </button>

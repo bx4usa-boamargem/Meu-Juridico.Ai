@@ -1,9 +1,8 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect, useCallback } from "react";
 import { Info, Sparkles, Shield, Copy, Loader2, BookOpen, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -35,7 +34,6 @@ interface Props {
   onMelhorar: (field: FieldDef) => void;
   onGerarJustificativa?: () => void;
   onValidarObjeto?: () => void;
-  onAutoPreencherIA?: (objeto: string) => void;
   documentType?: string;
 }
 
@@ -50,6 +48,39 @@ const DYNAMIC_TOKENS = [
   { key: "valor_estimado", label: "Valor Estimado" },
 ];
 
+// CORREÇÃO 4: Auto-resize textarea hook
+function useAutoResize(value: string) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  const resize = useCallback(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = el.scrollHeight + "px";
+  }, []);
+
+  useEffect(() => { resize(); }, [value, resize]);
+
+  return { ref, resize };
+}
+
+// CORREÇÃO 4: Auto-resizing textarea component
+function AutoTextarea({ value, onChange, className, ...props }: React.TextareaHTMLAttributes<HTMLTextAreaElement> & { value: string; onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void }) {
+  const { ref, resize } = useAutoResize(value);
+  return (
+    <textarea
+      ref={ref}
+      value={value}
+      onChange={(e) => { onChange(e); resize(); }}
+      className={cn(
+        "flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
+        "resize-none overflow-hidden min-h-[80px]",
+        className,
+      )}
+      {...props}
+    />
+  );
+}
+
 export function StepFormRenderer({
   section,
   formData,
@@ -63,7 +94,6 @@ export function StepFormRenderer({
   onMelhorar,
   onGerarJustificativa,
   onValidarObjeto,
-  onAutoPreencherIA,
   documentType,
 }: Props) {
   const editorRef = useRef<{ insertToken: (token: string) => void } | null>(null);
@@ -160,6 +190,9 @@ export function StepFormRenderer({
     const colSpan = field.colspan ?? (field.type === "textarea" ? 2 : 1);
     const isObjetoField = field.key === "objeto_contratacao" || field.key === "objeto";
 
+    // CORREÇÃO 2: Objeto field never shows "automático" badge
+    const showInheritedBadge = isInherited && !isObjetoField;
+
     // Radio cards
     if (field.type === "radio_cards" && field.radioOptions) {
       return (
@@ -179,7 +212,7 @@ export function StepFormRenderer({
                   className={cn(
                     "flex-1 rounded-lg border-2 px-4 py-3 text-left transition-all",
                     isActive
-                      ? "border-[#0F6FDE] bg-[#0F6FDE]/5"
+                      ? "border-primary bg-primary/5"
                       : "border-border hover:border-border/80"
                   )}
                 >
@@ -187,12 +220,12 @@ export function StepFormRenderer({
                     <div
                       className={cn(
                         "h-4 w-4 rounded-full border-2 flex items-center justify-center shrink-0",
-                        isActive ? "border-[#0F6FDE]" : "border-muted-foreground/40"
+                        isActive ? "border-primary" : "border-muted-foreground/40"
                       )}
                     >
-                      {isActive && <div className="h-2 w-2 rounded-full bg-[#0F6FDE]" />}
+                      {isActive && <div className="h-2 w-2 rounded-full bg-primary" />}
                     </div>
-                    <span className={cn("text-xs font-medium", isActive ? "text-[#0F6FDE]" : "text-foreground")}>
+                    <span className={cn("text-xs font-medium", isActive ? "text-primary" : "text-foreground")}>
                       {opt.label}
                     </span>
                   </div>
@@ -250,7 +283,8 @@ export function StepFormRenderer({
               {field.label}
               {isRequired && <span className="text-destructive ml-0.5">*</span>}
             </Label>
-            {isInherited && (
+            {/* CORREÇÃO 2: No "automático" badge on objeto field */}
+            {showInheritedBadge && (
               <Badge
                 variant="secondary"
                 className="text-[8px] px-1.5 py-0 bg-success/10 text-success border-success/20"
@@ -258,6 +292,7 @@ export function StepFormRenderer({
                 automático
               </Badge>
             )}
+            {/* CORREÇÃO 5: AI badge only when AI filled */}
             {isAiFilled && (
               <Badge
                 variant="secondary"
@@ -299,17 +334,17 @@ export function StepFormRenderer({
           )}
         </div>
 
+        {/* CORREÇÃO 4: All textareas auto-resize */}
         {field.type === "textarea" ? (
           <div className="space-y-1">
-            <Textarea
+            <AutoTextarea
               value={value}
               onChange={(e) => onChange(field.key, e.target.value)}
-              onBlur={isObjetoField && onAutoPreencherIA ? () => onAutoPreencherIA(value) : undefined}
               readOnly={field.readOnly}
               placeholder={`Digite ${field.label.toLowerCase()}...`}
               maxLength={field.maxLength}
               className={cn(
-                "text-sm min-h-[100px]",
+                "text-sm",
                 field.readOnly && "bg-muted cursor-not-allowed",
                 isInherited && "border-success/20 bg-success/5",
                 isAiFilled && !isLowConfidence && "border-primary/20 bg-primary/5",
@@ -357,7 +392,6 @@ export function StepFormRenderer({
           <Input
             value={value}
             onChange={(e) => onChange(field.key, e.target.value)}
-            onBlur={isObjetoField && onAutoPreencherIA ? () => onAutoPreencherIA(value) : undefined}
             readOnly={field.readOnly}
             placeholder={`Digite ${field.label.toLowerCase()}...`}
             className={cn(
