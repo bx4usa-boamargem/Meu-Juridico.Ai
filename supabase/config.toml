@@ -32,3 +32,6 @@ verify_jwt = false
 
 [functions.ingest_knowledge]
 verify_jwt = false
+
+[functions.price-research]
+verify_jwt = false
