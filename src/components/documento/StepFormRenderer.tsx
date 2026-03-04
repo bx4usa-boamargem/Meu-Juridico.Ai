@@ -1,5 +1,5 @@
 import { useRef } from "react";
-import { Info, Sparkles, Shield, Copy } from "lucide-react";
+import { Info, Sparkles, Shield, Copy, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -20,10 +20,13 @@ interface Props {
   processoData?: Record<string, any>;
   inheritedKeys: Set<string>;
   invalidFields?: Set<string>;
+  aiFilledFields?: Set<string>;
+  autoPreenchendo?: boolean;
   onChange: (key: string, value: any) => void;
   onMelhorar: (field: FieldDef) => void;
   onGerarJustificativa?: () => void;
   onValidarObjeto?: () => void;
+  onAutoPreencherIA?: (objeto: string) => void;
   documentType?: string;
 }
 
@@ -44,10 +47,13 @@ export function StepFormRenderer({
   processoData,
   inheritedKeys,
   invalidFields,
+  aiFilledFields,
+  autoPreenchendo,
   onChange,
   onMelhorar,
   onGerarJustificativa,
   onValidarObjeto,
+  onAutoPreencherIA,
   documentType,
 }: Props) {
   const editorRef = useRef<{ insertToken: (token: string) => void } | null>(null);
