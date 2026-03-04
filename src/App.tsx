@@ -18,6 +18,7 @@ import Pesquisa from "./pages/Pesquisa";
 import Configuracoes from "./pages/Configuracoes";
 import SharedDocument from "./pages/SharedDocument";
 import SelecionarTipoDocumento from "./pages/SelecionarTipoDocumento";
+import Perfil from "./pages/Perfil";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -76,6 +77,7 @@ const App = () => (
                     <Route path="/documentos" element={<Documentos />} />
                     <Route path="/pesquisa" element={<Pesquisa />} />
                     <Route path="/configuracoes" element={<Configuracoes />} />
+                    <Route path="/perfil" element={<Perfil />} />
                     <Route path="/" element={<Navigate to="/dashboard" replace />} />
                     <Route path="*" element={<NotFound />} />
                   </Routes>
