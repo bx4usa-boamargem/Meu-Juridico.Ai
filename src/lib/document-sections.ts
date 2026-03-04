@@ -224,10 +224,10 @@ const ETP_SECTIONS: SectionDef[] = [
   {
     id: "equipe_planejamento",
     label: "Equipe de planejamento",
-    required: false,
+    required: true,
     unlocksNext: true,
     fields: [
-      { key: "equipe_planejamento", label: "Equipe de planejamento", type: "team_list", colspan: 2 },
+      { key: "equipe_planejamento", label: "Equipe de planejamento", type: "team_list", required: true, colspan: 2 },
     ],
   },
   {
@@ -235,7 +235,7 @@ const ETP_SECTIONS: SectionDef[] = [
     label: "Justificativa registro de preços",
     required: false,
     unlocksNext: true,
-    condition: { field: "registro_preco", value: "sim" },
+    condition: { field: "registro_preco", value: "Sim, é registro de preço" },
     fields: [
       {
         key: "justificativa_registro_preco",
@@ -243,7 +243,6 @@ const ETP_SECTIONS: SectionDef[] = [
         type: "textarea",
         colspan: 2,
         showMelhorar: true,
-        showGerarTexto: true,
         contextoSecao: "Justificativa para adoção do Sistema de Registro de Preços conforme Art. 6º, XLV da Lei 14.133/2021",
       },
     ],
@@ -256,12 +255,11 @@ const ETP_SECTIONS: SectionDef[] = [
     fields: [
       {
         key: "requisitos_contratacao",
-        label: "Necessidades do objeto",
+        label: "Requisitos da contratação",
         type: "textarea",
         required: true,
         colspan: 2,
         showMelhorar: true,
-        showGerarTexto: false,
         contextoSecao: "Requisitos da contratação e necessidades institucionais",
       },
     ],
