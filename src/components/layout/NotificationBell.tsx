@@ -75,10 +75,7 @@ export function NotificationBell() {
       prev.map((item) => (item.id === n.id ? { ...item, read: true } : item))
     );
     setOpen(false);
-    // Navigate based on source type
-    if (n.type === "monitoring_alert" || n.source === "monitoring") {
-      navigate("/admin/monitoramento");
-    }
+    navigate("/admin/monitoramento");
   };
 
   const markAllRead = async () => {

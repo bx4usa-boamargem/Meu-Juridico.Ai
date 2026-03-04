@@ -10,6 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import { Activity, Play, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
 import { BrazilStateMap } from "@/components/configuracoes/BrazilStateMap";
+import { cn } from "@/lib/utils";
 
 const FEDERAL_SOURCES = ["TCU", "CGU", "PNCP"];
 
