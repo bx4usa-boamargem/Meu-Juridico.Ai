@@ -147,6 +147,9 @@ export function StepFormRenderer({
     const value = getFieldValue(field);
     const isInherited = inheritedKeys.has(field.key);
     const isAiFilled = aiFilledFields?.has(field.key) ?? false;
+    const fieldMeta = camposMeta?.[field.key];
+    const isLowConfidence = fieldMeta?.confianca === "baixa";
+    const hasSources = fieldMeta?.fontes && fieldMeta.fontes.length > 0;
     const isRequired = field.required === true;
     const isInvalid = invalidFields?.has(field.key) ?? false;
     const colSpan = field.colspan ?? (field.type === "textarea" ? 2 : 1);
