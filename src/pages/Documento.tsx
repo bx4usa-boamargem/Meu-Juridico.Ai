@@ -35,6 +35,7 @@ export default function Documento() {
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [inheritedKeys, setInheritedKeys] = useState<Set<string>>(new Set());
   const [invalidFields, setInvalidFields] = useState<Set<string>>(new Set());
+  const [disabledSections, setDisabledSections] = useState<Set<string>>(new Set());
   const [workflow, setWorkflow] = useState<WorkflowState | null>(null);
   const [initialized, setInitialized] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -201,13 +202,15 @@ export default function Documento() {
     setWorkflow((prev) => (prev ? { ...prev, current_step: stepId } : prev));
   }, []);
 
-  const handleToggleStep = useCallback((stepId: string, enabled: boolean) => {
-    setWorkflow((prev) => {
-      if (!prev) return prev;
-      return {
-        ...prev,
-        steps: { ...prev.steps, [stepId]: { ...prev.steps[stepId], enabled } },
-      };
+  const handleToggleSection = useCallback((sectionId: string) => {
+    setDisabledSections((prev) => {
+      const next = new Set(prev);
+      if (next.has(sectionId)) {
+        next.delete(sectionId);
+      } else {
+        next.add(sectionId);
+      }
+      return next;
     });
   }, []);
 
@@ -255,6 +258,7 @@ export default function Documento() {
             form_data: formData,
             html_final: htmlFinal,
             generate_with_ai: true,
+            disabled_sections: Array.from(disabledSections),
           },
         });
 
@@ -336,8 +340,8 @@ export default function Documento() {
     return true;
   });
   const enabledSections = workflow
-    ? activeSections.filter((s) => workflow.steps[s.id]?.enabled !== false)
-    : activeSections;
+    ? activeSections.filter((s) => workflow.steps[s.id]?.enabled !== false && !disabledSections.has(s.id))
+    : activeSections.filter((s) => !disabledSections.has(s.id));
   const currentEnabledIdx = currentSection
     ? enabledSections.findIndex((s) => s.id === currentSection.id)
     : 0;
@@ -400,8 +404,9 @@ export default function Documento() {
           formData={formData}
           documentTitle={documento.tipo ?? "Documento"}
           documentNumber={processo?.numero_processo ?? undefined}
+          disabledSections={disabledSections}
           onSelectStep={handleSelectStep}
-          onToggleStep={handleToggleStep}
+          onToggleSection={handleToggleSection}
         />
 
         {/* CENTER — Workspace */}
