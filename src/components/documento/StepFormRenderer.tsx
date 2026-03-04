@@ -359,7 +359,8 @@ export function StepFormRenderer({
               "text-sm",
               field.readOnly && "bg-muted cursor-not-allowed",
               isInherited && "border-success/20 bg-success/5",
-              isAiFilled && "border-primary/20 bg-primary/5",
+              isAiFilled && !isLowConfidence && "border-primary/20 bg-primary/5",
+              isAiFilled && isLowConfidence && "border-amber-500/30 bg-amber-50",
               isInvalid && "border-destructive"
             )}
           />
