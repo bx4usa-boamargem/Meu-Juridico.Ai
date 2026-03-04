@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -6,16 +7,34 @@ import { Card, CardContent } from "@/components/ui/card";
 import { FileText } from "lucide-react";
 import { toast } from "sonner";
 
+const FILTER_TABS = [
+  { key: "all", label: "Todos" },
+  { key: "DFD", label: "DFD" },
+  { key: "ETP", label: "ETP" },
+  { key: "TR", label: "TR" },
+  { key: "projeto_basico", label: "Projeto Básico" },
+  { key: "mapa_risco", label: "Mapa de Risco" },
+  { key: "edital", label: "Edital" },
+  { key: "custom", label: "Personalizado" },
+];
+
 export default function Documentos() {
   const navigate = useNavigate();
+  const [filter, setFilter] = useState("all");
 
   const { data: documentos, isLoading } = useQuery({
-    queryKey: ["all-documentos"],
+    queryKey: ["all-documentos", filter],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let q = supabase
         .from("documentos")
         .select("id, tipo, status, versao, processo_id, created_at, processos!inner(numero_processo)")
         .order("created_at", { ascending: false });
+
+      if (filter !== "all") {
+        q = q.eq("tipo", filter);
+      }
+
+      const { data, error } = await q;
       if (error) throw error;
       return data;
     },
@@ -36,6 +55,23 @@ export default function Documentos() {
         <p className="text-sm text-muted-foreground">Todos os documentos dos seus processos</p>
       </div>
 
+      {/* Filter tabs */}
+      <div className="flex flex-wrap gap-1.5">
+        {FILTER_TABS.map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setFilter(tab.key)}
+            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors
+              ${filter === tab.key
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted text-muted-foreground hover:text-foreground"
+              }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
       {isLoading ? (
         <div className="flex justify-center py-12">
           <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
@@ -43,7 +79,9 @@ export default function Documentos() {
       ) : !documentos?.length ? (
         <div className="border border-dashed rounded-lg p-12 text-center">
           <FileText className="h-10 w-10 mx-auto text-muted-foreground/50 mb-3" />
-          <p className="text-sm text-muted-foreground">Nenhum documento encontrado.</p>
+          <p className="text-sm text-muted-foreground">
+            {filter === "all" ? "Nenhum documento encontrado." : `Nenhum documento do tipo "${FILTER_TABS.find(t => t.key === filter)?.label}" encontrado.`}
+          </p>
         </div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
