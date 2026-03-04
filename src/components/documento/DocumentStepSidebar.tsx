@@ -112,11 +112,12 @@ export function DocumentStepSidebar({
                 </span>
               </div>
 
-              {/* Toggle */}
+              {/* Toggle — disabled for required sections */}
               <Switch
                 checked={isEnabled}
                 onCheckedChange={(checked) => onToggleStep(section.id, checked)}
                 className="shrink-0 scale-75"
+                disabled={section.required}
                 onClick={(e) => e.stopPropagation()}
               />
             </div>
