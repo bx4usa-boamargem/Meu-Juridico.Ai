@@ -40,7 +40,7 @@ export function TeamListField({ value, onChange }: Props) {
         <div className="flex flex-col items-center justify-center py-10 border border-dashed border-border rounded-lg bg-muted/20">
           <Users className="h-8 w-8 text-muted-foreground mb-2" />
           <p className="text-sm text-muted-foreground font-medium">A lista de equipe está vazia</p>
-          <p className="text-[10px] text-muted-foreground mt-1">Clique em adicionar para incluir membros</p>
+          <p className="text-[10px] text-muted-foreground mt-1">Clique em adicionar para adicionar um responsável</p>
         </div>
         <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => setDialogOpen(true)}>
           <Plus className="h-3.5 w-3.5" /> Adicionar
