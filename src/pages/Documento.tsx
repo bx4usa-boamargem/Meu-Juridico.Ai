@@ -230,28 +230,34 @@ export default function Documento() {
     });
   }, []);
 
-  const handleAutoPreencherIA = useCallback(async (objetoValue: string) => {
-    if (!objetoValue || objetoValue.length < 10) return;
-    setAutoPreenchendo(true);
+  // AI Document Builder - full section-by-section generation
+  const handleAiDocumentBuilder = useCallback(async (objetoValue: string) => {
+    if (!objetoValue || objetoValue.length < 10 || aiBuilderTriggered.current) return;
+    aiBuilderTriggered.current = true;
+    setAiBuilderActive(true);
+    setAiBuilderPhase(0);
+
+    // Animated phase progression
+    const phaseTimer1 = setTimeout(() => setAiBuilderPhase(1), 1500);
+    const phaseTimer2 = setTimeout(() => setAiBuilderPhase(2), 3000);
+
     try {
-      const { data, error } = await supabase.functions.invoke("ai-autopreencher", {
+      const { data, error } = await supabase.functions.invoke("ai-document-builder", {
         body: {
-          objeto_contratacao: objetoValue,
+          objeto: objetoValue,
           doc_type: documento?.tipo ?? "dfd",
-          processo_dados: {
-            orgao: processo?.orgao,
-            modalidade: processo?.modalidade,
-          },
+          orgao: processo?.orgao ?? "",
+          processo_id: processoId,
         },
       });
       if (error) throw error;
+
       if (data?.campos_preenchidos) {
         const newAiFields = new Set<string>();
         setFormData((prev) => {
           const updated = { ...prev };
           for (const [key, value] of Object.entries(data.campos_preenchidos)) {
             if (value !== null && value !== undefined) {
-              // Only fill if user hasn't already typed something
               if (!updated[key] || (typeof updated[key] === "string" && !updated[key].trim())) {
                 updated[key] = value;
                 newAiFields.add(key);
@@ -261,16 +267,41 @@ export default function Documento() {
           return updated;
         });
         setAiFilledFields(newAiFields);
+
+        if (data.campos_meta) {
+          setCamposMeta(data.campos_meta);
+        }
+        if (data.alertas_globais) {
+          setAlertasGlobais(data.alertas_globais);
+          setShowNormativas(data.alertas_globais.length > 0);
+        }
+
         const count = Object.keys(data.campos_preenchidos).length;
-        toast.success(`IA preencheu ${count} campos automaticamente!`);
+        toast.success(`IA preencheu ${count} campos automaticamente!`, {
+          description: data.contexto?.alertas_encontrados
+            ? `${data.contexto.alertas_encontrados} alertas normativos integrados.`
+            : undefined,
+        });
       }
     } catch (err: any) {
-      console.error("Erro no autopreenchimento:", err);
-      toast.error("Erro ao preencher com IA. Tente novamente.");
+      console.error("Erro no AI Document Builder:", err);
+      toast.error("Erro ao construir documento com IA. Tente novamente.");
+      aiBuilderTriggered.current = false;
     } finally {
-      setAutoPreenchendo(false);
+      clearTimeout(phaseTimer1);
+      clearTimeout(phaseTimer2);
+      setAiBuilderPhase(3);
+      setTimeout(() => setAiBuilderActive(false), 500);
     }
-  }, [documento?.tipo, processo?.orgao, processo?.modalidade]);
+  }, [documento?.tipo, processo?.orgao, processoId]);
+
+  // Legacy auto-fill (triggered by onBlur on objeto field)
+  const handleAutoPreencherIA = useCallback(async (objetoValue: string) => {
+    if (!objetoValue || objetoValue.length < 10) return;
+    // If builder already ran, skip simple auto-fill
+    if (aiBuilderTriggered.current) return;
+    handleAiDocumentBuilder(objetoValue);
+  }, [handleAiDocumentBuilder]);
 
   // Update workflow step statuses when formData changes
   useEffect(() => {
