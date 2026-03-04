@@ -256,10 +256,30 @@ export function StepFormRenderer({
             {isAiFilled && (
               <Badge
                 variant="secondary"
-                className="text-[8px] px-1.5 py-0 bg-primary/10 text-primary border-primary/20"
+                className={cn(
+                  "text-[8px] px-1.5 py-0",
+                  isLowConfidence
+                    ? "bg-amber-500/10 text-amber-600 border-amber-500/20"
+                    : "bg-primary/10 text-primary border-primary/20"
+                )}
               >
-                ✦ IA
+                ✦ IA {fieldMeta?.confianca === "alta" ? "✓" : fieldMeta?.confianca === "baixa" ? "⚠" : ""}
               </Badge>
+            )}
+            {hasSources && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button type="button" className="text-primary/60 hover:text-primary">
+                    <BookOpen className="h-3 w-3" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="text-[10px] max-w-xs">
+                  <p className="font-medium mb-1">Baseado em:</p>
+                  {fieldMeta!.fontes.map((f, i) => (
+                    <p key={i}>• {f}</p>
+                  ))}
+                </TooltipContent>
+              </Tooltip>
             )}
           </div>
           {field.type === "textarea" && !field.readOnly && (
