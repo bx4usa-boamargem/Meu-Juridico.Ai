@@ -19,11 +19,41 @@ interface Props {
   conformityScore?: number | null;
 }
 
-export function DocumentMetaBar({ tipo, numero, status, saving, lastSaved, processoId, userEmail }: Props) {
+export function DocumentMetaBar({ tipo, numero, status, saving, lastSaved, processoId, docId, userEmail, conformityScore }: Props) {
   const navigate = useNavigate();
+  const [exporting, setExporting] = useState(false);
   const initials = userEmail?.slice(0, 2).toUpperCase() ?? "U";
   const displayName = userEmail?.split("@")[0] ?? "Usuário";
   const statusLabel = status ?? "Rascunho";
+  const canExport = status === "gerado" || status === "aprovado";
+
+  const scoreColor = conformityScore != null
+    ? conformityScore > 0.8 ? "text-success" : conformityScore >= 0.6 ? "text-warning" : "text-destructive"
+    : null;
+
+  async function handleExportDocx() {
+    if (!docId) return;
+    setExporting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("export_docx", {
+        body: { document_id: docId },
+      });
+      if (error) throw error;
+      const blob = new Blob([data], {
+        type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${tipo ?? "documento"}-${docId}.docx`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err: any) {
+      toast.error("Erro ao exportar: " + (err?.message ?? "erro desconhecido"));
+    } finally {
+      setExporting(false);
+    }
+  }
 
   const formattedDate = lastSaved
     ? lastSaved.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" })
