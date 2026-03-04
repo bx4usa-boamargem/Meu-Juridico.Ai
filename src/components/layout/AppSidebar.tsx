@@ -1,4 +1,4 @@
-import { LayoutDashboard, FolderKanban, FileText, Search, Settings, LogOut } from "lucide-react";
+import { LayoutDashboard, FolderKanban, FileText, Search, Settings, LogOut, BookOpen } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
 import logoIcon from "@/assets/logo-icon.png";
@@ -23,6 +23,7 @@ const navItems = [
   { title: "Processos", url: "/processos", icon: FolderKanban },
   { title: "Documentos", url: "/documentos", icon: FileText },
   { title: "Pesquisa", url: "/pesquisa", icon: Search },
+  { title: "Base de Conhecimento", url: "/base-conhecimento", icon: BookOpen },
   { title: "Configurações", url: "/configuracoes", icon: Settings },
 ];
 
