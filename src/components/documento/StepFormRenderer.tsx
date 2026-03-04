@@ -1,5 +1,5 @@
 import { useRef } from "react";
-import { Info, Sparkles, Shield, Copy } from "lucide-react";
+import { Info, Sparkles, Shield, Copy, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -20,10 +20,13 @@ interface Props {
   processoData?: Record<string, any>;
   inheritedKeys: Set<string>;
   invalidFields?: Set<string>;
+  aiFilledFields?: Set<string>;
+  autoPreenchendo?: boolean;
   onChange: (key: string, value: any) => void;
   onMelhorar: (field: FieldDef) => void;
   onGerarJustificativa?: () => void;
   onValidarObjeto?: () => void;
+  onAutoPreencherIA?: (objeto: string) => void;
   documentType?: string;
 }
 
@@ -44,10 +47,13 @@ export function StepFormRenderer({
   processoData,
   inheritedKeys,
   invalidFields,
+  aiFilledFields,
+  autoPreenchendo,
   onChange,
   onMelhorar,
   onGerarJustificativa,
   onValidarObjeto,
+  onAutoPreencherIA,
   documentType,
 }: Props) {
   const editorRef = useRef<{ insertToken: (token: string) => void } | null>(null);
@@ -131,9 +137,11 @@ export function StepFormRenderer({
   const renderField = (field: FieldDef) => {
     const value = getFieldValue(field);
     const isInherited = inheritedKeys.has(field.key);
+    const isAiFilled = aiFilledFields?.has(field.key) ?? false;
     const isRequired = field.required === true;
     const isInvalid = invalidFields?.has(field.key) ?? false;
     const colSpan = field.colspan ?? (field.type === "textarea" ? 2 : 1);
+    const isObjetoField = field.key === "objeto_contratacao" || field.key === "objeto";
 
     // Radio cards
     if (field.type === "radio_cards" && field.radioOptions) {
@@ -233,6 +241,14 @@ export function StepFormRenderer({
                 automático
               </Badge>
             )}
+            {isAiFilled && (
+              <Badge
+                variant="secondary"
+                className="text-[8px] px-1.5 py-0 bg-primary/10 text-primary border-primary/20"
+              >
+                ✦ IA
+              </Badge>
+            )}
           </div>
           {field.type === "textarea" && !field.readOnly && (
             <Button
@@ -251,6 +267,7 @@ export function StepFormRenderer({
             <Textarea
               value={value}
               onChange={(e) => onChange(field.key, e.target.value)}
+              onBlur={isObjetoField && onAutoPreencherIA ? () => onAutoPreencherIA(value) : undefined}
               readOnly={field.readOnly}
               placeholder={`Digite ${field.label.toLowerCase()}...`}
               maxLength={field.maxLength}
@@ -258,6 +275,7 @@ export function StepFormRenderer({
                 "text-sm min-h-[100px]",
                 field.readOnly && "bg-muted cursor-not-allowed",
                 isInherited && "border-success/20 bg-success/5",
+                isAiFilled && "border-primary/20 bg-primary/5",
                 isInvalid && "border-destructive"
               )}
             />
@@ -301,12 +319,14 @@ export function StepFormRenderer({
           <Input
             value={value}
             onChange={(e) => onChange(field.key, e.target.value)}
+            onBlur={isObjetoField && onAutoPreencherIA ? () => onAutoPreencherIA(value) : undefined}
             readOnly={field.readOnly}
             placeholder={`Digite ${field.label.toLowerCase()}...`}
             className={cn(
               "text-sm",
               field.readOnly && "bg-muted cursor-not-allowed",
               isInherited && "border-success/20 bg-success/5",
+              isAiFilled && "border-primary/20 bg-primary/5",
               isInvalid && "border-destructive"
             )}
           />
@@ -321,6 +341,14 @@ export function StepFormRenderer({
 
   return (
     <div className="space-y-5">
+      {/* AI auto-fill loading banner */}
+      {autoPreenchendo && (
+        <div className="flex items-center gap-2 text-sm text-primary bg-primary/5 border border-primary/20 px-4 py-2.5 rounded-lg">
+          <Loader2 className="w-4 h-4 animate-spin" />
+          Preenchendo campos com IA...
+        </div>
+      )}
+
       {/* Info banner */}
       <div className="flex items-start gap-2 rounded-lg bg-primary/5 border border-primary/20 p-3">
         <Info className="h-4 w-4 text-primary mt-0.5 shrink-0" />
