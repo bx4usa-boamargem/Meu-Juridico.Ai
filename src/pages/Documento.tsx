@@ -639,15 +639,23 @@ export default function Documento() {
           </div>
         </div>
 
-        {/* RIGHT — Tools Bar */}
-        <DocumentToolsBar
-          onMelhorarClick={() => {
-            if (currentSection) {
-              const textareaField = currentSection.fields.find((f) => f.type === "textarea" && !f.readOnly);
-              if (textareaField) handleMelhorar(textareaField);
-            }
-          }}
-        />
+        {/* RIGHT — Normativas Sidebar or Tools Bar */}
+        {showNormativas && alertasGlobais.length > 0 ? (
+          <NormativasSidebar
+            alertas={alertasGlobais}
+            camposMeta={camposMeta}
+            currentSectionFields={currentSection?.fields.map(f => f.key)}
+          />
+        ) : (
+          <DocumentToolsBar
+            onMelhorarClick={() => {
+              if (currentSection) {
+                const textareaField = currentSection.fields.find((f) => f.type === "textarea" && !f.readOnly);
+                if (textareaField) handleMelhorar(textareaField);
+              }
+            }}
+          />
+        )}
       </div>
 
       {/* DIALOGS */}
