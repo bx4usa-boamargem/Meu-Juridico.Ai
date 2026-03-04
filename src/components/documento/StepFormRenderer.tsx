@@ -241,6 +241,14 @@ export function StepFormRenderer({
                 automático
               </Badge>
             )}
+            {isAiFilled && (
+              <Badge
+                variant="secondary"
+                className="text-[8px] px-1.5 py-0 bg-primary/10 text-primary border-primary/20"
+              >
+                ✦ IA
+              </Badge>
+            )}
           </div>
           {field.type === "textarea" && !field.readOnly && (
             <Button
