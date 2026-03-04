@@ -401,7 +401,7 @@ export default function DocumentView() {
 
       {/* Share dialog */}
       <Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md overflow-hidden">
           <DialogHeader>
             <DialogTitle className="text-sm">Compartilhar Documento</DialogTitle>
             <DialogDescription className="text-xs">
