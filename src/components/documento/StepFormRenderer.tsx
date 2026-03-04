@@ -67,6 +67,10 @@ export function StepFormRenderer({
   documentType,
 }: Props) {
   const editorRef = useRef<{ insertToken: (token: string) => void } | null>(null);
+  const [priceDrawerOpen, setPriceDrawerOpen] = useState(false);
+
+  const hasValorField = section.fields.some(f => f.key === "valor_estimado" || f.key === "valor_global");
+  const isEtpOrTr = documentType === "etp" || documentType === "tr";
 
   const getFieldValue = (field: FieldDef) => {
     if (field.source === "processo" && processoData) {
@@ -450,6 +454,31 @@ export function StepFormRenderer({
       <div className="grid grid-cols-2 gap-4">
         {editableFields.map(renderField)}
       </div>
+
+      {/* Price research button for valor fields */}
+      {hasValorField && isEtpOrTr && (
+        <>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 text-xs border-primary/30 text-primary hover:bg-primary/5"
+            onClick={() => setPriceDrawerOpen(true)}
+          >
+            <Search className="h-3.5 w-3.5" /> Pesquisar preços de mercado
+          </Button>
+          <PriceResearchDrawer
+            open={priceDrawerOpen}
+            onOpenChange={setPriceDrawerOpen}
+            defaultObjeto={formData.objeto_contratacao ?? processoData?.objeto ?? ""}
+            defaultEstado={processoData?.orgao ? undefined : undefined}
+            orgaoNome={processoData?.orgao}
+            onUseValue={(value) => {
+              const key = formData.valor_estimado !== undefined ? "valor_estimado" : "valor_global";
+              onChange(key, `R$ ${value.toFixed(2)}`);
+            }}
+          />
+        </>
+      )}
     </div>
   );
 }
