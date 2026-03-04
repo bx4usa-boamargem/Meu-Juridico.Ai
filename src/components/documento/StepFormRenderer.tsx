@@ -318,12 +318,14 @@ export function StepFormRenderer({
           <Input
             value={value}
             onChange={(e) => onChange(field.key, e.target.value)}
+            onBlur={isObjetoField && onAutoPreencherIA ? () => onAutoPreencherIA(value) : undefined}
             readOnly={field.readOnly}
             placeholder={`Digite ${field.label.toLowerCase()}...`}
             className={cn(
               "text-sm",
               field.readOnly && "bg-muted cursor-not-allowed",
               isInherited && "border-success/20 bg-success/5",
+              isAiFilled && "border-primary/20 bg-primary/5",
               isInvalid && "border-destructive"
             )}
           />
