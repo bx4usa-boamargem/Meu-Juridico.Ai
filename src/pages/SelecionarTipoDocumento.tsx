@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Check } from "lucide-react";
 import { toast } from "sonner";
+import { CustomDocumentBuilder } from "@/components/documento/CustomDocumentBuilder";
 
 interface DocTemplate {
   id: string;
@@ -22,17 +23,18 @@ export default function SelecionarTipoDocumento() {
   const navigate = useNavigate();
   const [selected, setSelected] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const [showCustomBuilder, setShowCustomBuilder] = useState(false);
 
   const { data: templates, isLoading } = useQuery({
     queryKey: ["document_templates"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("document_templates" as any)
+        .from("document_templates")
         .select("*")
         .eq("is_active", true)
         .order("doc_type");
       if (error) throw error;
-      return (data as any[]) as DocTemplate[];
+      return data as DocTemplate[];
     },
   });
 
@@ -52,27 +54,39 @@ export default function SelecionarTipoDocumento() {
 
   const handleCreate = async () => {
     if (!selected || !processoId) return;
+    
+    // For 'custom' type, show the custom builder
+    if (selected === "custom") {
+      setShowCustomBuilder(true);
+      return;
+    }
+
+    await createDocument(selected);
+  };
+
+  const createDocument = async (docType: string, customSections?: any[]) => {
     setCreating(true);
     try {
       const { data: user } = await supabase.auth.getUser();
       if (!user.user) throw new Error("Não autenticado");
 
-      // For 'custom' type, navigate to custom builder
-      if (selected === "custom") {
-        navigate(`/processo/${processoId}/novo-documento/custom`);
-        return;
+      // Create document
+      const insertData: any = {
+        processo_id: processoId,
+        tipo: docType,
+        status: "rascunho",
+        workflow_status: "rascunho",
+        gerado_por: user.user.id,
+      };
+      
+      // If custom sections were provided, store them in dados_estruturados
+      if (customSections) {
+        insertData.dados_estruturados = { custom_sections: customSections };
       }
 
-      // Create document
       const { data: doc, error } = await supabase
         .from("documentos")
-        .insert({
-          processo_id: processoId,
-          tipo: selected,
-          status: "rascunho",
-          workflow_status: "rascunho",
-          gerado_por: user.user.id,
-        })
+        .insert(insertData)
         .select("id")
         .single();
 
@@ -96,6 +110,16 @@ export default function SelecionarTipoDocumento() {
 
   const getExistingDoc = (docType: string) =>
     existingDocs?.find((d) => d.tipo === docType);
+
+  // Show custom builder if selected
+  if (showCustomBuilder) {
+    return (
+      <CustomDocumentBuilder
+        onConfirm={(sections) => createDocument("custom", sections)}
+        onBack={() => setShowCustomBuilder(false)}
+      />
+    );
+  }
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-6">
@@ -129,7 +153,7 @@ export default function SelecionarTipoDocumento() {
                   relative text-left rounded-xl border-2 p-5 transition-all duration-200 cursor-pointer
                   hover:shadow-[0_4px_12px_rgba(27,79,216,0.15)] hover:border-primary
                   ${isSelected
-                    ? "bg-[hsl(217,100%,97%)] border-primary shadow-[0_4px_12px_rgba(27,79,216,0.15)]"
+                    ? "bg-accent border-primary shadow-[0_4px_12px_rgba(27,79,216,0.15)]"
                     : "bg-card border-border"
                   }
                 `}
@@ -143,12 +167,12 @@ export default function SelecionarTipoDocumento() {
                 <h3 className="text-sm font-semibold mb-1">{tmpl.title}</h3>
                 <p className="text-xs text-muted-foreground leading-relaxed">{tmpl.description}</p>
                 <Badge variant="secondary" className="mt-3 text-[10px]">
-                  {tmpl.sections_plan?.length || 0} seções
+                  {(tmpl.sections_plan as any[])?.length || 0} seções
                 </Badge>
 
                 {existing && (
                   <div className="mt-2 text-[10px] text-muted-foreground flex items-center gap-1">
-                    <Check className="h-3 w-3 text-green-600" />
+                    <Check className="h-3 w-3 text-emerald-600" />
                     <span>{existing.status === "aprovado" ? "Aprovado" : "Em andamento"}</span>
                   </div>
                 )}
