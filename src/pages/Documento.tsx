@@ -170,7 +170,7 @@ export default function Documento() {
     setInheritedKeys(keys);
     setWorkflow(wf);
     setInitialized(true);
-  }, [documento, inherited, sections, initialized]);
+  }, [documento, inherited, processo, sections, initialized]);
 
   // Persist workflow state
   const dataWithWorkflow = useMemo(() => {
