@@ -536,7 +536,10 @@ export default function Documento() {
         />
 
         {/* CENTER — Workspace */}
-        <div className="flex-1 flex flex-col min-w-0">
+        <div className="flex-1 flex flex-col min-w-0 relative">
+          {/* AI Builder Overlay */}
+          <AiBuilderOverlay isActive={aiBuilderActive} currentPhase={aiBuilderPhase} />
+
           <ScrollArea className="flex-1">
             <div className="p-6 max-w-2xl mx-auto">
               {/* Edital banner - TR approved */}
@@ -563,6 +566,21 @@ export default function Documento() {
                 <h2 className="text-lg font-semibold">{currentSection?.label}</h2>
               </div>
 
+              {/* Section action bar (Manter/Melhorar/Editar) */}
+              {currentSection && (
+                <SectionActionBar
+                  currentAction={sectionActions[currentSection.id] ?? null}
+                  onAction={(action) => {
+                    setSectionActions(prev => ({ ...prev, [currentSection.id]: action }));
+                    if (action === "improve" && currentSection) {
+                      const textareaField = currentSection.fields.find(f => f.type === "textarea" && !f.readOnly);
+                      if (textareaField) handleMelhorar(textareaField);
+                    }
+                  }}
+                  hasAiContent={currentSection.fields.some(f => aiFilledFields.has(f.key))}
+                />
+              )}
+
               {currentSection && (
                 <StepFormRenderer
                   section={currentSection}
@@ -572,6 +590,7 @@ export default function Documento() {
                   invalidFields={invalidFields}
                   aiFilledFields={aiFilledFields}
                   autoPreenchendo={autoPreenchendo}
+                  camposMeta={camposMeta}
                   onChange={handleFieldChange}
                   onMelhorar={handleMelhorar}
                   onGerarJustificativa={() => setJustificativaOpen(true)}
