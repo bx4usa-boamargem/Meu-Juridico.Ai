@@ -35,7 +35,7 @@ export default function Documento() {
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [inheritedKeys, setInheritedKeys] = useState<Set<string>>(new Set());
   const [invalidFields, setInvalidFields] = useState<Set<string>>(new Set());
-  const [workflow, setWorkflow] = useState<WorkflowState | null>(null);
+  const [disabledSections, setDisabledSections] = useState<Set<string>>(new Set());
   const [initialized, setInitialized] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
 
@@ -201,13 +201,15 @@ export default function Documento() {
     setWorkflow((prev) => (prev ? { ...prev, current_step: stepId } : prev));
   }, []);
 
-  const handleToggleStep = useCallback((stepId: string, enabled: boolean) => {
-    setWorkflow((prev) => {
-      if (!prev) return prev;
-      return {
-        ...prev,
-        steps: { ...prev.steps, [stepId]: { ...prev.steps[stepId], enabled } },
-      };
+  const handleToggleSection = useCallback((sectionId: string) => {
+    setDisabledSections((prev) => {
+      const next = new Set(prev);
+      if (next.has(sectionId)) {
+        next.delete(sectionId);
+      } else {
+        next.add(sectionId);
+      }
+      return next;
     });
   }, []);
 
