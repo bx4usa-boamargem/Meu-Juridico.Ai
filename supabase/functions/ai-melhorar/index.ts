@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -46,6 +47,42 @@ serve(async (req) => {
       }
     }
 
+    // RAG V2: buscar contexto vetorial
+    let ragContext = "";
+    try {
+      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+      const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+      const adminClient = createClient(supabaseUrl, supabaseServiceKey);
+      const { data: orgSettings } = await adminClient.from("org_settings").select("org_id").limit(1).maybeSingle();
+
+      if (orgSettings?.org_id) {
+        const embRes = await fetch("https://ai.gateway.lovable.dev/v1/embeddings", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ input: field_value.slice(0, 2000), model: "text-embedding-3-small" }),
+        });
+        if (embRes.ok) {
+          const embData = await embRes.json();
+          const embedding = embData.data?.[0]?.embedding;
+          if (embedding) {
+            const { data: chunks } = await adminClient.rpc("match_knowledge_chunks", {
+              p_org_id: orgSettings.org_id,
+              p_embedding: JSON.stringify(embedding),
+              p_match_threshold: 0.5,
+              p_match_count: 3,
+              p_doc_types: null,
+            });
+            if (chunks && chunks.length > 0) {
+              ragContext = "\nBase de conhecimento institucional:\n" +
+                chunks.map((c: any) => `[${c.doc_title}]: ${String(c.content_text).substring(0, 500)}`).join("\n");
+            }
+          }
+        }
+      }
+    } catch (ragErr) {
+      console.warn("RAG fallback (non-blocking):", ragErr);
+    }
+
     const systemPrompt = `Você é um especialista em licitações públicas brasileiras, com profundo conhecimento da Lei 14.133/2021 (Nova Lei de Licitações).
 
 Seu papel é melhorar textos de documentos de licitação, mantendo:
@@ -62,6 +99,7 @@ Seção: ${section_label}
 
 Outros campos já preenchidos:
 ${otherFields.slice(0, 10).join("\n")}
+${ragContext}
 
 Retorne APENAS o texto melhorado, sem explicações adicionais.`;
 

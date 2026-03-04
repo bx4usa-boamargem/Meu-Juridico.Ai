@@ -192,10 +192,11 @@ serve(async (req) => {
       .map((s: any) => `[${s.field}]: ${String(s.value).substring(0, 300)}`)
       .join("\n\n");
 
-    // RAG V1: buscar KB institucional via FTS
+    // RAG V1: buscar KB institucional via FTS (org_knowledge_base)
     let kbContext = "";
+    const adminClient = createClient(supabaseUrl, supabaseServiceKey);
+
     if (processo_context?.orgao) {
-      const adminClient = createClient(supabaseUrl, supabaseServiceKey);
       const searchTerms = (selected_text as string).split(/\s+/).slice(0, 5).join(" & ");
       const { data: kbDocs } = await adminClient
         .from("org_knowledge_base")
@@ -205,9 +206,46 @@ serve(async (req) => {
         .limit(3);
 
       if (kbDocs && kbDocs.length > 0) {
-        kbContext = "\nBase de conhecimento institucional:\n" +
+        kbContext = "\nBase de conhecimento institucional (FTS):\n" +
           kbDocs.map((d: any) => `[${d.titulo}]: ${String(d.conteudo).substring(0, 500)}`).join("\n");
       }
+    }
+
+    // RAG V2: buscar via pgvector (knowledge_chunks) se org_settings existir
+    try {
+      const { data: orgSettings } = await adminClient
+        .from("org_settings")
+        .select("org_id")
+        .limit(1)
+        .maybeSingle();
+
+      if (orgSettings?.org_id) {
+        // Get embedding for the selected text
+        const embRes = await fetch("https://ai.gateway.lovable.dev/v1/embeddings", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ input: selected_text.slice(0, 2000), model: "text-embedding-3-small" }),
+        });
+        if (embRes.ok) {
+          const embData = await embRes.json();
+          const embedding = embData.data?.[0]?.embedding;
+          if (embedding) {
+            const { data: chunks } = await adminClient.rpc("match_knowledge_chunks", {
+              p_org_id: orgSettings.org_id,
+              p_embedding: JSON.stringify(embedding),
+              p_match_threshold: 0.5,
+              p_match_count: 3,
+              p_doc_types: null,
+            });
+            if (chunks && chunks.length > 0) {
+              kbContext += "\nBase de conhecimento vetorial (RAG):\n" +
+                chunks.map((c: any) => `[${c.doc_title}]: ${String(c.content_text).substring(0, 500)}`).join("\n");
+            }
+          }
+        }
+      }
+    } catch (ragErr) {
+      console.warn("RAG V2 fallback (non-blocking):", ragErr);
     }
 
     const promptBuilder = ACTION_PROMPTS[action];
