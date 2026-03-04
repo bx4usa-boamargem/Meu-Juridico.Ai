@@ -14,6 +14,12 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import type { SectionDef, FieldDef } from "@/lib/document-sections";
 
+interface FieldMeta {
+  confianca: string;
+  fontes: string[];
+  sugestao: string;
+}
+
 interface Props {
   section: SectionDef;
   formData: Record<string, any>;
@@ -22,6 +28,7 @@ interface Props {
   invalidFields?: Set<string>;
   aiFilledFields?: Set<string>;
   autoPreenchendo?: boolean;
+  camposMeta?: Record<string, FieldMeta>;
   onChange: (key: string, value: any) => void;
   onMelhorar: (field: FieldDef) => void;
   onGerarJustificativa?: () => void;
