@@ -515,6 +515,104 @@ export type Database = {
           },
         ]
       }
+      knowledge_base: {
+        Row: {
+          created_at: string
+          created_by: string
+          doc_type: string
+          file_path: string
+          file_size_bytes: number | null
+          id: string
+          is_active: boolean | null
+          metadata: Json | null
+          org_id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          doc_type: string
+          file_path: string
+          file_size_bytes?: number | null
+          id?: string
+          is_active?: boolean | null
+          metadata?: Json | null
+          org_id: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          doc_type?: string
+          file_path?: string
+          file_size_bytes?: number | null
+          id?: string
+          is_active?: boolean | null
+          metadata?: Json | null
+          org_id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "knowledge_base_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "org_settings"
+            referencedColumns: ["org_id"]
+          },
+        ]
+      }
+      knowledge_chunks: {
+        Row: {
+          chunk_index: number | null
+          content_text: string
+          created_at: string
+          document_id: string
+          embedding: string
+          id: string
+          metadata: Json | null
+          org_id: string
+        }
+        Insert: {
+          chunk_index?: number | null
+          content_text: string
+          created_at?: string
+          document_id: string
+          embedding: string
+          id?: string
+          metadata?: Json | null
+          org_id: string
+        }
+        Update: {
+          chunk_index?: number | null
+          content_text?: string
+          created_at?: string
+          document_id?: string
+          embedding?: string
+          id?: string
+          metadata?: Json | null
+          org_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "knowledge_chunks_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "knowledge_base"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "knowledge_chunks_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "org_settings"
+            referencedColumns: ["org_id"]
+          },
+        ]
+      }
       monitoring_alerts: {
         Row: {
           affected_doc_types: string[] | null
@@ -674,6 +772,33 @@ export type Database = {
         }
         Relationships: []
       }
+      org_settings: {
+        Row: {
+          created_at: string
+          created_by: string
+          nome: string
+          org_id: string
+          slug: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          nome: string
+          org_id?: string
+          slug?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          nome?: string
+          org_id?: string
+          slug?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       processos: {
         Row: {
           context_data: Json | null
@@ -788,6 +913,22 @@ export type Database = {
         Returns: string
       }
       get_user_orgao: { Args: { p_user_id: string }; Returns: string }
+      match_knowledge_chunks: {
+        Args: {
+          p_doc_types?: string[]
+          p_embedding: string
+          p_match_count: number
+          p_match_threshold: number
+          p_org_id: string
+        }
+        Returns: {
+          chunk_id: string
+          content_text: string
+          doc_title: string
+          document_id: string
+          similarity: number
+        }[]
+      }
       obter_pipeline_processo: {
         Args: { p_processo_id: string }
         Returns: Json
