@@ -267,6 +267,7 @@ export function StepFormRenderer({
             <Textarea
               value={value}
               onChange={(e) => onChange(field.key, e.target.value)}
+              onBlur={isObjetoField && onAutoPreencherIA ? () => onAutoPreencherIA(value) : undefined}
               readOnly={field.readOnly}
               placeholder={`Digite ${field.label.toLowerCase()}...`}
               maxLength={field.maxLength}
