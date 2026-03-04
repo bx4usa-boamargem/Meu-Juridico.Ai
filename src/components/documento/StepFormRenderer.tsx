@@ -137,9 +137,11 @@ export function StepFormRenderer({
   const renderField = (field: FieldDef) => {
     const value = getFieldValue(field);
     const isInherited = inheritedKeys.has(field.key);
+    const isAiFilled = aiFilledFields?.has(field.key) ?? false;
     const isRequired = field.required === true;
     const isInvalid = invalidFields?.has(field.key) ?? false;
     const colSpan = field.colspan ?? (field.type === "textarea" ? 2 : 1);
+    const isObjetoField = field.key === "objeto_contratacao" || field.key === "objeto";
 
     // Radio cards
     if (field.type === "radio_cards" && field.radioOptions) {
