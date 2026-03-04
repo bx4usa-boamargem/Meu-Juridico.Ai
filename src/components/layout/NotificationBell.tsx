@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -24,6 +25,7 @@ interface Notification {
 
 export function NotificationBell() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [open, setOpen] = useState(false);
 
@@ -67,11 +69,16 @@ export function NotificationBell() {
     };
   }, [user]);
 
-  const markAsRead = async (id: string) => {
-    await supabase.from("notifications").update({ read: true }).eq("id", id);
+  const handleNotificationClick = async (n: Notification) => {
+    await supabase.from("notifications").update({ read: true }).eq("id", n.id);
     setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, read: true } : n))
+      prev.map((item) => (item.id === n.id ? { ...item, read: true } : item))
     );
+    setOpen(false);
+    // Navigate based on source type
+    if (n.type === "monitoring_alert" || n.source === "monitoring") {
+      navigate("/admin/monitoramento");
+    }
   };
 
   const markAllRead = async () => {
@@ -132,7 +139,7 @@ export function NotificationBell() {
                     "w-full text-left px-3 py-2.5 hover:bg-muted/50 transition-colors",
                     !n.read && "bg-primary/5"
                   )}
-                  onClick={() => markAsRead(n.id)}
+                  onClick={() => handleNotificationClick(n)}
                 >
                   <div className="flex items-start gap-2">
                     <div
