@@ -20,6 +20,7 @@ import SharedDocument from "./pages/SharedDocument";
 import SelecionarTipoDocumento from "./pages/SelecionarTipoDocumento";
 import Perfil from "./pages/Perfil";
 import BaseConhecimento from "./pages/BaseConhecimento";
+import AdminMonitoramento from "./pages/AdminMonitoramento";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
