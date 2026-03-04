@@ -184,6 +184,15 @@ export default function Documento() {
 
   const handleFieldChange = useCallback((key: string, value: any) => {
     setFormData((prev) => ({ ...prev, [key]: value }));
+    // Clear AI badge when user manually edits
+    setAiFilledFields((prev) => {
+      if (prev.has(key)) {
+        const next = new Set(prev);
+        next.delete(key);
+        return next;
+      }
+      return prev;
+    });
     setInvalidFields((prev) => {
       const hasValue = typeof value === "string" ? !!value.trim() : !!value;
       if (prev.has(key) && hasValue) {
@@ -194,6 +203,48 @@ export default function Documento() {
       return prev;
     });
   }, []);
+
+  const handleAutoPreencherIA = useCallback(async (objetoValue: string) => {
+    if (!objetoValue || objetoValue.length < 10) return;
+    setAutoPreenchendo(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("ai-autopreencher", {
+        body: {
+          objeto_contratacao: objetoValue,
+          doc_type: documento?.tipo ?? "dfd",
+          processo_dados: {
+            orgao: processo?.orgao,
+            modalidade: processo?.modalidade,
+          },
+        },
+      });
+      if (error) throw error;
+      if (data?.campos_preenchidos) {
+        const newAiFields = new Set<string>();
+        setFormData((prev) => {
+          const updated = { ...prev };
+          for (const [key, value] of Object.entries(data.campos_preenchidos)) {
+            if (value !== null && value !== undefined) {
+              // Only fill if user hasn't already typed something
+              if (!updated[key] || (typeof updated[key] === "string" && !updated[key].trim())) {
+                updated[key] = value;
+                newAiFields.add(key);
+              }
+            }
+          }
+          return updated;
+        });
+        setAiFilledFields(newAiFields);
+        const count = Object.keys(data.campos_preenchidos).length;
+        toast.success(`IA preencheu ${count} campos automaticamente!`);
+      }
+    } catch (err: any) {
+      console.error("Erro no autopreenchimento:", err);
+      toast.error("Erro ao preencher com IA. Tente novamente.");
+    } finally {
+      setAutoPreenchendo(false);
+    }
+  }, [documento?.tipo, processo?.orgao, processo?.modalidade]);
 
   // Update workflow step statuses when formData changes
   useEffect(() => {
