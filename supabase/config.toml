@@ -20,3 +20,15 @@ verify_jwt = false
 
 [functions.monitoring_scheduler]
 verify_jwt = false
+
+[functions.ai-document-builder]
+verify_jwt = false
+
+[functions.ai-autopreencher]
+verify_jwt = false
+
+[functions.export_docx]
+verify_jwt = false
+
+[functions.ingest_knowledge]
+verify_jwt = false
