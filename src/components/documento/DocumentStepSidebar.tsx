@@ -1,5 +1,4 @@
-import { FileText, Check, Pencil, Search } from "lucide-react";
-import { Switch } from "@/components/ui/switch";
+import { FileText, Check, Lock, Pencil, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
@@ -11,8 +10,27 @@ interface Props {
   formData: Record<string, any>;
   documentTitle?: string;
   documentNumber?: string;
+  disabledSections?: Set<string>;
   onSelectStep: (stepId: string) => void;
-  onToggleStep: (stepId: string, enabled: boolean) => void;
+  onToggleSection?: (sectionId: string) => void;
+}
+
+function MiniToggle({ enabled, onToggle }: { enabled: boolean; onToggle: () => void }) {
+  return (
+    <button
+      onClick={(e) => { e.stopPropagation(); onToggle(); }}
+      className={cn(
+        "w-8 h-4 rounded-full transition-colors flex items-center px-0.5 shrink-0",
+        enabled ? "bg-[hsl(var(--primary))]" : "bg-muted"
+      )}
+      title={enabled ? "Desativar seção" : "Ativar seção"}
+    >
+      <span className={cn(
+        "w-3 h-3 bg-white rounded-full transition-transform",
+        enabled ? "translate-x-4" : "translate-x-0"
+      )} />
+    </button>
+  );
 }
 
 export function DocumentStepSidebar({
@@ -21,8 +39,9 @@ export function DocumentStepSidebar({
   formData,
   documentTitle,
   documentNumber,
+  disabledSections = new Set(),
   onSelectStep,
-  onToggleStep,
+  onToggleSection,
 }: Props) {
   const [search, setSearch] = useState("");
 
@@ -68,7 +87,8 @@ export function DocumentStepSidebar({
         {filteredSections.map((section) => {
           const stepState = workflow.steps[section.id];
           const isActive = workflow.current_step === section.id;
-          const isEnabled = stepState?.enabled !== false;
+          const isDisabled = disabledSections.has(section.id);
+          const isEnabled = !isDisabled && stepState?.enabled !== false;
           const status = stepState?.status ?? "locked";
           const isComplete = status === "complete";
 
@@ -77,21 +97,21 @@ export function DocumentStepSidebar({
               key={section.id}
               className={cn(
                 "flex items-center gap-2.5 rounded-lg px-3 py-2.5 transition-all cursor-pointer group",
-                isActive && "bg-primary/10 border-l-[3px] border-l-primary",
+                isActive && !isDisabled && "bg-primary/10 border-l-[3px] border-l-primary",
                 !isActive && isEnabled && "hover:bg-muted/50",
-                !isEnabled && "opacity-40"
+                isDisabled && "opacity-40"
               )}
               onClick={() => {
-                if (isEnabled && status !== "locked") onSelectStep(section.id);
+                if (!isDisabled && isEnabled && status !== "locked") onSelectStep(section.id);
               }}
             >
               {/* Status icon */}
               <div className="shrink-0">
-                {isComplete ? (
+                {isComplete && !isDisabled ? (
                   <div className="h-5 w-5 rounded-full bg-success flex items-center justify-center">
                     <Check className="h-3 w-3 text-success-foreground" />
                   </div>
-                ) : isActive ? (
+                ) : isActive && !isDisabled ? (
                   <div className="h-5 w-5 rounded-full bg-primary flex items-center justify-center">
                     <FileText className="h-3 w-3 text-primary-foreground" />
                   </div>
@@ -105,21 +125,25 @@ export function DocumentStepSidebar({
                 <span
                   className={cn(
                     "text-xs block truncate",
-                    isActive ? "font-semibold text-primary" : "text-foreground"
+                    isActive && !isDisabled ? "font-semibold text-primary" : "text-foreground",
+                    isDisabled && "line-through"
                   )}
                 >
                   {section.label}
                 </span>
               </div>
 
-              {/* Toggle — disabled for required sections */}
-              <Switch
-                checked={isEnabled}
-                onCheckedChange={(checked) => onToggleStep(section.id, checked)}
-                className="shrink-0 scale-75"
-                disabled={section.required}
-                onClick={(e) => e.stopPropagation()}
-              />
+              {/* Toggle or Lock icon */}
+              {section.optional ? (
+                <MiniToggle
+                  enabled={!isDisabled}
+                  onToggle={() => onToggleSection?.(section.id)}
+                />
+              ) : (
+                <span className="text-muted-foreground/50 text-xs shrink-0" title="Seção obrigatória por lei">
+                  <Lock className="h-3 w-3" />
+                </span>
+              )}
             </div>
           );
         })}

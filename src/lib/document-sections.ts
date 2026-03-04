@@ -25,6 +25,7 @@ export interface SectionDef {
   label: string;
   fields: FieldDef[];
   required: boolean;
+  optional?: boolean; // true = user can toggle off via sidebar
   unlocksNext: boolean;
   condition?: { field: string; value: string };
 }
@@ -59,6 +60,15 @@ const DFD_SECTIONS: SectionDef[] = [
       { key: "impacto_esperado", label: "Impacto Esperado", type: "textarea", required: true },
       { key: "continuidade_ou_nova", label: "Continuidade ou Nova Contratação", type: "select", options: ["Continuidade", "Nova contratação"], required: false },
       { key: "publico_beneficiado", label: "Público Beneficiado", type: "textarea", required: false },
+    ],
+  },
+  {
+    id: "alinhamento_estrategico",
+    label: "Alinhamento Estratégico",
+    required: false,
+    optional: true,
+    unlocksNext: true,
+    fields: [
       { key: "alinhamento_estrategico", label: "Alinhamento Estratégico", type: "textarea", required: false },
       { key: "fundamento_legal", label: "Fundamento Legal", type: "textarea", required: false },
       { key: "plano_anual_contratacoes", label: "Plano Anual de Contratações", type: "text", required: false },
@@ -78,7 +88,6 @@ const DFD_SECTIONS: SectionDef[] = [
       { key: "setor_demandante", label: "Setor Demandante", type: "text", required: true },
       { key: "responsavel", label: "Responsável pela Demanda", type: "text", required: true },
       { key: "data_conclusao_contratacao", label: "Data da conclusão da contratação", type: "date" },
-      { key: "area_requisitante_etp", label: "Área requisitante", type: "select", options: ["Selecione o ETP"], required: false },
       { key: "descricao_sucinta_objeto", label: "Descrição sucinta do objeto", type: "textarea", maxLength: 200 },
       { key: "prioridade_info", label: "Prioridade", type: "select", options: ["Alto", "Médio", "Baixo"] },
       { key: "justificativa_prioridade", label: "Justificativa da prioridade", type: "textarea", maxLength: 500 },
@@ -92,7 +101,16 @@ const DFD_SECTIONS: SectionDef[] = [
     fields: [
       { key: "justificativa_contratacao", label: "Justificativa da Contratação", type: "textarea", required: true },
       { key: "necessidade", label: "Descrição da Necessidade", type: "textarea", required: true },
-      { key: "alinhamento_estrategico_just", label: "Alinhamento Estratégico", type: "textarea", required: false },
+    ],
+  },
+  {
+    id: "vinculacao_dependencia",
+    label: "Vinculação / Dependência",
+    required: false,
+    optional: true,
+    unlocksNext: true,
+    fields: [
+      { key: "vinculacao_dependencia", label: "Vinculação ou Dependência com outros contratos", type: "textarea", required: false },
     ],
   },
   {
@@ -106,6 +124,16 @@ const DFD_SECTIONS: SectionDef[] = [
       { key: "unidade_medida", label: "Unidade de Medida", type: "text" },
       { key: "valor_estimado", label: "Valor Estimado (R$)", type: "text", required: true },
       { key: "fonte_pesquisa", label: "Fonte de Pesquisa de Preço", type: "text" },
+    ],
+  },
+  {
+    id: "recursos_orcamentarios",
+    label: "Recursos Orçamentários",
+    required: false,
+    optional: true,
+    unlocksNext: true,
+    fields: [
+      { key: "observacoes", label: "Observações sobre recursos orçamentários", type: "textarea" },
     ],
   },
   {
@@ -123,11 +151,11 @@ const DFD_SECTIONS: SectionDef[] = [
     id: "acompanhamento",
     label: "Acompanhamento",
     required: false,
+    optional: true,
     unlocksNext: true,
     fields: [
       { key: "prioridade", label: "Prioridade", type: "select", options: ["Alta", "Média", "Baixa"] },
       { key: "prazo_entrega", label: "Prazo de Entrega", type: "text" },
-      { key: "observacoes", label: "Observações Gerais", type: "textarea" },
     ],
   },
   {
