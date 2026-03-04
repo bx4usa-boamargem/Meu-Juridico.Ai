@@ -363,6 +363,7 @@ export default function Documento() {
         saving={saving}
         lastSaved={lastSaved}
         processoId={processoId!}
+        docId={docId}
         userEmail={user?.email ?? undefined}
       />
 

@@ -123,10 +123,32 @@ export function DocumentMetaBar({ tipo, numero, status, saving, lastSaved, proce
         >
           {statusLabel}
         </Badge>
+
+        {/* Conformity score */}
+        {conformityScore != null && (
+          <Badge
+            className={`text-[10px] px-2 py-0.5 ${scoreColor}`}
+            variant="outline"
+          >
+            Conformidade: {Math.round(conformityScore * 100)}%
+          </Badge>
+        )}
       </div>
 
       {/* RIGHT — Actions */}
       <div className="flex items-center gap-2 shrink-0">
+        {canExport && docId && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 text-xs gap-1"
+            onClick={handleExportDocx}
+            disabled={exporting}
+          >
+            {exporting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Download className="h-3 w-3" />}
+            Exportar DOCX
+          </Button>
+        )}
         <Button
           variant="ghost"
           size="sm"
