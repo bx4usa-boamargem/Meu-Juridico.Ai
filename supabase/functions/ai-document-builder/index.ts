@@ -127,7 +127,6 @@ Deno.serve(async (req) => {
 
     // ── Parallel context gathering ─────────────────────────────────
     const [ragResult, alertsResult, processoResult] = await Promise.all([
-      // Consulta A: RAG - knowledge base
       (async () => {
         try {
           const { data: orgSettings } = await supabase
@@ -153,8 +152,6 @@ Deno.serve(async (req) => {
           return "";
         }
       })(),
-
-      // Consulta B: Monitoring alerts
       (async () => {
         try {
           const { data: alerts } = await supabase.rpc("get_alertas_documento", { p_doc_type: docType });
@@ -172,8 +169,6 @@ Deno.serve(async (req) => {
           return [];
         }
       })(),
-
-      // Consulta C: Processo data
       (async () => {
         if (!processo_id) return null;
         try {
@@ -205,12 +200,14 @@ Deno.serve(async (req) => {
     }
 
     // ── Generate all sections ──────────────────────────────────────
-    const allFields = sections.flatMap(s => s.fields);
+    // CORREÇÃO 3: Exclude objeto_contratacao from AI generation - user provides it
+    const allFields = sections.flatMap(s => s.fields).filter(f => f !== "objeto_contratacao" && f !== "objeto");
     const fieldsSchema = allFields.map(f => `"${f}": { "valor": "string", "confianca": "alta|media|baixa", "fontes": ["string"], "sugestao_melhoria": "string" }`).join(",\n  ");
 
-    const systemPrompt = `Você é um agente especialista em contratações públicas brasileiras (Lei 14.133/2021, Lei 8.666/1993, IN SEGES/MP).
+    // CORREÇÃO 3: Updated prompt with strict instructions not to invent data
+    const systemPrompt = `Você é um agente especialista em contratações públicas brasileiras (Lei 14.133/2021).
 
-Seu trabalho é PREENCHER AUTOMATICAMENTE todos os campos de um ${docType.toUpperCase()} com base no objeto da contratação informado pelo usuário.
+Seu trabalho é SUGERIR preenchimento dos campos de um ${docType.toUpperCase()} com base no objeto da contratação informado pelo usuário.
 
 ## CONTEXTO DO PROCESSO
 - Objeto: ${objeto}
@@ -222,19 +219,29 @@ ${contextBlock}
 ## INSTRUÇÕES POR SEÇÃO
 ${sections.map(s => `### ${s.label}\nCampos: ${s.fields.join(", ")}\n${s.instructions}`).join("\n\n")}
 
-## REGRAS OBRIGATÓRIAS
-1. Use linguagem técnica da administração pública brasileira
-2. Cite artigos específicos da Lei 14.133/2021 quando relevante
-3. Se houver alertas normativos acima, INCORPORE-OS nos campos relevantes
-4. Se houver dados do RAG, USE-OS como referência
+## REGRAS OBRIGATÓRIAS — LEIA COM ATENÇÃO
+
+1. Use APENAS as informações fornecidas pelo usuário acima.
+2. Se uma informação NÃO foi fornecida pelo usuário, use linguagem genérica com placeholders como:
+   - "[nome do órgão]" ou "[secretaria requisitante]"
+   - "[quantidade a ser definida pelo setor técnico]"
+   - "[valor a ser apurado mediante pesquisa de preços]"
+   - "[responsável a ser designado]"
+3. NUNCA invente:
+   - Nomes de secretarias, departamentos ou setores específicos
+   - Números de normas, decretos ou instruções normativas que possam não existir
+   - Quantidades, valores ou preços
+   - Nomes de pessoas, cargos específicos
+   - Dados de planejamento (PPA, LOA) que o usuário não informou
+4. Cite APENAS artigos da Lei 14.133/2021 e normas federais amplamente conhecidas.
 5. Para cada campo, avalie a confiança:
-   - "alta": baseado em dados concretos ou legislação clara
-   - "media": inferido com razoável certeza
-   - "baixa": sugestão genérica que o usuário deve revisar
-6. Em "fontes", liste as normas/acórdãos usados (ex: "Art. 29, Lei 14.133/2021", "Acórdão TCU 1234/2024")
-7. Em "sugestao_melhoria", diga o que o usuário pode aprimorar
-8. NÃO invente valores numéricos (preços, quantidades) — use "A definir pelo órgão"
-9. Campos como "responsavel_tecnico", "fiscal_contrato" devem ter confiança "baixa" com valor sugerindo preenchimento manual
+   - "alta": baseado em dados concretos fornecidos pelo usuário ou legislação clara
+   - "media": inferido com razoável certeza a partir do objeto
+   - "baixa": sugestão genérica que o usuário DEVE revisar
+6. Em "fontes", liste APENAS normas que você tem CERTEZA que existem
+7. Seja CONCISO — máximo 3 parágrafos por campo
+8. Campos como "responsavel_tecnico", "fiscal_contrato" devem ter confiança "baixa" com valor "[a ser designado pelo ordenador de despesa]"
+9. NÃO preencha o campo "objeto_contratacao" — esse é fornecido pelo usuário
 
 Retorne APENAS um JSON válido com esta estrutura exata:
 {
@@ -243,7 +250,9 @@ Retorne APENAS um JSON válido com esta estrutura exata:
 
 NÃO inclua texto fora do JSON. NÃO use markdown code fences.`;
 
-    const userContent = `Preencha TODOS os campos do ${docType.toUpperCase()} para o objeto: "${objeto}"`;
+    const userContent = `Preencha os campos do ${docType.toUpperCase()} para o objeto: "${objeto}"
+Órgão informado: "${processoOrgao}"
+Modalidade: "${processoModalidade}"`;
 
     let rawText = await callAI(LOVABLE_API_KEY, PRIMARY_MODEL, systemPrompt, userContent);
     if (!rawText) {
@@ -264,7 +273,6 @@ NÃO inclua texto fora do JSON. NÃO use markdown code fences.`;
       parsed = JSON.parse(cleaned);
     } catch {
       console.error("Failed to parse AI response:", cleaned.slice(0, 500));
-      // Try to extract JSON from the response
       const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         try {
@@ -285,6 +293,9 @@ NÃO inclua texto fora do JSON. NÃO use markdown code fences.`;
     const sectionResults: SectionResult[] = sections.map(section => {
       const campos: Record<string, FieldResult> = {};
       for (const fieldId of section.fields) {
+        // CORREÇÃO 3: Skip objeto field
+        if (fieldId === "objeto_contratacao" || fieldId === "objeto") continue;
+        
         const fieldData = parsed[fieldId];
         if (fieldData && typeof fieldData === "object" && fieldData.valor) {
           campos[fieldId] = {
@@ -294,7 +305,6 @@ NÃO inclua texto fora do JSON. NÃO use markdown code fences.`;
             sugestao_melhoria: fieldData.sugestao_melhoria ?? "",
           };
         } else if (fieldData && typeof fieldData === "string") {
-          // Fallback: AI returned plain string instead of object
           campos[fieldId] = {
             valor: fieldData,
             confianca: "media",
@@ -304,7 +314,6 @@ NÃO inclua texto fora do JSON. NÃO use markdown code fences.`;
         }
       }
 
-      // Find alerts relevant to this section
       const sectionAlerts = alertsResult
         .filter((a: any) => {
           const text = `${a.titulo} ${a.impacto}`.toLowerCase();
