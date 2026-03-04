@@ -513,10 +513,13 @@ export default function Documento() {
                   processoData={processoData}
                   inheritedKeys={inheritedKeys}
                   invalidFields={invalidFields}
+                  aiFilledFields={aiFilledFields}
+                  autoPreenchendo={autoPreenchendo}
                   onChange={handleFieldChange}
                   onMelhorar={handleMelhorar}
                   onGerarJustificativa={() => setJustificativaOpen(true)}
                   onValidarObjeto={() => setValidarObjetoOpen(true)}
+                  onAutoPreencherIA={handleAutoPreencherIA}
                   documentType={documento.tipo ?? "etp"}
                 />
               )}
