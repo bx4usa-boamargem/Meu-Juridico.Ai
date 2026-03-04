@@ -32,13 +32,23 @@ function convertTemplateSections(plan: TemplateSectionPlan[]): SectionDef[] {
     }));
 }
 
+// Types with rich hardcoded field definitions (radio_cards, team_list, AI buttons)
+const HARDCODED_TYPES = new Set(["dfd", "etp", "tr"]);
+
 export function useDocumentTemplate(docType: string | null | undefined) {
   const { data: sections, isLoading } = useQuery({
     queryKey: ["document_template_sections", docType],
     queryFn: async () => {
       if (!docType) return [];
 
-      // Try loading from database first
+      // For known types, always use rich hardcoded sections (with radio_cards, team_list, etc.)
+      // The DB sections_plan for these types contains AI orchestration metadata (agent/skill),
+      // not frontend form definitions.
+      if (HARDCODED_TYPES.has(docType)) {
+        return getSectionsForType(docType);
+      }
+
+      // For custom/unknown types, try loading from database
       const { data, error } = await supabase
         .from("document_templates")
         .select("sections_plan")
@@ -52,7 +62,7 @@ export function useDocumentTemplate(docType: string | null | undefined) {
         }
       }
 
-      // Fallback to hardcoded sections
+      // Final fallback
       return getSectionsForType(docType);
     },
     enabled: !!docType,
