@@ -976,6 +976,74 @@ export type Database = {
         }
         Relationships: []
       }
+      risk_maps: {
+        Row: {
+          aprovado_em: string | null
+          aprovado_por: string | null
+          created_at: string | null
+          created_by: string
+          documento_id: string | null
+          id: string
+          processo_id: string
+          resumo_executivo: string | null
+          riscos: Json
+          updated_at: string | null
+        }
+        Insert: {
+          aprovado_em?: string | null
+          aprovado_por?: string | null
+          created_at?: string | null
+          created_by: string
+          documento_id?: string | null
+          id?: string
+          processo_id: string
+          resumo_executivo?: string | null
+          riscos?: Json
+          updated_at?: string | null
+        }
+        Update: {
+          aprovado_em?: string | null
+          aprovado_por?: string | null
+          created_at?: string | null
+          created_by?: string
+          documento_id?: string | null
+          id?: string
+          processo_id?: string
+          resumo_executivo?: string | null
+          riscos?: Json
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "risk_maps_documento_id_fkey"
+            columns: ["documento_id"]
+            isOneToOne: false
+            referencedRelation: "documentos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "risk_maps_documento_id_fkey"
+            columns: ["documento_id"]
+            isOneToOne: false
+            referencedRelation: "vw_processo_com_dfd"
+            referencedColumns: ["dfd_id"]
+          },
+          {
+            foreignKeyName: "risk_maps_processo_id_fkey"
+            columns: ["processo_id"]
+            isOneToOne: false
+            referencedRelation: "processos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "risk_maps_processo_id_fkey"
+            columns: ["processo_id"]
+            isOneToOne: false
+            referencedRelation: "vw_processo_com_dfd"
+            referencedColumns: ["processo_id"]
+          },
+        ]
+      }
     }
     Views: {
       vw_processo_com_dfd: {
