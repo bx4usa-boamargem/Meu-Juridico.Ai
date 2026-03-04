@@ -1,5 +1,5 @@
-import { useRef } from "react";
-import { Info, Sparkles, Shield, Copy, Loader2, BookOpen } from "lucide-react";
+import { useRef, useState } from "react";
+import { Info, Sparkles, Shield, Copy, Loader2, BookOpen, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { RichTextEditor } from "@/components/documento/RichTextEditor";
 import { TextAreaComIA } from "@/components/documento/TextAreaComIA";
 import { TeamListField } from "@/components/documento/TeamListField";
+import { PriceResearchDrawer } from "@/components/documento/PriceResearchDrawer";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import type { SectionDef, FieldDef } from "@/lib/document-sections";
@@ -66,6 +67,10 @@ export function StepFormRenderer({
   documentType,
 }: Props) {
   const editorRef = useRef<{ insertToken: (token: string) => void } | null>(null);
+  const [priceDrawerOpen, setPriceDrawerOpen] = useState(false);
+
+  const hasValorField = section.fields.some(f => f.key === "valor_estimado" || f.key === "valor_global");
+  const isEtpOrTr = documentType === "etp" || documentType === "tr";
 
   const getFieldValue = (field: FieldDef) => {
     if (field.source === "processo" && processoData) {
@@ -449,6 +454,31 @@ export function StepFormRenderer({
       <div className="grid grid-cols-2 gap-4">
         {editableFields.map(renderField)}
       </div>
+
+      {/* Price research button for valor fields */}
+      {hasValorField && isEtpOrTr && (
+        <>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 text-xs border-primary/30 text-primary hover:bg-primary/5"
+            onClick={() => setPriceDrawerOpen(true)}
+          >
+            <Search className="h-3.5 w-3.5" /> Pesquisar preços de mercado
+          </Button>
+          <PriceResearchDrawer
+            open={priceDrawerOpen}
+            onOpenChange={setPriceDrawerOpen}
+            defaultObjeto={formData.objeto_contratacao ?? processoData?.objeto ?? ""}
+            defaultEstado={processoData?.orgao ? undefined : undefined}
+            orgaoNome={processoData?.orgao}
+            onUseValue={(value) => {
+              const key = formData.valor_estimado !== undefined ? "valor_estimado" : "valor_global";
+              onChange(key, `R$ ${value.toFixed(2)}`);
+            }}
+          />
+        </>
+      )}
     </div>
   );
 }

@@ -838,6 +838,72 @@ export type Database = {
         }
         Relationships: []
       }
+      price_references: {
+        Row: {
+          analise_ia: string | null
+          created_at: string
+          created_by: string
+          estado: string | null
+          estatisticas: Json | null
+          id: string
+          municipio: string | null
+          objeto: string
+          outliers_removidos: number | null
+          periodo: string | null
+          preco_referencia: number | null
+          processo_id: string | null
+          resultados: Json | null
+          unidade_medida: string | null
+        }
+        Insert: {
+          analise_ia?: string | null
+          created_at?: string
+          created_by: string
+          estado?: string | null
+          estatisticas?: Json | null
+          id?: string
+          municipio?: string | null
+          objeto: string
+          outliers_removidos?: number | null
+          periodo?: string | null
+          preco_referencia?: number | null
+          processo_id?: string | null
+          resultados?: Json | null
+          unidade_medida?: string | null
+        }
+        Update: {
+          analise_ia?: string | null
+          created_at?: string
+          created_by?: string
+          estado?: string | null
+          estatisticas?: Json | null
+          id?: string
+          municipio?: string | null
+          objeto?: string
+          outliers_removidos?: number | null
+          periodo?: string | null
+          preco_referencia?: number | null
+          processo_id?: string | null
+          resultados?: Json | null
+          unidade_medida?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "price_references_processo_id_fkey"
+            columns: ["processo_id"]
+            isOneToOne: false
+            referencedRelation: "processos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "price_references_processo_id_fkey"
+            columns: ["processo_id"]
+            isOneToOne: false
+            referencedRelation: "vw_processo_com_dfd"
+            referencedColumns: ["processo_id"]
+          },
+        ]
+      }
       processos: {
         Row: {
           context_data: Json | null
