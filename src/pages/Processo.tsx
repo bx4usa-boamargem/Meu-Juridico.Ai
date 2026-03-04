@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { DocumentChainView } from "@/components/DocumentChainView";
+import { Plus } from "lucide-react";
 
 interface PipelineItem {
   tipo: string;
@@ -118,9 +119,18 @@ export default function Processo() {
           </h1>
           <p className="text-sm text-muted-foreground">{processo.orgao || "—"}</p>
         </div>
-        <Badge variant={processo.status === "DFD_APROVADO" ? "default" : "secondary"} className="shrink-0">
-          {processo.status ?? "rascunho"}
-        </Badge>
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            className="gap-1.5 text-xs"
+            onClick={() => navigate(`/processo/${processo.processo_id}/novo-documento`)}
+          >
+            <Plus className="h-3.5 w-3.5" /> Criar novo documento
+          </Button>
+          <Badge variant={processo.status === "DFD_APROVADO" ? "default" : "secondary"} className="shrink-0">
+            {processo.status ?? "rascunho"}
+          </Badge>
+        </div>
       </div>
 
       {/* Metadata row */}

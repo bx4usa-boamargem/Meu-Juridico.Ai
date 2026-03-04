@@ -39,7 +39,7 @@ export function MonitoramentoPanel() {
         .from("monitoring_config")
         .select("*")
         .limit(1)
-        .single();
+        .maybeSingle();
       if (error) throw error;
       return data;
     },

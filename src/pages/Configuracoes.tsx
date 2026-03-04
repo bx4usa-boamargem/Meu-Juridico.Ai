@@ -12,7 +12,7 @@ const TABS = [
 type TabId = (typeof TABS)[number]["id"];
 
 export default function Configuracoes() {
-  const [activeTab, setActiveTab] = useState<TabId>("monitoramento");
+  const [activeTab, setActiveTab] = useState<TabId>("grupos");
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
