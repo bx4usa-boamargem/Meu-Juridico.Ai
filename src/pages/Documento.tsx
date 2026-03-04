@@ -198,6 +198,13 @@ export default function Documento() {
     setInheritedKeys(keys);
     setWorkflow(wf);
     setInitialized(true);
+
+    // Auto-trigger AI Document Builder if objeto is pre-populated from processo
+    const objetoValue = merged.objeto_contratacao || merged.objeto;
+    if (objetoValue && typeof objetoValue === "string" && objetoValue.length >= 10 && !aiBuilderTriggered.current) {
+      // Small delay to let the UI render first
+      setTimeout(() => handleAiDocumentBuilder(objetoValue), 500);
+    }
   }, [documento, inherited, processo, sections, initialized]);
 
   // Persist workflow state
