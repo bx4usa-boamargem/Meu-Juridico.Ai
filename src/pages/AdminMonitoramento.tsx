@@ -1,17 +1,22 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
+import { Switch } from "@/components/ui/switch";
 import { Activity, Play, Pause, CheckCircle, Lock } from "lucide-react";
 import { toast } from "sonner";
+import { BrazilStateMap } from "@/components/configuracoes/BrazilStateMap";
+
+const FEDERAL_SOURCES = ["TCU", "CGU", "PNCP"];
 
 export default function AdminMonitoramento() {
   const queryClient = useQueryClient();
   const [running, setRunning] = useState(false);
+  const [activeStates, setActiveStates] = useState<Set<string>>(new Set(["SP", "RJ", "MG"]));
 
   const { data: config } = useQuery({
     queryKey: ["monitoring_config"],
@@ -25,6 +30,16 @@ export default function AdminMonitoramento() {
       return data;
     },
   });
+
+  // Sync activeStates from DB scope
+  useEffect(() => {
+    if (config?.scope) {
+      const scope = config.scope as any;
+      if (scope?.estados && Array.isArray(scope.estados)) {
+        setActiveStates(new Set(scope.estados));
+      }
+    }
+  }, [config?.scope]);
 
   const { data: monthlyCost } = useQuery({
     queryKey: ["monitoring_cost"],
@@ -66,6 +81,22 @@ export default function AdminMonitoramento() {
     queryClient.invalidateQueries({ queryKey: ["monitoring_config"] });
   };
 
+  const handleToggleState = async (uf: string) => {
+    if (!config) return;
+    const next = new Set(activeStates);
+    if (next.has(uf)) next.delete(uf);
+    else next.add(uf);
+    setActiveStates(next);
+
+    const currentScope = (config.scope as any) ?? {};
+    const newScope = { ...currentScope, estados: Array.from(next) };
+    await supabase
+      .from("monitoring_config")
+      .update({ scope: newScope })
+      .eq("id", config.id);
+    queryClient.invalidateQueries({ queryKey: ["monitoring_config"] });
+  };
+
   const handleRunNow = async () => {
     setRunning(true);
     try {
@@ -91,23 +122,25 @@ export default function AdminMonitoramento() {
   }
 
   return (
-    <div className="p-6 max-w-4xl mx-auto space-y-6">
-      <h1 className="text-lg font-semibold">Admin — Monitoramento</h1>
+    <div className="p-6 max-w-5xl mx-auto space-y-6">
+      <h1 className="text-lg font-semibold">Admin — Monitoramento Normativo</h1>
 
+      {/* Master Switch + Controls */}
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
               <Activity className="h-4 w-4 text-primary" />
               <CardTitle className="text-sm">Agente de Monitoramento</CardTitle>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">Master Switch</span>
+                <Switch checked={config.is_active} onCheckedChange={handleToggle} />
+              </div>
               <Badge variant={config.is_active ? "default" : "secondary"} className="text-[10px]">
                 {config.is_active ? "● Ativo" : "● Pausado"}
               </Badge>
-              <Button variant="outline" size="sm" className="text-xs h-7" onClick={handleToggle}>
-                {config.is_active ? <><Pause className="h-3 w-3 mr-1" />Pausar</> : <><Play className="h-3 w-3 mr-1" />Ativar</>}
-              </Button>
             </div>
           </div>
         </CardHeader>
@@ -146,50 +179,78 @@ export default function AdminMonitoramento() {
           </div>
 
           <div className="flex justify-end">
-            <Button size="sm" className="text-xs gap-1" onClick={handleRunNow} disabled={running}>
+            <Button
+              size="sm"
+              className="text-xs gap-1"
+              onClick={handleRunNow}
+              disabled={running || !config.is_active}
+            >
               <Play className="h-3 w-3" />
-              {running ? "Executando..." : "Executar agora"}
+              {running ? "Executando..." : "Monitorar Agora"}
             </Button>
           </div>
         </CardContent>
       </Card>
 
-      {/* Monitored Scope */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground">Escopo Monitorado — Fase 1</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="flex flex-wrap gap-4 text-xs">
-            <div>
-              <span className="text-muted-foreground block mb-1">Fontes federais ativas:</span>
-              <div className="flex gap-1.5">
-                {["TCU", "CGU", "PNCP"].map((s) => (
-                  <Badge key={s} variant="default" className="text-[10px] gap-1">
-                    <CheckCircle className="h-3 w-3" /> {s}
-                  </Badge>
-                ))}
+      {/* Scope: Map + Federal Sources */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* State Map */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Estados Monitorados</CardTitle>
+            <p className="text-[10px] text-muted-foreground">Clique nos estados para ativar/desativar o monitoramento</p>
+          </CardHeader>
+          <CardContent>
+            <BrazilStateMap
+              activeStates={activeStates}
+              onToggleState={handleToggleState}
+            />
+          </CardContent>
+        </Card>
+
+        {/* Federal Sources */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Fontes Federais</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              {FEDERAL_SOURCES.map((source) => (
+                <div key={source} className="flex items-center justify-between rounded-lg border px-3 py-2">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="h-3.5 w-3.5 text-success" />
+                    <span className="text-xs font-medium">{source}</span>
+                  </div>
+                  <Badge variant="default" className="text-[9px]">Ativo</Badge>
+                </div>
+              ))}
+            </div>
+
+            <div className="rounded-lg border border-dashed px-3 py-2">
+              <div className="flex items-center gap-2">
+                <Lock className="h-3.5 w-3.5 text-muted-foreground" />
+                <div>
+                  <span className="text-xs text-muted-foreground">Fase 2 — Em breve</span>
+                  <p className="text-[10px] text-muted-foreground">Diários Oficiais estaduais, tribunais de contas estaduais</p>
+                </div>
               </div>
             </div>
+
+            {/* Active states summary */}
             <div>
-              <span className="text-muted-foreground block mb-1">Estados ativos:</span>
-              <div className="flex gap-1.5">
-                {["SP", "RJ", "MG"].map((s) => (
-                  <Badge key={s} variant="default" className="text-[10px] gap-1">
-                    <CheckCircle className="h-3 w-3" /> {s}
-                  </Badge>
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2">Estados ativos</p>
+              <div className="flex flex-wrap gap-1">
+                {Array.from(activeStates).sort().map((uf) => (
+                  <Badge key={uf} variant="default" className="text-[9px]">{uf}</Badge>
                 ))}
+                {activeStates.size === 0 && (
+                  <span className="text-[10px] text-muted-foreground">Nenhum estado selecionado</span>
+                )}
               </div>
             </div>
-            <div>
-              <span className="text-muted-foreground block mb-1">Em breve (Fase 2):</span>
-              <Badge variant="secondary" className="text-[10px] gap-1">
-                <Lock className="h-3 w-3" /> Demais estados e capitais
-              </Badge>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
