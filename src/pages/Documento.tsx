@@ -4,7 +4,9 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ArrowLeft, ArrowRight, Loader2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, Loader2, Sparkles } from "lucide-react";
+import { AlertBanner } from "@/components/documento/AlertBanner";
+import { SectionSuggestionBanner } from "@/components/documento/SectionSuggestionBanner";
 import { DocumentStepSidebar } from "@/components/documento/DocumentStepSidebar";
 import { DocumentMetaBar } from "@/components/documento/DocumentMetaBar";
 import { DocumentToolsBar } from "@/components/documento/DocumentToolsBar";
@@ -66,6 +68,7 @@ export default function Documento() {
   const [alertasGlobais, setAlertasGlobais] = useState<AlertaGlobal[]>([]);
   const [sectionActions, setSectionActions] = useState<Record<string, "keep" | "improve" | "edit">>({});
   const [showNormativas, setShowNormativas] = useState(false);
+  const [generatingSectionAi, setGeneratingSectionAi] = useState(false);
   const aiBuilderTriggered = useRef(false);
 
   // Dialog states
@@ -305,10 +308,66 @@ export default function Documento() {
   // Legacy auto-fill (triggered by onBlur on objeto field)
   const handleAutoPreencherIA = useCallback(async (objetoValue: string) => {
     if (!objetoValue || objetoValue.length < 10) return;
-    // If builder already ran, skip simple auto-fill
     if (aiBuilderTriggered.current) return;
     handleAiDocumentBuilder(objetoValue);
   }, [handleAiDocumentBuilder]);
+
+  // Incremental section generation - generate AI content for current section only
+  const handleGenerateCurrentSection = useCallback(async () => {
+    if (!workflow || !formData.objeto_contratacao) return;
+    const curSection = sections.find(s => s.id === workflow.current_step);
+    if (!curSection) return;
+    setGeneratingSectionAi(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("ai-document-builder", {
+        body: {
+          objeto: formData.objeto_contratacao,
+          doc_type: documento?.tipo ?? "dfd",
+          orgao: processo?.orgao ?? "",
+          processo_id: processoId,
+        },
+      });
+      if (error) throw error;
+
+      if (data?.campos_preenchidos) {
+        const sectionFieldKeys = new Set(curSection.fields.map(f => f.key));
+        const newAiFields = new Set(aiFilledFields);
+        setFormData((prev) => {
+          const updated = { ...prev };
+          for (const [key, value] of Object.entries(data.campos_preenchidos)) {
+            if (sectionFieldKeys.has(key) && value !== null && value !== undefined) {
+              updated[key] = value;
+              newAiFields.add(key);
+            }
+          }
+          return updated;
+        });
+        setAiFilledFields(newAiFields);
+        if (data.campos_meta) setCamposMeta(prev => ({ ...prev, ...data.campos_meta }));
+
+        const filled = Object.keys(data.campos_preenchidos).filter(k => sectionFieldKeys.has(k)).length;
+        toast.success(`IA preencheu ${filled} campos desta seção!`);
+      }
+    } catch (err: any) {
+      console.error("Erro ao gerar seção com IA:", err);
+      toast.error("Erro ao gerar seção. Tente novamente.");
+    } finally {
+      setGeneratingSectionAi(false);
+    }
+  }, [workflow, sections, formData.objeto_contratacao, documento?.tipo, processo?.orgao, processoId, aiFilledFields]);
+
+  // Handle adding suggested sections
+  const handleAddSuggestedSection = useCallback((section: { id: string; label: string; reason: string }) => {
+    setFormData(prev => ({
+      ...prev,
+      [section.id]: prev[section.id] ?? "",
+      meta: {
+        ...(prev.meta ?? {}),
+        extra_sections: [...((prev.meta as any)?.extra_sections ?? []), { id: section.id, label: section.label }],
+      },
+    }));
+    toast.success(`Seção "${section.label}" adicionada ao documento.`);
+  }, []);
 
   // Update workflow step statuses when formData changes
   useEffect(() => {
@@ -548,10 +607,29 @@ export default function Documento() {
           <AiBuilderOverlay isActive={aiBuilderActive} currentPhase={aiBuilderPhase} />
 
           <ScrollArea className="flex-1">
-            <div className="p-6 max-w-2xl mx-auto">
+            <div className="p-6 max-w-2xl mx-auto space-y-4">
+              {/* Realtime alert banner */}
+              {documento?.tipo && (
+                <AlertBanner
+                  docType={documento.tipo}
+                  onViewImpact={(alert) => {
+                    setShowNormativas(true);
+                    toast.info(`Alerta: ${alert.title}`, { description: `Fonte: ${alert.source}` });
+                  }}
+                />
+              )}
+
+              {/* Section suggestions for complex objects */}
+              {aiBuilderTriggered.current && formData.objeto_contratacao && (
+                <SectionSuggestionBanner
+                  objeto={formData.objeto_contratacao}
+                  onAddSection={handleAddSuggestedSection}
+                />
+              )}
+
               {/* Edital banner - TR approved */}
               {documento?.tipo === "edital" && approvedTR && currentEnabledIdx === 0 && (
-                <div className="mb-4 rounded-lg border border-primary/20 bg-primary/5 p-3 flex items-start gap-2">
+                <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 flex items-start gap-2">
                   <span className="text-base">💡</span>
                   <p className="text-xs text-foreground">
                     Este edital será gerado com base no TR aprovado em{" "}
@@ -566,7 +644,7 @@ export default function Documento() {
               )}
 
               {/* Section header */}
-              <div className="mb-6">
+              <div>
                 <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-semibold mb-1">
                   Seção {currentEnabledIdx + 1} de {enabledSections.length}
                 </p>
@@ -621,6 +699,22 @@ export default function Documento() {
               )}
             </div>
             <div className="flex items-center gap-2">
+              {/* Gerar seção com IA button */}
+              {currentSection && !currentCompletion.complete && formData.objeto_contratacao && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-xs gap-1.5 border-primary/30 text-primary hover:bg-primary/5"
+                  onClick={handleGenerateCurrentSection}
+                  disabled={generatingSectionAi}
+                >
+                  {generatingSectionAi ? (
+                    <><Loader2 className="h-3 w-3 animate-spin" /> Gerando...</>
+                  ) : (
+                    <><Sparkles className="h-3 w-3" /> Gerar seção com IA</>
+                  )}
+                </Button>
+              )}
               {currentEnabledIdx > 0 && (
                 <Button variant="outline" size="sm" className="text-xs gap-1" onClick={handlePrevious}>
                   <ArrowLeft className="h-3 w-3" /> Anterior
