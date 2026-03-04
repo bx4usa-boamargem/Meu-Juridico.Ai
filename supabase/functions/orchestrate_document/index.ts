@@ -81,15 +81,49 @@ Deno.serve(async (req) => {
 
     // 3. Update processo status based on doc_type
     const statusMap: Record<string, string> = {
-      DFD: "dfd_aprovado",
-      ETP: "etp_aprovado",
-      TR: "tr_aprovado",
+      dfd: "dfd_aprovado",
+      etp: "etp_aprovado",
+      tr: "tr_aprovado",
       edital: "edital_aprovado",
       projeto_basico: "projeto_basico_aprovado",
       mapa_risco: "mapa_risco_aprovado",
     };
     const newStatus = statusMap[doc_type] ?? "em_andamento";
     await supabase.from("processos").update({ status: newStatus }).eq("id", processo_id);
+
+    // 4. TR→Edital: When TR is approved, create next doc (edital) with inherited data
+    if (doc_type === "tr") {
+      // Check if edital already exists for this processo
+      const { data: existingEdital } = await supabase
+        .from("documentos")
+        .select("id")
+        .eq("processo_id", processo_id)
+        .eq("tipo", "edital")
+        .limit(1)
+        .maybeSingle();
+
+      if (!existingEdital) {
+        // Get cadeia_id from the TR document
+        const { data: trDoc } = await supabase
+          .from("documentos")
+          .select("cadeia_id, posicao_cadeia")
+          .eq("id", doc_id)
+          .single();
+
+        if (trDoc?.cadeia_id) {
+          // Create edital document linked to TR as parent
+          await supabase.from("documentos").insert({
+            processo_id,
+            cadeia_id: trDoc.cadeia_id,
+            tipo: "edital",
+            posicao_cadeia: (trDoc.posicao_cadeia ?? 2) + 1,
+            parent_doc_id: doc_id,
+            status: "rascunho",
+            dados_herdados: form_data ?? {},
+          });
+        }
+      }
+    }
 
     return new Response(JSON.stringify({ success: true, status: newStatus }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
