@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import {
-  Shield, Loader2, RefreshCw, Plus, Check, Download, AlertTriangle,
+  Shield, Loader2, RefreshCw, Plus, Check, Download,
   Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -51,8 +52,28 @@ interface Props {
   onApproved?: () => void;
 }
 
-export default function MapaDeRiscos({ processoId, objeto, modalidade, valorEstimado, onApproved }: Props) {
+export default function MapaDeRiscos({ processoId: propProcessoId, objeto: propObjeto, modalidade: propModalidade, valorEstimado, onApproved }: Props) {
+  const [searchParams] = useSearchParams();
+  const processoId = propProcessoId ?? searchParams.get("processo") ?? undefined;
   const { user } = useAuth();
+
+  // Load processo data if processoId is from URL
+  const { data: processoData } = useQuery({
+    queryKey: ["processo-risk", processoId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("processos")
+        .select("objeto, modalidade, orgao")
+        .eq("id", processoId!)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!processoId && !propObjeto,
+  });
+
+  const objeto = propObjeto ?? processoData?.objeto ?? undefined;
+  const modalidade = propModalidade ?? processoData?.modalidade ?? undefined;
   const [loading, setLoading] = useState(false);
   const [loadingStep, setLoadingStep] = useState(0);
   const [riscos, setRiscos] = useState<RiskItem[] | null>(null);
