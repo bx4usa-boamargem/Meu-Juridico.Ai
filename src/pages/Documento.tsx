@@ -36,6 +36,7 @@ export default function Documento() {
   const [inheritedKeys, setInheritedKeys] = useState<Set<string>>(new Set());
   const [invalidFields, setInvalidFields] = useState<Set<string>>(new Set());
   const [disabledSections, setDisabledSections] = useState<Set<string>>(new Set());
+  const [workflow, setWorkflow] = useState<WorkflowState | null>(null);
   const [initialized, setInitialized] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
 
