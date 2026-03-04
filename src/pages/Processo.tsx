@@ -99,15 +99,6 @@ export default function Processo() {
   }
 
   // DFD approved → show pipeline
-  const cadeia = pipeline?.map((p) => p.tipo) ?? [];
-  const documentos = pipeline
-    ?.filter((p) => p.doc_id)
-    .map((p) => ({
-      id: p.doc_id!,
-      tipo: p.tipo,
-      status: p.status,
-      posicao_cadeia: p.posicao,
-    })) ?? [];
 
   return (
     <div className="p-6 space-y-6 max-w-6xl mx-auto">
