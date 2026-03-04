@@ -17,6 +17,7 @@ import DocumentView from "./pages/DocumentView";
 import Pesquisa from "./pages/Pesquisa";
 import Configuracoes from "./pages/Configuracoes";
 import SharedDocument from "./pages/SharedDocument";
+import SelecionarTipoDocumento from "./pages/SelecionarTipoDocumento";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
