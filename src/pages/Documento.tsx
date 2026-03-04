@@ -308,10 +308,66 @@ export default function Documento() {
   // Legacy auto-fill (triggered by onBlur on objeto field)
   const handleAutoPreencherIA = useCallback(async (objetoValue: string) => {
     if (!objetoValue || objetoValue.length < 10) return;
-    // If builder already ran, skip simple auto-fill
     if (aiBuilderTriggered.current) return;
     handleAiDocumentBuilder(objetoValue);
   }, [handleAiDocumentBuilder]);
+
+  // Incremental section generation - generate AI content for current section only
+  const handleGenerateCurrentSection = useCallback(async () => {
+    if (!currentSection || !formData.objeto_contratacao) return;
+    setGeneratingSectionAi(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("ai-document-builder", {
+        body: {
+          objeto: formData.objeto_contratacao,
+          doc_type: documento?.tipo ?? "dfd",
+          orgao: processo?.orgao ?? "",
+          processo_id: processoId,
+        },
+      });
+      if (error) throw error;
+
+      if (data?.campos_preenchidos) {
+        // Only apply fields that belong to the current section
+        const sectionFieldKeys = new Set(currentSection.fields.map(f => f.key));
+        const newAiFields = new Set(aiFilledFields);
+        setFormData((prev) => {
+          const updated = { ...prev };
+          for (const [key, value] of Object.entries(data.campos_preenchidos)) {
+            if (sectionFieldKeys.has(key) && value !== null && value !== undefined) {
+              updated[key] = value;
+              newAiFields.add(key);
+            }
+          }
+          return updated;
+        });
+        setAiFilledFields(newAiFields);
+        if (data.campos_meta) setCamposMeta(prev => ({ ...prev, ...data.campos_meta }));
+
+        const filled = Object.keys(data.campos_preenchidos).filter(k => sectionFieldKeys.has(k)).length;
+        toast.success(`IA preencheu ${filled} campos desta seção!`);
+      }
+    } catch (err: any) {
+      console.error("Erro ao gerar seção com IA:", err);
+      toast.error("Erro ao gerar seção. Tente novamente.");
+    } finally {
+      setGeneratingSectionAi(false);
+    }
+  }, [currentSection, formData.objeto_contratacao, documento?.tipo, processo?.orgao, processoId, aiFilledFields]);
+
+  // Handle adding suggested sections
+  const handleAddSuggestedSection = useCallback((section: { id: string; label: string; reason: string }) => {
+    // Add to formData as a new section placeholder
+    setFormData(prev => ({
+      ...prev,
+      [section.id]: prev[section.id] ?? "",
+      meta: {
+        ...(prev.meta ?? {}),
+        extra_sections: [...((prev.meta as any)?.extra_sections ?? []), { id: section.id, label: section.label }],
+      },
+    }));
+    toast.success(`Seção "${section.label}" adicionada ao documento.`);
+  }, []);
 
   // Update workflow step statuses when formData changes
   useEffect(() => {
