@@ -21,8 +21,6 @@ import SelecionarTipoDocumento from "./pages/SelecionarTipoDocumento";
 import Perfil from "./pages/Perfil";
 import BaseConhecimento from "./pages/BaseConhecimento";
 import AdminMonitoramento from "./pages/AdminMonitoramento";
-import MapaDePrecos from "./pages/MapaDePrecos";
-import MapaDeRiscos from "./pages/MapaDeRiscos";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -37,7 +35,6 @@ const App = () => (
           <Route path="/auth" element={<Auth />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/shared/:token" element={<SharedDocument />} />
-          {/* Document type selection */}
           <Route
             path="/processo/:processoId/novo-documento"
             element={
@@ -48,7 +45,6 @@ const App = () => (
               </ProtectedRoute>
             }
           />
-          {/* Document workspace uses its own layout */}
           <Route
             path="/processo/:processoId/documento/:docId"
             element={
@@ -82,8 +78,6 @@ const App = () => (
                     <Route path="/pesquisa" element={<Pesquisa />} />
                     <Route path="/configuracoes" element={<Configuracoes />} />
                     <Route path="/base-conhecimento" element={<BaseConhecimento />} />
-                    <Route path="/mapa-de-precos" element={<MapaDePrecos />} />
-                    <Route path="/mapa-de-riscos" element={<MapaDeRiscos />} />
                     <Route path="/admin/monitoramento" element={<AdminMonitoramento />} />
                     <Route path="/perfil" element={<Perfil />} />
                     <Route path="/" element={<Navigate to="/dashboard" replace />} />
