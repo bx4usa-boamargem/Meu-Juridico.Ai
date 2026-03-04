@@ -68,6 +68,7 @@ export default function Documento() {
   const [alertasGlobais, setAlertasGlobais] = useState<AlertaGlobal[]>([]);
   const [sectionActions, setSectionActions] = useState<Record<string, "keep" | "improve" | "edit">>({});
   const [showNormativas, setShowNormativas] = useState(false);
+  const [generatingSectionAi, setGeneratingSectionAi] = useState(false);
   const aiBuilderTriggered = useRef(false);
 
   // Dialog states
