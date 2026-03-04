@@ -311,14 +311,14 @@ ${outlierItems.map(i => `<tr class="outlier"><td>${i.orgao}</td><td>${i.estado}<
                         <CardContent className="p-3 text-center">
                           <TrendingDown className="h-4 w-4 text-emerald-600 mx-auto mb-1" />
                           <p className="text-lg font-bold text-emerald-600">{fmt(stats.menor)}</p>
-                          <p className="text-[9px] text-muted-foreground">Menor preço</p>
+                          <p className="text-[9px] text-muted-foreground">Menor preço{unidade ? ` / ${unidade}` : ""}</p>
                         </CardContent>
                       </Card>
                       <Card className="border-primary/30 bg-primary/5">
                         <CardContent className="p-3 text-center">
                           <BarChart3 className="h-4 w-4 text-primary mx-auto mb-1" />
                           <p className="text-lg font-bold text-primary">{fmt(stats.mediana)}</p>
-                          <p className="text-[9px] text-muted-foreground">Mediana</p>
+                          <p className="text-[9px] text-muted-foreground">Mediana{unidade ? ` / ${unidade}` : ""}</p>
                           <Badge className="text-[7px] px-1 py-0 bg-primary/10 text-primary mt-1">Recomendado</Badge>
                         </CardContent>
                       </Card>
@@ -326,7 +326,7 @@ ${outlierItems.map(i => `<tr class="outlier"><td>${i.orgao}</td><td>${i.estado}<
                         <CardContent className="p-3 text-center">
                           <TrendingUp className="h-4 w-4 text-destructive mx-auto mb-1" />
                           <p className="text-lg font-bold">{fmt(stats.maior)}</p>
-                          <p className="text-[9px] text-muted-foreground">Maior preço</p>
+                          <p className="text-[9px] text-muted-foreground">Maior preço{unidade ? ` / ${unidade}` : ""}</p>
                         </CardContent>
                       </Card>
                       <Card>

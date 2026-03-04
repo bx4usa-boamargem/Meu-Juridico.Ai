@@ -19,7 +19,7 @@ interface PriceItem {
   is_outlier: boolean;
 }
 
-function generateMockPrices(objeto: string, estado: string | null, periodo: string): PriceItem[] {
+function generateMockPrices(objeto: string, estado: string | null, periodo: string, unidadeMedida?: string): PriceItem[] {
   // Generate realistic mock data based on the object type
   const basePrice = objeto.length * 12.5 + 500;
   const states = estado ? [estado] : ["SP", "RJ", "MG", "PR", "SC", "BA", "RS", "GO"];
@@ -51,7 +51,7 @@ function generateMockPrices(objeto: string, estado: string | null, periodo: stri
       estado: st,
       data: date.toISOString().split("T")[0],
       valor_unitario: price,
-      unidade: "mensal",
+      unidade: unidadeMedida || "unidade",
       fonte: fontes[Math.floor(Math.random() * fontes.length)],
       url: `https://pncp.gov.br/app/contratos/${Math.random().toString(36).slice(2, 10)}`,
       is_outlier: false,
@@ -111,7 +111,7 @@ Deno.serve(async (req) => {
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
 
     // Generate price data (in production, this would query PNCP/Painel de Preços APIs)
-    const items = generateMockPrices(objeto, estado, periodo ?? "6m");
+    const items = generateMockPrices(objeto, estado, periodo ?? "6m", unidade_medida);
     const stats = calculateStats(items);
 
     // AI analysis
