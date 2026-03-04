@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ArrowLeft, ArrowRight } from "lucide-react";
+import { ArrowLeft, ArrowRight, Loader2 } from "lucide-react";
 import { DocumentStepSidebar } from "@/components/documento/DocumentStepSidebar";
 import { DocumentMetaBar } from "@/components/documento/DocumentMetaBar";
 import { DocumentToolsBar } from "@/components/documento/DocumentToolsBar";
@@ -326,9 +326,15 @@ export default function Documento() {
 
   const progress = workflow ? calculateDocumentProgress(sections, formData, workflow) : 0;
   const currentSection = workflow ? sections.find((s) => s.id === workflow.current_step) : null;
+  const activeSections = sections.filter((s) => {
+    if (s.condition) {
+      return formData[s.condition.field] === s.condition.value;
+    }
+    return true;
+  });
   const enabledSections = workflow
-    ? sections.filter((s) => workflow.steps[s.id]?.enabled !== false)
-    : sections;
+    ? activeSections.filter((s) => workflow.steps[s.id]?.enabled !== false)
+    : activeSections;
   const currentEnabledIdx = currentSection
     ? enabledSections.findIndex((s) => s.id === currentSection.id)
     : 0;
@@ -460,8 +466,17 @@ export default function Documento() {
                 size="sm"
                 className="text-xs gap-1"
                 onClick={handleNext}
+                disabled={isGenerating}
               >
-                {isLastStep ? "Finalizar" : "Próximo"} <ArrowRight className="h-3 w-3" />
+                {isGenerating ? (
+                  <>
+                    <Loader2 className="h-3 w-3 animate-spin" /> Gerando com IA...
+                  </>
+                ) : (
+                  <>
+                    {isLastStep ? "Finalizar" : "Próximo"} <ArrowRight className="h-3 w-3" />
+                  </>
+                )}
               </Button>
             </div>
           </div>
