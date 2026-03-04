@@ -7,9 +7,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
 import { Switch } from "@/components/ui/switch";
-import { Activity, Play, Pause, CheckCircle, Lock } from "lucide-react";
+import { Activity, Play, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
 import { BrazilStateMap } from "@/components/configuracoes/BrazilStateMap";
+import { cn } from "@/lib/utils";
 
 const FEDERAL_SOURCES = ["TCU", "CGU", "PNCP"];
 
@@ -138,13 +139,24 @@ export default function AdminMonitoramento() {
                 <span className="text-xs text-muted-foreground">Master Switch</span>
                 <Switch checked={config.is_active} onCheckedChange={handleToggle} />
               </div>
-              <Badge variant={config.is_active ? "default" : "secondary"} className="text-[10px]">
+              <Badge
+                variant={config.is_active ? "default" : "secondary"}
+                className={cn(
+                  "text-[10px]",
+                  config.is_active ? "bg-emerald-600 text-white hover:bg-emerald-700" : "bg-muted text-muted-foreground"
+                )}
+              >
                 {config.is_active ? "● Ativo" : "● Pausado"}
               </Badge>
             </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
+          {!config.is_active && (
+            <p className="text-[11px] text-muted-foreground bg-muted/50 rounded px-3 py-2">
+              Quando desligado, nenhuma execução automática ocorre. Você continua podendo usar o botão <strong>Monitorar Agora</strong>.
+            </p>
+          )}
           <div className="flex flex-wrap gap-4 text-xs">
             <div className="flex items-center gap-2">
               <span className="text-muted-foreground">Frequência:</span>
@@ -226,12 +238,12 @@ export default function AdminMonitoramento() {
               ))}
             </div>
 
-            <div className="rounded-lg border border-dashed px-3 py-2">
+            <div className="rounded-lg border px-3 py-2">
               <div className="flex items-center gap-2">
-                <Lock className="h-3.5 w-3.5 text-muted-foreground" />
+                <CheckCircle className="h-3.5 w-3.5 text-success" />
                 <div>
-                  <span className="text-xs text-muted-foreground">Fase 2 — Em breve</span>
-                  <p className="text-[10px] text-muted-foreground">Diários Oficiais estaduais, tribunais de contas estaduais</p>
+                  <span className="text-xs font-medium">DOE + TRJ + TCE Estaduais</span>
+                  <p className="text-[10px] text-muted-foreground">27 estados com Diários Oficiais, Tribunais de Justiça e Tribunais de Contas</p>
                 </div>
               </div>
             </div>
