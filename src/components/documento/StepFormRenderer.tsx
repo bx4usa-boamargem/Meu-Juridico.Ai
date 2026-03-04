@@ -368,6 +368,11 @@ export function StepFormRenderer({
         {isInvalid && (
           <p className="text-[10px] text-destructive">Campo obrigatório</p>
         )}
+        {isAiFilled && isLowConfidence && fieldMeta?.sugestao && (
+          <p className="text-[10px] text-amber-600 flex items-center gap-1">
+            ⚠ Sugerimos revisar — {fieldMeta.sugestao}
+          </p>
+        )}
       </div>
     );
   };
