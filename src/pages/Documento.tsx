@@ -392,7 +392,7 @@ export default function Documento() {
       <div className="flex flex-1 overflow-hidden">
         {/* LEFT — Pipeline Sidebar */}
         <DocumentStepSidebar
-          sections={sections}
+          sections={activeSections}
           workflow={workflow}
           formData={formData}
           documentTitle={documento.tipo ?? "Documento"}
@@ -440,6 +440,7 @@ export default function Documento() {
                   onMelhorar={handleMelhorar}
                   onGerarJustificativa={() => setJustificativaOpen(true)}
                   onValidarObjeto={() => setValidarObjetoOpen(true)}
+                  documentType={documento.tipo ?? "etp"}
                 />
               )}
             </div>
