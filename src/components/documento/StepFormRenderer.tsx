@@ -1,5 +1,5 @@
-import { useRef } from "react";
-import { Info, Sparkles, Shield, Copy, Loader2, BookOpen } from "lucide-react";
+import { useRef, useState } from "react";
+import { Info, Sparkles, Shield, Copy, Loader2, BookOpen, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { RichTextEditor } from "@/components/documento/RichTextEditor";
 import { TextAreaComIA } from "@/components/documento/TextAreaComIA";
 import { TeamListField } from "@/components/documento/TeamListField";
+import { PriceResearchDrawer } from "@/components/documento/PriceResearchDrawer";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import type { SectionDef, FieldDef } from "@/lib/document-sections";
