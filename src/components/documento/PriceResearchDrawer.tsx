@@ -10,32 +10,21 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
-  Search, Loader2, TrendingDown, BarChart3, TrendingUp, Database,
-  ExternalLink, Download, ArrowRight, Sparkles, AlertTriangle,
+  Search, Loader2, BarChart3, Download, Sparkles, AlertTriangle, Check,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
-interface PriceItem {
-  orgao: string;
-  estado: string;
-  data: string;
-  valor_unitario: number;
+interface UnitGroup {
   unidade: string;
-  fonte: string;
-  url: string | null;
-  is_outlier: boolean;
-}
-
-interface Stats {
   menor: number;
   mediana: number;
   maior: number;
   total: number;
   outliers: number;
+  itens: any[];
 }
 
 interface Props {
@@ -46,7 +35,7 @@ interface Props {
   processoId?: string;
   orgaoNome?: string;
   userName?: string;
-  onUseValue?: (value: number) => void;
+  onUseValue?: (value: number, unidade?: string) => void;
 }
 
 const ESTADOS = [
@@ -70,10 +59,13 @@ export function PriceResearchDrawer({
   const [unidade, setUnidade] = useState("");
   const [loading, setLoading] = useState(false);
   const [loadingPhase, setLoadingPhase] = useState(0);
-  const [results, setResults] = useState<PriceItem[] | null>(null);
-  const [stats, setStats] = useState<Stats | null>(null);
+  const [unitGroups, setUnitGroups] = useState<UnitGroup[] | null>(null);
   const [analiseIa, setAnaliseIa] = useState("");
+  const [memoriaCalculo, setMemoriaCalculo] = useState("");
   const [generatingPdf, setGeneratingPdf] = useState(false);
+  // Legacy fallback
+  const [legacyResults, setLegacyResults] = useState<any[] | null>(null);
+  const [legacyStats, setLegacyStats] = useState<any | null>(null);
 
   useEffect(() => {
     if (open) {
@@ -86,7 +78,9 @@ export function PriceResearchDrawer({
     if (!objeto.trim()) { toast.error("Digite o objeto da pesquisa"); return; }
     setLoading(true);
     setLoadingPhase(0);
-    setResults(null);
+    setUnitGroups(null);
+    setLegacyResults(null);
+    setLegacyStats(null);
 
     const t1 = setTimeout(() => setLoadingPhase(1), 1500);
     const t2 = setTimeout(() => setLoadingPhase(2), 3000);
@@ -96,9 +90,36 @@ export function PriceResearchDrawer({
         body: { objeto, estado: estado || null, municipio: municipio || null, periodo, unidade_medida: unidade || null, processo_id: processoId },
       });
       if (error) throw error;
-      setResults(data.resultados);
-      setStats(data.estatisticas);
-      setAnaliseIa(data.analise_ia);
+
+      // Support new grouped format
+      if (data.resultados_por_unidade && Array.isArray(data.resultados_por_unidade)) {
+        const groups: UnitGroup[] = data.resultados_por_unidade.map((g: any) => ({
+          unidade: g.unidade ?? g.unidade_medida ?? "unidade",
+          menor: g.menor ?? g.estatisticas?.menor ?? 0,
+          mediana: g.mediana ?? g.estatisticas?.mediana ?? 0,
+          maior: g.maior ?? g.estatisticas?.maior ?? 0,
+          total: g.total ?? g.estatisticas?.total ?? g.fontes ?? 0,
+          outliers: g.outliers ?? g.outliers_removidos ?? g.estatisticas?.outliers ?? 0,
+          itens: g.itens ?? g.resultados ?? [],
+        }));
+        setUnitGroups(groups.sort((a, b) => b.total - a.total));
+      } else if (data.resultados && data.estatisticas) {
+        // Legacy single-group fallback
+        setLegacyResults(data.resultados);
+        setLegacyStats(data.estatisticas);
+        setUnitGroups([{
+          unidade: unidade || "unidade",
+          menor: data.estatisticas.menor,
+          mediana: data.estatisticas.mediana,
+          maior: data.estatisticas.maior,
+          total: data.estatisticas.total,
+          outliers: data.estatisticas.outliers,
+          itens: data.resultados,
+        }]);
+      }
+
+      setAnaliseIa(data.analise_ia ?? "");
+      setMemoriaCalculo(data.memoria_calculo ?? "");
     } catch (err: any) {
       console.error(err);
       toast.error("Erro na pesquisa de preços");
@@ -109,19 +130,23 @@ export function PriceResearchDrawer({
     }
   };
 
-  const handleUseValue = () => {
-    if (stats && onUseValue) {
-      onUseValue(stats.mediana);
-      toast.success(`Valor R$ ${stats.mediana.toFixed(2)} aplicado ao campo`);
+  const handleUseValue = (group: UnitGroup) => {
+    if (onUseValue) {
+      onUseValue(group.mediana, group.unidade);
+      toast.success(`Valor ${fmt(group.mediana)} / ${group.unidade} aplicado`);
       onOpenChange(false);
     }
   };
 
+  const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
+  const hasResults = unitGroups && unitGroups.length > 0;
+  const maxFontesIdx = hasResults ? unitGroups!.reduce((best, g, i, arr) => g.total > arr[best].total ? i : best, 0) : -1;
+
   const handleDownloadPdf = async () => {
-    if (!stats || !results) return;
+    if (!hasResults) return;
     setGeneratingPdf(true);
     try {
-      // Build HTML for print/PDF
       const html = buildPdfHtml();
       const printWindow = window.open("", "_blank");
       if (printWindow) {
@@ -131,7 +156,7 @@ export function PriceResearchDrawer({
         setTimeout(() => printWindow.print(), 500);
       }
       toast.success("Relatório de pesquisa de preços gerado!");
-    } catch (err: any) {
+    } catch {
       toast.error("Erro ao gerar relatório");
     } finally {
       setGeneratingPdf(false);
@@ -141,8 +166,31 @@ export function PriceResearchDrawer({
   const buildPdfHtml = () => {
     const now = new Date();
     const dateStr = now.toLocaleDateString("pt-BR") + " " + now.toLocaleTimeString("pt-BR");
-    const validItems = results!.filter(i => !i.is_outlier);
-    const outlierItems = results!.filter(i => i.is_outlier);
+    const periodoLabel = periodo === "3m" ? "3 meses" : periodo === "12m" ? "12 meses" : "6 meses";
+
+    const unitTableRows = unitGroups!.map((g, i) => {
+      const isRec = i === maxFontesIdx;
+      return `<tr${isRec ? ' style="background:#f0f7ff;font-weight:bold"' : ''}>
+        <td>${g.unidade}${isRec ? ' <span style="color:#0F6FDE">(Recomendada)</span>' : ''}</td>
+        <td>R$ ${g.menor.toFixed(2)}</td>
+        <td style="color:#0F6FDE;font-weight:bold">R$ ${g.mediana.toFixed(2)}</td>
+        <td>R$ ${g.maior.toFixed(2)}</td>
+        <td>${g.total}</td>
+        <td>${g.outliers}</td>
+      </tr>`;
+    }).join("");
+
+    // Detailed items per unit
+    const detailSections = unitGroups!.map(g => {
+      const valid = g.itens.filter((i: any) => !i.is_outlier);
+      const outliers = g.itens.filter((i: any) => i.is_outlier);
+      return `
+      <h2>Preços Coletados — ${g.unidade} (${g.total} fontes)</h2>
+      <table><thead><tr><th>Órgão</th><th>UF</th><th>Data</th><th>Valor Unit.</th><th>Fonte</th></tr></thead><tbody>
+      ${valid.map((i: any) => `<tr><td>${i.orgao}</td><td>${i.estado}</td><td>${i.data}</td><td>R$ ${i.valor_unitario?.toFixed(2) ?? '-'}</td><td>${i.fonte}</td></tr>`).join("")}
+      </tbody></table>
+      ${outliers.length > 0 ? `<p style="font-size:9px;color:#888">Outliers removidos: ${outliers.length} (desvio > 2σ)</p>` : ''}`;
+    }).join("");
 
     return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Relatório de Pesquisa de Preços</title>
 <style>body{font-family:Arial,sans-serif;font-size:11px;margin:40px;color:#333}
@@ -151,56 +199,48 @@ h2{font-size:13px;margin-top:24px;color:#0F6FDE}
 table{width:100%;border-collapse:collapse;margin:12px 0}
 th,td{border:1px solid #ddd;padding:6px 8px;text-align:left;font-size:10px}
 th{background:#f5f5f5;font-weight:bold}
-.stats{display:flex;gap:16px;margin:12px 0}
-.stat{flex:1;border:1px solid #ddd;border-radius:6px;padding:12px;text-align:center}
-.stat-value{font-size:18px;font-weight:bold;color:#0F6FDE}
-.stat-label{font-size:9px;color:#666;margin-top:4px}
-.footer{margin-top:40px;padding-top:12px;border-top:1px solid #ddd;font-size:9px;color:#888}
-.outlier{text-decoration:line-through;opacity:0.5}
 .ai-box{background:#f0f7ff;border:1px solid #bdd7f5;border-radius:6px;padding:16px;margin:12px 0}
+.memo-box{background:#fafafa;border:1px solid #e0e0e0;border-radius:6px;padding:16px;margin:12px 0;font-size:10px;white-space:pre-line}
+.footer{margin-top:40px;padding-top:12px;border-top:1px solid #ddd;font-size:9px;color:#888}
 </style></head><body>
 <h1>${orgaoNome ?? "Órgão"} — Relatório de Pesquisa de Preços</h1>
 <p><strong>Data:</strong> ${dateStr}</p>
 <p><strong>Objeto:</strong> ${objeto}</p>
-<p><strong>Período:</strong> ${periodo === "3m" ? "3 meses" : periodo === "12m" ? "12 meses" : "6 meses"}</p>
+<p><strong>Período:</strong> ${periodoLabel}</p>
+${estado ? `<p><strong>Estado:</strong> ${estado}</p>` : ''}
 
-<h2>Resumo Estatístico</h2>
-<div class="stats">
-<div class="stat"><div class="stat-value" style="color:#16a34a">R$ ${stats!.menor.toFixed(2)}</div><div class="stat-label">Menor Preço</div></div>
-<div class="stat"><div class="stat-value">R$ ${stats!.mediana.toFixed(2)}</div><div class="stat-label">Mediana (Referência)</div></div>
-<div class="stat"><div class="stat-value" style="color:#dc2626">R$ ${stats!.maior.toFixed(2)}</div><div class="stat-label">Maior Preço</div></div>
-<div class="stat"><div class="stat-value" style="color:#333">${stats!.total}</div><div class="stat-label">Fontes</div></div>
-</div>
+<h2>Resumo por Unidade de Medida</h2>
+<table><thead><tr><th>Unidade</th><th>Mínimo</th><th>Mediana (Ref.)</th><th>Máximo</th><th>Fontes</th><th>Outliers</th></tr></thead><tbody>
+${unitTableRows}
+</tbody></table>
 
 <h2>Análise de Mercado</h2>
 <div class="ai-box">${analiseIa.replace(/\n/g, "<br>")}</div>
 
-<h2>Preços Coletados</h2>
-<table><thead><tr><th>Órgão</th><th>UF</th><th>Data</th><th>Valor Unit.</th><th>Unidade</th><th>Fonte</th><th>URL</th></tr></thead><tbody>
-${validItems.map(i => `<tr><td>${i.orgao}</td><td>${i.estado}</td><td>${i.data}</td><td>R$ ${i.valor_unitario.toFixed(2)}</td><td>${i.unidade}</td><td>${i.fonte}</td><td>${i.url ?? "-"}</td></tr>`).join("")}
-</tbody></table>
+${memoriaCalculo ? `<h2>Memória de Cálculo</h2><div class="memo-box">${memoriaCalculo.replace(/\n/g, "<br>")}</div>` : `
+<h2>Memória de Cálculo</h2>
+<div class="memo-box">
+<strong>Fontes consultadas:</strong> PNCP (Portal Nacional de Contratações Públicas), Painel de Preços do Governo Federal, ComprasNet
+<br><br><strong>Metodologia:</strong> Mediana saneada conforme IN SEGES/ME nº 65/2021, Art. 5º
+<br><br><strong>Critério de exclusão:</strong> Outliers identificados pelo método de 2 desvios-padrão (2σ) da média aritmética dos valores coletados
+<br><br><strong>Fundamentação legal:</strong> Art. 23, §1º, Lei 14.133/2021 (Nova Lei de Licitações) e IN SEGES/ME nº 65/2021
+</div>`}
 
-${outlierItems.length > 0 ? `
-<h2>Preços Descartados (Outliers)</h2>
-<p>Removidos por desvio superior a 2σ da média.</p>
-<table><thead><tr><th>Órgão</th><th>UF</th><th>Data</th><th>Valor Unit.</th><th>Fonte</th></tr></thead><tbody>
-${outlierItems.map(i => `<tr class="outlier"><td>${i.orgao}</td><td>${i.estado}</td><td>${i.data}</td><td>R$ ${i.valor_unitario.toFixed(2)}</td><td>${i.fonte}</td></tr>`).join("")}
-</tbody></table>` : ""}
-
-<h2>Metodologia</h2>
-<p>Mediana saneada conforme IN SEGES/ME nº 65/2021, Art. 5º. Outliers identificados pelo método de 2 desvios-padrão (2σ).</p>
-
-<h2>Preço de Referência Final</h2>
-<p style="font-size:16px;font-weight:bold;color:#0F6FDE">R$ ${stats!.mediana.toFixed(2)}</p>
+${detailSections}
 
 <p><strong>Responsável:</strong> ${userName ?? "Usuário"}</p>
 <p><strong>Data:</strong> ${dateStr}</p>
-
 <div class="footer">Gerado por MeuJurídico.ai · ${dateStr}</div>
 </body></html>`;
   };
 
-  const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  const resetResults = () => {
+    setUnitGroups(null);
+    setLegacyResults(null);
+    setLegacyStats(null);
+    setAnaliseIa("");
+    setMemoriaCalculo("");
+  };
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -215,7 +255,7 @@ ${outlierItems.map(i => `<tr class="outlier"><td>${i.orgao}</td><td>${i.estado}<
         <ScrollArea className="flex-1">
           <div className="p-6 space-y-6">
             {/* Search Form */}
-            {!results && !loading && (
+            {!hasResults && !loading && (
               <div className="space-y-4">
                 <div className="space-y-1.5">
                   <Label className="text-xs">Objeto da pesquisa</Label>
@@ -278,7 +318,7 @@ ${outlierItems.map(i => `<tr class="outlier"><td>${i.orgao}</td><td>${i.estado}<
                       )}>
                         {isDone ? (
                           <div className="h-5 w-5 rounded-full bg-emerald-500 flex items-center justify-center">
-                            <span className="text-white text-[10px]">✓</span>
+                            <Check className="h-3 w-3 text-white" />
                           </div>
                         ) : isCurrent ? (
                           <Loader2 className="h-4 w-4 animate-spin text-primary" />
@@ -296,151 +336,111 @@ ${outlierItems.map(i => `<tr class="outlier"><td>${i.orgao}</td><td>${i.estado}<
             )}
 
             {/* Results */}
-            {results && stats && (
+            {hasResults && (
               <div className="space-y-5">
-                {/* Back button */}
-                <Button variant="ghost" size="sm" className="text-xs gap-1 -ml-2" onClick={() => setResults(null)}>
+                <Button variant="ghost" size="sm" className="text-xs gap-1 -ml-2" onClick={resetResults}>
                   ← Nova pesquisa
                 </Button>
 
-                {/* Stats Cards */}
-                {stats.total > 0 ? (
-                  <>
-                    <div className="grid grid-cols-4 gap-2">
-                      <Card className="border-emerald-200">
-                        <CardContent className="p-3 text-center">
-                          <TrendingDown className="h-4 w-4 text-emerald-600 mx-auto mb-1" />
-                          <p className="text-lg font-bold text-emerald-600">{fmt(stats.menor)}</p>
-                          <p className="text-[9px] text-muted-foreground">Menor preço{unidade ? ` / ${unidade}` : ""}</p>
-                        </CardContent>
-                      </Card>
-                      <Card className="border-primary/30 bg-primary/5">
-                        <CardContent className="p-3 text-center">
-                          <BarChart3 className="h-4 w-4 text-primary mx-auto mb-1" />
-                          <p className="text-lg font-bold text-primary">{fmt(stats.mediana)}</p>
-                          <p className="text-[9px] text-muted-foreground">Mediana{unidade ? ` / ${unidade}` : ""}</p>
-                          <Badge className="text-[7px] px-1 py-0 bg-primary/10 text-primary mt-1">Recomendado</Badge>
-                        </CardContent>
-                      </Card>
-                      <Card>
-                        <CardContent className="p-3 text-center">
-                          <TrendingUp className="h-4 w-4 text-destructive mx-auto mb-1" />
-                          <p className="text-lg font-bold">{fmt(stats.maior)}</p>
-                          <p className="text-[9px] text-muted-foreground">Maior preço{unidade ? ` / ${unidade}` : ""}</p>
-                        </CardContent>
-                      </Card>
-                      <Card>
-                        <CardContent className="p-3 text-center">
-                          <Database className="h-4 w-4 text-muted-foreground mx-auto mb-1" />
-                          <p className="text-lg font-bold">{stats.total}</p>
-                          <p className="text-[9px] text-muted-foreground">Fontes</p>
-                        </CardContent>
-                      </Card>
-                    </div>
-
-                    <p className="text-[10px] text-muted-foreground">
-                      Preço de referência baseado na mediana saneada. {stats.outliers} outlier{stats.outliers !== 1 ? "s" : ""} removido{stats.outliers !== 1 ? "s" : ""} por desvio acima de 2σ.
-                    </p>
-
-                    {/* AI Analysis */}
-                    {analiseIa && (
-                      <Card className="bg-primary/5 border-primary/20">
-                        <CardContent className="p-4 space-y-2">
-                          <div className="flex items-center gap-2">
-                            <Sparkles className="h-4 w-4 text-primary" />
-                            <h4 className="text-xs font-semibold">Análise de Mercado</h4>
-                          </div>
-                          <p className="text-[11px] text-foreground leading-relaxed whitespace-pre-line">
-                            {analiseIa}
-                          </p>
-                          <p className="text-[9px] text-muted-foreground pt-1 border-t border-primary/10">
-                            Fundamentação: Art. 23 Lei 14.133/2021 · IN SEGES 65/2021
-                          </p>
-                        </CardContent>
-                      </Card>
-                    )}
-
-                    {/* Price Table */}
-                    <div>
-                      <h4 className="text-xs font-semibold mb-2">Preços Coletados</h4>
-                      <div className="rounded-lg border overflow-hidden">
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead className="text-[10px]">Órgão</TableHead>
-                              <TableHead className="text-[10px]">UF</TableHead>
-                              <TableHead className="text-[10px]">Data</TableHead>
-                              <TableHead className="text-[10px]">Valor Unit.</TableHead>
-                              <TableHead className="text-[10px]">Fonte</TableHead>
-                              <TableHead className="text-[10px] w-8"></TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {results.map((item, i) => (
-                              <Tooltip key={i}>
-                                <TooltipTrigger asChild>
-                                  <TableRow className={cn(item.is_outlier && "opacity-40")}>
-                                    <TableCell className={cn("text-[10px]", item.is_outlier && "line-through")}>{item.orgao}</TableCell>
-                                    <TableCell className={cn("text-[10px]", item.is_outlier && "line-through")}>{item.estado}</TableCell>
-                                    <TableCell className={cn("text-[10px]", item.is_outlier && "line-through")}>{item.data}</TableCell>
-                                    <TableCell className={cn("text-[10px] font-medium", item.is_outlier && "line-through")}>{fmt(item.valor_unitario)}</TableCell>
-                                    <TableCell className="text-[10px]">
-                                      <Badge variant="secondary" className="text-[8px]">{item.fonte}</Badge>
-                                    </TableCell>
-                                    <TableCell>
-                                      {item.url && (
-                                        <a href={item.url} target="_blank" rel="noopener noreferrer" className="text-primary hover:text-primary/80">
-                                          <ExternalLink className="h-3 w-3" />
-                                        </a>
-                                      )}
-                                    </TableCell>
-                                  </TableRow>
-                                </TooltipTrigger>
-                                {item.is_outlier && (
-                                  <TooltipContent><p className="text-xs">Removido por ser outlier estatístico</p></TooltipContent>
+                {/* Grouped Unit Table */}
+                <div>
+                  <h4 className="text-xs font-semibold mb-2">Resultados por Unidade de Medida</h4>
+                  <div className="rounded-lg border overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="text-[10px]">Unidade</TableHead>
+                          <TableHead className="text-[10px]">Mínimo</TableHead>
+                          <TableHead className="text-[10px]">Mediana</TableHead>
+                          <TableHead className="text-[10px]">Máximo</TableHead>
+                          <TableHead className="text-[10px]">Fontes</TableHead>
+                          <TableHead className="text-[10px]">Outliers</TableHead>
+                          <TableHead className="text-[10px] text-right">Ação</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {unitGroups!.map((group, i) => {
+                          const isRecommended = i === maxFontesIdx;
+                          return (
+                            <TableRow key={group.unidade} className={cn(isRecommended && "bg-primary/5")}>
+                              <TableCell className="text-[11px] font-medium">
+                                <div className="flex items-center gap-1.5">
+                                  {group.unidade}
+                                  {isRecommended && (
+                                    <Badge className="text-[7px] px-1.5 py-0 bg-primary text-primary-foreground">
+                                      Recomendada
+                                    </Badge>
+                                  )}
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-[11px] text-emerald-600">{fmt(group.menor)}</TableCell>
+                              <TableCell className="text-[11px] font-bold text-primary">{fmt(group.mediana)}</TableCell>
+                              <TableCell className="text-[11px] text-destructive">{fmt(group.maior)}</TableCell>
+                              <TableCell className="text-[11px]">{group.total}</TableCell>
+                              <TableCell className="text-[11px] text-muted-foreground">{group.outliers}</TableCell>
+                              <TableCell className="text-right">
+                                {onUseValue ? (
+                                  <Button
+                                    size="sm"
+                                    variant={isRecommended ? "default" : "outline"}
+                                    className="text-[10px] h-7 px-3"
+                                    onClick={() => handleUseValue(group)}
+                                  >
+                                    Usar este valor
+                                  </Button>
+                                ) : (
+                                  <span className="text-[10px] text-muted-foreground">{fmt(group.mediana)}</span>
                                 )}
-                              </Tooltip>
-                            ))}
-                          </TableBody>
-                        </Table>
-                      </div>
-                    </div>
-                  </>
-                ) : (
-                  /* Empty state */
-                  <div className="flex flex-col items-center gap-4 py-8">
-                    <AlertTriangle className="h-12 w-12 text-muted-foreground/40" />
-                    <div className="text-center space-y-2">
-                      <p className="text-sm font-medium">Nenhum preço encontrado</p>
-                      <p className="text-xs text-muted-foreground max-w-sm">
-                        Não encontramos contratações similares nas fontes públicas para este objeto no período selecionado.
-                        Sugestões: ampliar o período, usar termos mais genéricos ou consultar diretamente o Painel de Preços.
-                      </p>
-                    </div>
-                    <a
-                      href="https://paineldeprecos.planejamento.gov.br"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      <Button variant="outline" size="sm" className="gap-1.5 text-xs">
-                        <ExternalLink className="h-3 w-3" /> Abrir Painel de Preços
-                      </Button>
-                    </a>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
                   </div>
+                  <p className="text-[10px] text-muted-foreground mt-2">
+                    Preço de referência baseado na mediana saneada. Outliers removidos por desvio acima de 2σ.
+                  </p>
+                </div>
+
+                {/* AI Analysis */}
+                {analiseIa && (
+                  <Card className="bg-primary/5 border-primary/20">
+                    <CardContent className="p-4 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="h-4 w-4 text-primary" />
+                        <h4 className="text-xs font-semibold">Análise de Mercado</h4>
+                      </div>
+                      <p className="text-[11px] text-foreground leading-relaxed whitespace-pre-line">
+                        {analiseIa}
+                      </p>
+                      <p className="text-[9px] text-muted-foreground pt-1 border-t border-primary/10">
+                        Fundamentação: Art. 23 Lei 14.133/2021 · IN SEGES 65/2021
+                      </p>
+                    </CardContent>
+                  </Card>
                 )}
+              </div>
+            )}
+
+            {/* Empty state */}
+            {unitGroups && unitGroups.length === 0 && !loading && (
+              <div className="flex flex-col items-center gap-4 py-8">
+                <AlertTriangle className="h-12 w-12 text-muted-foreground/40" />
+                <div className="text-center space-y-2">
+                  <p className="text-sm font-medium">Nenhum preço encontrado</p>
+                  <p className="text-xs text-muted-foreground max-w-sm">
+                    Não encontramos contratações similares. Tente ampliar o período ou usar termos mais genéricos.
+                  </p>
+                </div>
               </div>
             )}
           </div>
         </ScrollArea>
 
-        {/* Footer actions */}
-        {results && stats && stats.total > 0 && (
+        {/* Footer */}
+        {hasResults && (
           <SheetFooter className="border-t px-6 py-3 shrink-0 flex-row gap-2">
-            {onUseValue && (
-              <Button onClick={handleUseValue} className="flex-1 gap-1.5 text-xs">
-                <ArrowRight className="h-3.5 w-3.5" /> Usar este valor no ETP
-              </Button>
-            )}
             <Button variant="outline" onClick={handleDownloadPdf} disabled={generatingPdf} className="flex-1 gap-1.5 text-xs">
               {generatingPdf ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
               Gerar Relatório PDF
