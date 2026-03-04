@@ -50,7 +50,7 @@ export function MonitoramentoPanel() {
     queryKey: ["monitoring_alerts", severityFilter, sourceFilter],
     queryFn: async () => {
       let q = supabase
-        .from("monitoring_alerts" as any)
+        .from("monitoring_alerts")
         .select("*")
         .eq("is_relevant", true)
         .order("detected_at", { ascending: false })
@@ -61,7 +61,7 @@ export function MonitoramentoPanel() {
 
       const { data, error } = await q;
       if (error) throw error;
-      return (data as any[]) ?? [];
+      return data ?? [];
     },
   });
 
@@ -71,11 +71,11 @@ export function MonitoramentoPanel() {
     queryFn: async () => {
       const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
       const { data, error } = await supabase
-        .from("monitoring_runs" as any)
+        .from("monitoring_runs")
         .select("estimated_cost_usd")
         .gte("started_at", startOfMonth);
       if (error) throw error;
-      return (data as any[])?.reduce((sum: number, r: any) => sum + (r.estimated_cost_usd ?? 0), 0) ?? 0;
+      return data?.reduce((sum, r) => sum + (Number(r.estimated_cost_usd) ?? 0), 0) ?? 0;
     },
   });
 
@@ -85,8 +85,8 @@ export function MonitoramentoPanel() {
   const handleToggle = async () => {
     if (!config) return;
     const { error } = await supabase
-      .from("monitoring_config" as any)
-      .update({ is_active: !config.is_active } as any)
+      .from("monitoring_config")
+      .update({ is_active: !config.is_active })
       .eq("id", config.id);
     if (error) { toast.error("Erro ao atualizar"); return; }
     queryClient.invalidateQueries({ queryKey: ["monitoring_config"] });
@@ -96,8 +96,8 @@ export function MonitoramentoPanel() {
   const handleFrequency = async (freq: string) => {
     if (!config) return;
     const { error } = await supabase
-      .from("monitoring_config" as any)
-      .update({ frequency: freq } as any)
+      .from("monitoring_config")
+      .update({ frequency: freq })
       .eq("id", config.id);
     if (error) { toast.error("Erro ao atualizar"); return; }
     queryClient.invalidateQueries({ queryKey: ["monitoring_config"] });
