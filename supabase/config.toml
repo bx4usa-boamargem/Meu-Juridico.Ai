@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.ai-rewrite-contextual]
 verify_jwt = false
+
+[functions.orchestrate_document]
+verify_jwt = false

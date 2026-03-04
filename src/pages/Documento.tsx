@@ -242,34 +242,27 @@ export default function Documento() {
 
       const htmlFinal = renderDocumentTemplate(documento?.tipo, formData, processoData);
 
-      const { error: insertError } = await supabase
-        .from("document_versions")
-        .insert({
-          documento_id: docId,
-          processo_id: processoId,
-          conteudo_html: htmlFinal,
-          versao: 1,
-          gerado_por: user?.id,
+      try {
+        const { data: result, error } = await supabase.functions.invoke("orchestrate_document", {
+          body: {
+            doc_id: docId,
+            processo_id: processoId,
+            doc_type: documento?.tipo ?? "custom",
+            form_data: formData,
+            html_final: htmlFinal,
+          },
         });
 
-      if (insertError) {
-        console.error("Erro ao inserir versão:", insertError);
-        toast.error("Erro ao gerar documento. Tente novamente.");
-        return;
+        if (error) throw error;
+
+        queryClient.invalidateQueries({ queryKey: ["processo", processoId] });
+        queryClient.invalidateQueries({ queryKey: ["pipeline", processoId] });
+        toast.success(`${documento?.tipo ?? "Documento"} finalizado! Redirecionando...`);
+        navigate(`/processo/${processoId}/documento/${docId}/view`);
+      } catch (err: any) {
+        console.error("Erro ao finalizar documento:", err);
+        toast.error("Erro ao finalizar documento. Tente novamente.");
       }
-
-      await supabase.from("documentos").update({
-        status: "aprovado",
-        conteudo_final: htmlFinal,
-        workflow_status: "rascunho",
-      }).eq("id", docId);
-
-      const newProcessoStatus = getProcessoStatusAfterApproval(documento?.tipo);
-      await supabase.from("processos").update({ status: newProcessoStatus }).eq("id", processoId);
-      queryClient.invalidateQueries({ queryKey: ["processo", processoId] });
-      queryClient.invalidateQueries({ queryKey: ["pipeline", processoId] });
-      toast.success(`${documento?.tipo ?? "Documento"} finalizado! Redirecionando...`);
-      navigate(`/processo/${processoId}/documento/${docId}/view`);
       return;
     }
 
