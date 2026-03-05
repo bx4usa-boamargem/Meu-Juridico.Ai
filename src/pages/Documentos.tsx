@@ -100,20 +100,22 @@ export default function Documentos() {
         <div className="flex gap-1">
           <button
             onClick={() => setViewMode("cards")}
-            className="h-8 w-8 rounded flex items-center justify-center transition-colors"
-            style={view === "cards"
-              ? { background: "#0077FE", color: "#fff" }
-              : { background: "transparent", border: "1px solid hsl(var(--border))", color: "hsl(var(--muted-foreground))" }}
+            className={`h-8 w-8 rounded flex items-center justify-center transition-colors ${
+              view === "cards"
+                ? "bg-primary text-primary-foreground"
+                : "border border-border text-muted-foreground hover:text-foreground"
+            }`}
             title="Cards"
           >
             <LayoutGrid className="h-4 w-4" />
           </button>
           <button
             onClick={() => setViewMode("list")}
-            className="h-8 w-8 rounded flex items-center justify-center transition-colors"
-            style={view === "list"
-              ? { background: "#0077FE", color: "#fff" }
-              : { background: "transparent", border: "1px solid hsl(var(--border))", color: "hsl(var(--muted-foreground))" }}
+            className={`h-8 w-8 rounded flex items-center justify-center transition-colors ${
+              view === "list"
+                ? "bg-primary text-primary-foreground"
+                : "border border-border text-muted-foreground hover:text-foreground"
+            }`}
             title="Lista"
           >
             <List className="h-4 w-4" />
