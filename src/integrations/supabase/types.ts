@@ -1153,6 +1153,33 @@ export type Database = {
           },
         ]
       }
+      roi_benchmarks: {
+        Row: {
+          created_at: string | null
+          fonte: string | null
+          id: string
+          indicador: string
+          unidade: string | null
+          valor: number
+        }
+        Insert: {
+          created_at?: string | null
+          fonte?: string | null
+          id?: string
+          indicador: string
+          unidade?: string | null
+          valor: number
+        }
+        Update: {
+          created_at?: string | null
+          fonte?: string | null
+          id?: string
+          indicador?: string
+          unidade?: string | null
+          valor?: number
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           id: string
