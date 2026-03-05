@@ -38,8 +38,8 @@ serve(async (req) => {
         const supabase = createClient(supabaseUrl, supabaseKey)
 
         const payload = await req.json()
-        const { document_id, process_id, parent_doc_id } = payload
-        let { doc_type, form_data } = payload
+        const { document_id, process_id, parent_doc_id, generate_with_ai, html_final, form_data: payloadFormData, disabled_sections } = payload
+        let { doc_type } = payload
 
         if (!document_id) {
             throw new Error('document_id is required')
@@ -68,10 +68,10 @@ serve(async (req) => {
         })
 
         const contextFromParent = herancaData?.heranca || {}
-        const mergedFormData = { ...contextFromParent, ...(form_data || {}) }
+        const mergedFormData = { ...contextFromParent, ...(payloadFormData || {}) }
 
         // ─── 1. SELEÇÃO DINÂMICA DE IA (NÃO HARDCODED) ───
-        const provider = await getOrgProvider(supabase as any, doc.org_id)
+        const provider = await getOrgProvider(supabase as any, '')
         console.log(`[ORCHESTRATOR] Usando provedor LLM configurado: ${provider}`)
 
         // ─── 2. CARREGAR TEMPLATE ───
@@ -91,23 +91,56 @@ serve(async (req) => {
 
         sectionsPlan.sort((a: any, b: any) => (a.order_index || 0) - (b.order_index || 0))
 
-        // ─── 3. CARREGAR TR VINCULADO (SE EDITAL) ───
+        // ─── 3. MODO SEM IA: salvar HTML pré-renderizado ───
+        if (generate_with_ai === false || (html_final && !generate_with_ai)) {
+            const { error: updError } = await supabase
+                .from('documentos')
+                .update({
+                    conteudo_final: html_final,
+                    status: 'aprovado',
+                    workflow_status: 'aprovado',
+                    score_conformidade: 1.0,
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', document_id)
+
+            if (updError) throw updError
+
+            // Update process status
+            if (actualProcessId && actualDocType) {
+                await supabase
+                    .from('processos')
+                    .update({ status: `${actualDocType.toUpperCase()}_APROVADO`, updated_at: new Date().toISOString() })
+                    .eq('id', actualProcessId)
+            }
+
+            return new Response(JSON.stringify({
+                success: true,
+                document_id,
+                score: 1.0,
+                mode: 'persist_only'
+            }), {
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            })
+        }
+
+        // ─── 4. CARREGAR TR VINCULADO (SE EDITAL) ───
         let linkedTrMemories: Record<string, any> | null = null
-        if (doc_type.toLowerCase() === 'edital' && process_id) {
+        if (doc_type && doc_type.toLowerCase() === 'edital' && process_id) {
             const { data: linkedTR } = await supabase
-                .from('documents')
+                .from('documentos')
                 .select('section_memories')
-                .eq('process_id', process_id)
-                .in('doc_type', ['tr', 'TR'])
-                .eq('status', 'approved')
+                .eq('processo_id', process_id)
+                .eq('tipo', 'tr')
+                .eq('status', 'aprovado')
                 .single()
 
             if (linkedTR && linkedTR.section_memories) {
-                linkedTrMemories = linkedTR.section_memories
+                linkedTrMemories = linkedTR.section_memories as Record<string, any>
             }
         }
 
-        // ─── 4. LOOP DE GERAÇÃO POR SEÇÃO ───
+        // ─── 5. LOOP DE GERAÇÃO POR SEÇÃO (com IA) ───
         const sectionMemories: Record<string, any> = {}
         let previousContext = ''
         let totalCostUsd = 0
