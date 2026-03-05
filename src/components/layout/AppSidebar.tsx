@@ -1,4 +1,4 @@
-import { LayoutDashboard, FolderKanban, FileText, Search, Settings, LogOut, BookOpen } from "lucide-react";
+import { LayoutDashboard, FolderKanban, FileText, Search, Settings, LogOut, BookOpen, Satellite } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
 import logoIcon from "@/assets/logo-icon.png";
@@ -25,6 +25,7 @@ const navItems = [
   { title: "Pesquisa", url: "/pesquisa", icon: Search },
   { title: "Base de Conhecimento", url: "/base-conhecimento", icon: BookOpen },
   { title: "Configurações", url: "/configuracoes", icon: Settings },
+  { title: "Mission Control", url: "/admin/dashboard", icon: Satellite, highlight: true },
 ];
 
 export function AppSidebar() {
