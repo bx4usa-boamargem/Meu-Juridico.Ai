@@ -1,7 +1,26 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { getOrgProvider } from '../../skills/llm_provider.ts'
-import { callLLM } from '../../skills/_base.ts'
+// Inline getOrgProvider to avoid shared module import issues
+type LLMProvider = 'anthropic' | 'openai' | 'gemini';
+
+async function getOrgProvider(supabase: any, orgId: string): Promise<LLMProvider> {
+    if (!orgId) return 'openai';
+    const { data, error } = await supabase
+        .from('org_settings')
+        .select('*')
+        .eq('org_id', orgId)
+        .single();
+    if (error || !data?.llm_provider) {
+        const envProvider = Deno.env.get('LLM_PROVIDER')?.toLowerCase();
+        if (envProvider === 'openai' || envProvider === 'gemini' || envProvider === 'anthropic') return envProvider as LLMProvider;
+        return 'openai';
+    }
+    const provider = data.llm_provider.toLowerCase();
+    if (provider !== 'openai' && provider !== 'gemini' && provider !== 'anthropic') {
+        throw new Error(`Provider "${data.llm_provider}" inválido.`);
+    }
+    return provider as LLMProvider;
+}
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
