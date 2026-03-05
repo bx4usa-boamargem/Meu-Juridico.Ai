@@ -7,6 +7,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { DocumentLayout } from "@/components/layout/DocumentLayout";
 import Auth from "./pages/Auth";
+import ResetPassword from "./pages/ResetPassword";
 import Dashboard from "./pages/Dashboard";
 import Processos from "./pages/Processos";
 import Processo from "./pages/Processo";
@@ -16,6 +17,12 @@ import DocumentView from "./pages/DocumentView";
 import Pesquisa from "./pages/Pesquisa";
 import Configuracoes from "./pages/Configuracoes";
 import SharedDocument from "./pages/SharedDocument";
+import SelecionarTipoDocumento from "./pages/SelecionarTipoDocumento";
+import Perfil from "./pages/Perfil";
+import BaseConhecimento from "./pages/BaseConhecimento";
+import AdminMonitoramento from "./pages/AdminMonitoramento";
+import AdminDashboard from "./pages/AdminDashboard";
+import MeuImpacto from "./pages/MeuImpacto";
 import NotFound from "./pages/NotFound";
 import MeuImpacto from "./pages/MeuImpacto";
 
@@ -29,8 +36,18 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           <Route path="/auth" element={<Auth />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/shared/:token" element={<SharedDocument />} />
-          {/* Document workspace uses its own layout */}
+          <Route
+            path="/processo/:processoId/novo-documento"
+            element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <SelecionarTipoDocumento />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
           <Route
             path="/processo/:processoId/documento/:docId"
             element={

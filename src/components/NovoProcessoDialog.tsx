@@ -66,7 +66,7 @@ export function NovoProcessoDialog({ open, onOpenChange, onSuccess }: Props) {
           .from("documentos")
           .select("id")
           .eq("processo_id", processoId)
-          .in("tipo", ["DFD", "dfd"])
+          .eq("tipo", "dfd")
           .order("created_at", { ascending: true })
           .limit(1)
           .maybeSingle();

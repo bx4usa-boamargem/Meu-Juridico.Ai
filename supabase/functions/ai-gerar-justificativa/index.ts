@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -34,6 +35,42 @@ serve(async (req) => {
       }
     }
 
+    // RAG V2: buscar contexto vetorial
+    let ragContext = "";
+    try {
+      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+      const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+      const adminClient = createClient(supabaseUrl, supabaseServiceKey);
+      const { data: orgSettings } = await adminClient.from("org_settings").select("org_id").limit(1).maybeSingle();
+
+      if (orgSettings?.org_id) {
+        const embRes = await fetch("https://ai.gateway.lovable.dev/v1/embeddings", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ input: objeto.slice(0, 2000), model: "text-embedding-3-small" }),
+        });
+        if (embRes.ok) {
+          const embData = await embRes.json();
+          const embedding = embData.data?.[0]?.embedding;
+          if (embedding) {
+            const { data: chunks } = await adminClient.rpc("match_knowledge_chunks", {
+              p_org_id: orgSettings.org_id,
+              p_embedding: JSON.stringify(embedding),
+              p_match_threshold: 0.5,
+              p_match_count: 3,
+              p_doc_types: null,
+            });
+            if (chunks && chunks.length > 0) {
+              ragContext = "\nBase de conhecimento institucional:\n" +
+                chunks.map((c: any) => `[${c.doc_title}]: ${String(c.content_text).substring(0, 500)}`).join("\n");
+            }
+          }
+        }
+      }
+    } catch (ragErr) {
+      console.warn("RAG fallback (non-blocking):", ragErr);
+    }
+
     const systemPrompt = `Você é um especialista em contratações públicas brasileiras conforme a Lei 14.133/2021 (Nova Lei de Licitações e Contratos Administrativos).
 
 Gere uma justificativa técnica formal para a contratação descrita, seguindo estas diretrizes:
@@ -45,6 +82,7 @@ Gere uma justificativa técnica formal para a contratação descrita, seguindo e
 
 Contexto administrativo:
 ${contextParts.join("\n")}
+${ragContext}
 
 Retorne APENAS o texto da justificativa, sem títulos ou explicações adicionais.`;
 

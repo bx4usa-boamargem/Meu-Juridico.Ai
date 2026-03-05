@@ -65,6 +65,88 @@ export type Database = {
           },
         ]
       }
+      ai_usage_log: {
+        Row: {
+          action: string
+          created_at: string
+          custo_usd: number | null
+          documento_id: string | null
+          duracao_ms: number | null
+          erro: string | null
+          estado: string | null
+          fallback_de: string | null
+          foi_fallback: boolean | null
+          id: string
+          modelo_utilizado: string
+          org_id: string | null
+          orgao: string | null
+          tipo_documento: string | null
+          tokens_input: number | null
+          tokens_output: number | null
+          user_id: string
+        }
+        Insert: {
+          action?: string
+          created_at?: string
+          custo_usd?: number | null
+          documento_id?: string | null
+          duracao_ms?: number | null
+          erro?: string | null
+          estado?: string | null
+          fallback_de?: string | null
+          foi_fallback?: boolean | null
+          id?: string
+          modelo_utilizado: string
+          org_id?: string | null
+          orgao?: string | null
+          tipo_documento?: string | null
+          tokens_input?: number | null
+          tokens_output?: number | null
+          user_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          custo_usd?: number | null
+          documento_id?: string | null
+          duracao_ms?: number | null
+          erro?: string | null
+          estado?: string | null
+          fallback_de?: string | null
+          foi_fallback?: boolean | null
+          id?: string
+          modelo_utilizado?: string
+          org_id?: string | null
+          orgao?: string | null
+          tipo_documento?: string | null
+          tokens_input?: number | null
+          tokens_output?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_usage_log_documento_id_fkey"
+            columns: ["documento_id"]
+            isOneToOne: false
+            referencedRelation: "documentos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_usage_log_documento_id_fkey"
+            columns: ["documento_id"]
+            isOneToOne: false
+            referencedRelation: "vw_processo_com_dfd"
+            referencedColumns: ["dfd_id"]
+          },
+          {
+            foreignKeyName: "ai_usage_log_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "org_settings"
+            referencedColumns: ["org_id"]
+          },
+        ]
+      }
       alertas_cascata: {
         Row: {
           campo: string
@@ -149,6 +231,33 @@ export type Database = {
             referencedColumns: ["processo_id"]
           },
         ]
+      }
+      api_health_log: {
+        Row: {
+          created_at: string
+          error: string | null
+          id: string
+          latency_ms: number | null
+          provider: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          error?: string | null
+          id?: string
+          latency_ms?: number | null
+          provider: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          error?: string | null
+          id?: string
+          latency_ms?: number | null
+          provider?: string
+          status?: string
+        }
+        Relationships: []
       }
       cadeias_documentais: {
         Row: {
@@ -238,6 +347,42 @@ export type Database = {
           },
         ]
       }
+      document_templates: {
+        Row: {
+          created_at: string
+          description: string | null
+          doc_type: string
+          icon: string | null
+          id: string
+          is_active: boolean
+          sections_plan: Json
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          doc_type: string
+          icon?: string | null
+          id?: string
+          is_active?: boolean
+          sections_plan?: Json
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          doc_type?: string
+          icon?: string | null
+          id?: string
+          is_active?: boolean
+          sections_plan?: Json
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       document_versions: {
         Row: {
           conteudo_html: string
@@ -321,6 +466,8 @@ export type Database = {
           parent_doc_id: string | null
           posicao_cadeia: number | null
           processo_id: string
+          score_conformidade: number | null
+          section_memories: Json | null
           status: string | null
           tipo: string | null
           updated_at: string
@@ -341,6 +488,8 @@ export type Database = {
           parent_doc_id?: string | null
           posicao_cadeia?: number | null
           processo_id: string
+          score_conformidade?: number | null
+          section_memories?: Json | null
           status?: string | null
           tipo?: string | null
           updated_at?: string
@@ -361,6 +510,8 @@ export type Database = {
           parent_doc_id?: string | null
           posicao_cadeia?: number | null
           processo_id?: string
+          score_conformidade?: number | null
+          section_memories?: Json | null
           status?: string | null
           tipo?: string | null
           updated_at?: string
@@ -473,6 +624,266 @@ export type Database = {
           },
         ]
       }
+      knowledge_base: {
+        Row: {
+          created_at: string
+          created_by: string
+          doc_type: string
+          file_path: string
+          file_size_bytes: number | null
+          id: string
+          is_active: boolean | null
+          metadata: Json | null
+          org_id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          doc_type: string
+          file_path: string
+          file_size_bytes?: number | null
+          id?: string
+          is_active?: boolean | null
+          metadata?: Json | null
+          org_id: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          doc_type?: string
+          file_path?: string
+          file_size_bytes?: number | null
+          id?: string
+          is_active?: boolean | null
+          metadata?: Json | null
+          org_id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "knowledge_base_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "org_settings"
+            referencedColumns: ["org_id"]
+          },
+        ]
+      }
+      knowledge_chunks: {
+        Row: {
+          chunk_index: number | null
+          content_text: string
+          created_at: string
+          document_id: string
+          embedding: string
+          id: string
+          metadata: Json | null
+          org_id: string
+        }
+        Insert: {
+          chunk_index?: number | null
+          content_text: string
+          created_at?: string
+          document_id: string
+          embedding: string
+          id?: string
+          metadata?: Json | null
+          org_id: string
+        }
+        Update: {
+          chunk_index?: number | null
+          content_text?: string
+          created_at?: string
+          document_id?: string
+          embedding?: string
+          id?: string
+          metadata?: Json | null
+          org_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "knowledge_chunks_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "knowledge_base"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "knowledge_chunks_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "org_settings"
+            referencedColumns: ["org_id"]
+          },
+        ]
+      }
+      monitoring_alerts: {
+        Row: {
+          affected_doc_types: string[] | null
+          created_at: string
+          detected_at: string
+          id: string
+          impact_analysis: string | null
+          is_relevant: boolean
+          severity: string
+          source: string
+          source_url: string | null
+          summary: string | null
+          title: string
+        }
+        Insert: {
+          affected_doc_types?: string[] | null
+          created_at?: string
+          detected_at?: string
+          id?: string
+          impact_analysis?: string | null
+          is_relevant?: boolean
+          severity?: string
+          source: string
+          source_url?: string | null
+          summary?: string | null
+          title: string
+        }
+        Update: {
+          affected_doc_types?: string[] | null
+          created_at?: string
+          detected_at?: string
+          id?: string
+          impact_analysis?: string | null
+          is_relevant?: boolean
+          severity?: string
+          source?: string
+          source_url?: string | null
+          summary?: string | null
+          title?: string
+        }
+        Relationships: []
+      }
+      monitoring_config: {
+        Row: {
+          cost_limit_usd: number
+          created_at: string
+          frequency: string
+          id: string
+          is_active: boolean
+          last_run_at: string | null
+          next_run_at: string | null
+          scope: Json
+          updated_at: string
+        }
+        Insert: {
+          cost_limit_usd?: number
+          created_at?: string
+          frequency?: string
+          id?: string
+          is_active?: boolean
+          last_run_at?: string | null
+          next_run_at?: string | null
+          scope?: Json
+          updated_at?: string
+        }
+        Update: {
+          cost_limit_usd?: number
+          created_at?: string
+          frequency?: string
+          id?: string
+          is_active?: boolean
+          last_run_at?: string | null
+          next_run_at?: string | null
+          scope?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      monitoring_runs: {
+        Row: {
+          alerts_generated: number | null
+          created_at: string
+          error_message: string | null
+          estimated_cost_usd: number | null
+          finished_at: string | null
+          id: string
+          items_analyzed_deep: number | null
+          items_analyzed_light: number | null
+          items_collected: number | null
+          items_filtered_out: number | null
+          started_at: string
+          status: string
+        }
+        Insert: {
+          alerts_generated?: number | null
+          created_at?: string
+          error_message?: string | null
+          estimated_cost_usd?: number | null
+          finished_at?: string | null
+          id?: string
+          items_analyzed_deep?: number | null
+          items_analyzed_light?: number | null
+          items_collected?: number | null
+          items_filtered_out?: number | null
+          started_at?: string
+          status?: string
+        }
+        Update: {
+          alerts_generated?: number | null
+          created_at?: string
+          error_message?: string | null
+          estimated_cost_usd?: number | null
+          finished_at?: string | null
+          id?: string
+          items_analyzed_deep?: number | null
+          items_analyzed_light?: number | null
+          items_collected?: number | null
+          items_filtered_out?: number | null
+          started_at?: string
+          status?: string
+        }
+        Relationships: []
+      }
+      notifications: {
+        Row: {
+          body: string | null
+          created_at: string
+          id: string
+          read: boolean
+          severity: string | null
+          source: string | null
+          source_id: string | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          id?: string
+          read?: boolean
+          severity?: string | null
+          source?: string | null
+          source_id?: string | null
+          title: string
+          type?: string
+          user_id: string
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          id?: string
+          read?: boolean
+          severity?: string | null
+          source?: string | null
+          source_id?: string | null
+          title?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       org_knowledge_base: {
         Row: {
           conteudo: string
@@ -508,6 +919,99 @@ export type Database = {
           titulo?: string
         }
         Relationships: []
+      }
+      org_settings: {
+        Row: {
+          created_at: string
+          created_by: string
+          nome: string
+          org_id: string
+          slug: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          nome: string
+          org_id?: string
+          slug?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          nome?: string
+          org_id?: string
+          slug?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      price_references: {
+        Row: {
+          analise_ia: string | null
+          created_at: string
+          created_by: string
+          estado: string | null
+          estatisticas: Json | null
+          id: string
+          municipio: string | null
+          objeto: string
+          outliers_removidos: number | null
+          periodo: string | null
+          preco_referencia: number | null
+          processo_id: string | null
+          resultados: Json | null
+          unidade_medida: string | null
+        }
+        Insert: {
+          analise_ia?: string | null
+          created_at?: string
+          created_by: string
+          estado?: string | null
+          estatisticas?: Json | null
+          id?: string
+          municipio?: string | null
+          objeto: string
+          outliers_removidos?: number | null
+          periodo?: string | null
+          preco_referencia?: number | null
+          processo_id?: string | null
+          resultados?: Json | null
+          unidade_medida?: string | null
+        }
+        Update: {
+          analise_ia?: string | null
+          created_at?: string
+          created_by?: string
+          estado?: string | null
+          estatisticas?: Json | null
+          id?: string
+          municipio?: string | null
+          objeto?: string
+          outliers_removidos?: number | null
+          periodo?: string | null
+          preco_referencia?: number | null
+          processo_id?: string | null
+          resultados?: Json | null
+          unidade_medida?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "price_references_processo_id_fkey"
+            columns: ["processo_id"]
+            isOneToOne: false
+            referencedRelation: "processos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "price_references_processo_id_fkey"
+            columns: ["processo_id"]
+            isOneToOne: false
+            referencedRelation: "vw_processo_com_dfd"
+            referencedColumns: ["processo_id"]
+          },
+        ]
       }
       processos: {
         Row: {
@@ -545,6 +1049,152 @@ export type Database = {
           orgao?: string | null
           status?: string | null
           updated_at?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          cargo: string | null
+          created_at: string
+          full_name: string | null
+          id: string
+          orgao: string | null
+          phone: string | null
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          cargo?: string | null
+          created_at?: string
+          full_name?: string | null
+          id: string
+          orgao?: string | null
+          phone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          cargo?: string | null
+          created_at?: string
+          full_name?: string | null
+          id?: string
+          orgao?: string | null
+          phone?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      risk_maps: {
+        Row: {
+          aprovado_em: string | null
+          aprovado_por: string | null
+          created_at: string | null
+          created_by: string
+          documento_id: string | null
+          id: string
+          processo_id: string
+          resumo_executivo: string | null
+          riscos: Json
+          updated_at: string | null
+        }
+        Insert: {
+          aprovado_em?: string | null
+          aprovado_por?: string | null
+          created_at?: string | null
+          created_by: string
+          documento_id?: string | null
+          id?: string
+          processo_id: string
+          resumo_executivo?: string | null
+          riscos?: Json
+          updated_at?: string | null
+        }
+        Update: {
+          aprovado_em?: string | null
+          aprovado_por?: string | null
+          created_at?: string | null
+          created_by?: string
+          documento_id?: string | null
+          id?: string
+          processo_id?: string
+          resumo_executivo?: string | null
+          riscos?: Json
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "risk_maps_documento_id_fkey"
+            columns: ["documento_id"]
+            isOneToOne: false
+            referencedRelation: "documentos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "risk_maps_documento_id_fkey"
+            columns: ["documento_id"]
+            isOneToOne: false
+            referencedRelation: "vw_processo_com_dfd"
+            referencedColumns: ["dfd_id"]
+          },
+          {
+            foreignKeyName: "risk_maps_processo_id_fkey"
+            columns: ["processo_id"]
+            isOneToOne: false
+            referencedRelation: "processos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "risk_maps_processo_id_fkey"
+            columns: ["processo_id"]
+            isOneToOne: false
+            referencedRelation: "vw_processo_com_dfd"
+            referencedColumns: ["processo_id"]
+          },
+        ]
+      }
+      roi_benchmarks: {
+        Row: {
+          created_at: string | null
+          fonte: string | null
+          id: string
+          indicador: string
+          unidade: string | null
+          valor: number
+        }
+        Insert: {
+          created_at?: string | null
+          fonte?: string | null
+          id?: string
+          indicador: string
+          unidade?: string | null
+          valor: number
+        }
+        Update: {
+          created_at?: string | null
+          fonte?: string | null
+          id?: string
+          indicador?: string
+          unidade?: string | null
+          valor?: number
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
         }
         Relationships: []
       }
@@ -589,7 +1239,52 @@ export type Database = {
         }
         Returns: string
       }
+      get_alertas_documento: {
+        Args: { p_doc_type: string }
+        Returns: {
+          affected_doc_types: string[] | null
+          created_at: string
+          detected_at: string
+          id: string
+          impact_analysis: string | null
+          is_relevant: boolean
+          severity: string
+          source: string
+          source_url: string | null
+          summary: string | null
+          title: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "monitoring_alerts"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       get_user_orgao: { Args: { p_user_id: string }; Returns: string }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      match_knowledge_chunks: {
+        Args: {
+          p_doc_types?: string[]
+          p_embedding: string
+          p_match_count: number
+          p_match_threshold: number
+          p_org_id: string
+        }
+        Returns: {
+          chunk_id: string
+          content_text: string
+          doc_title: string
+          document_id: string
+          similarity: number
+        }[]
+      }
       obter_pipeline_processo: {
         Args: { p_processo_id: string }
         Returns: Json
@@ -604,7 +1299,7 @@ export type Database = {
       }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "moderator" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -731,6 +1426,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "moderator", "user"],
+    },
   },
 } as const
