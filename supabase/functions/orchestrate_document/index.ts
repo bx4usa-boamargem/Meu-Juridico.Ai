@@ -28,16 +28,16 @@ serve(async (req) => {
 
         // Obter org_id e doc_type se não fornecido
         const { data: doc, error: docError } = await supabase
-            .from('documents')
-            .select('org_id, doc_type, processo_id, parent_doc_id')
+            .from('documentos')
+            .select('tipo, processo_id, parent_doc_id')
             .eq('id', document_id)
-            .single()
+            .single() as { data: any; error: any }
 
         if (docError || !doc) {
             throw new Error(`Documento não encontrado: ${document_id}`)
         }
 
-        const actualDocType = doc_type || doc.doc_type
+        const actualDocType = doc_type || doc.tipo
         const actualProcessId = process_id || doc.processo_id
         const actualParentDocId = parent_doc_id || doc.parent_doc_id
 
@@ -52,7 +52,7 @@ serve(async (req) => {
         const mergedFormData = { ...contextFromParent, ...(form_data || {}) }
 
         // ─── 1. SELEÇÃO DINÂMICA DE IA (NÃO HARDCODED) ───
-        const provider = await getOrgProvider(supabase, doc.org_id)
+        const provider = await getOrgProvider(supabase as any, doc.org_id)
         console.log(`[ORCHESTRATOR] Usando provedor LLM configurado: ${provider}`)
 
         // ─── 2. CARREGAR TEMPLATE ───
