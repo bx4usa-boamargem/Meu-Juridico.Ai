@@ -288,17 +288,26 @@ Você deve esgotar o tema da seção atual. Um ETP excelente deve ser exaustivo 
 
         // ─── 6. SALVAR NO DB ───
         const { error: updError } = await supabase
-            .from('documents')
+            .from('documentos')
             .update({
-                status: 'generated',
+                status: 'aprovado',
+                workflow_status: 'aprovado',
                 score_conformidade: parseFloat(score.toFixed(3)),
-                content_html: htmlContent,
+                conteudo_final: htmlContent,
                 section_memories: sectionMemories,
                 updated_at: new Date().toISOString()
             })
             .eq('id', document_id)
 
         if (updError) throw updError
+
+        // Update process status
+        if (actualProcessId && actualDocType) {
+            await supabase
+                .from('processos')
+                .update({ status: `${actualDocType.toUpperCase()}_APROVADO`, updated_at: new Date().toISOString() })
+                .eq('id', actualProcessId)
+        }
 
         return new Response(JSON.stringify({
             success: true,
