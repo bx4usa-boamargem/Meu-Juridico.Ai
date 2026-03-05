@@ -81,6 +81,8 @@ const App = () => (
                     <Route path="/pesquisa" element={<Pesquisa />} />
                     <Route path="/configuracoes" element={<Configuracoes />} />
                     <Route path="/meu-impacto" element={<MeuImpacto />} />
+                    <Route path="/base-conhecimento" element={<BaseConhecimento />} />
+                    <Route path="/admin/dashboard" element={<AdminDashboard />} />
                     <Route path="/" element={<Navigate to="/dashboard" replace />} />
                     <Route path="*" element={<NotFound />} />
                   </Routes>
