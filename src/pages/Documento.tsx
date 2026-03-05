@@ -645,6 +645,7 @@ export default function Documento() {
         numero_processo: processo.numero_processo,
         orgao: processo.orgao,
         objeto: processo.objeto,
+        objeto_contratacao: processo.objeto,
         modalidade: processo.modalidade,
       }
     : undefined;
