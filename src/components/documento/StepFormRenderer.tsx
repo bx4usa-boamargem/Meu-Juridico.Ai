@@ -2,8 +2,8 @@ import { useRef } from "react";
 import { Info, Sparkles, Shield, Copy } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { AutosizeTextarea } from "@/components/ui/autosize-textarea";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -171,12 +171,13 @@ export function StepFormRenderer({
 
         {field.type === "textarea" ? (
           <div className="space-y-1">
-            <Textarea
+            <AutosizeTextarea
               value={value}
               onChange={(e) => onChange(field.key, e.target.value)}
               readOnly={field.readOnly}
               placeholder={`Digite ${field.label.toLowerCase()}...`}
               maxLength={field.maxLength}
+              minRows={3}
               className={cn(
                 "text-sm min-h-[100px]",
                 field.readOnly && "bg-muted cursor-not-allowed",
@@ -221,7 +222,7 @@ export function StepFormRenderer({
             </SelectContent>
           </Select>
         ) : (
-          <Input
+          <AutosizeTextarea
             value={value}
             onChange={(e) => onChange(field.key, e.target.value)}
             readOnly={field.readOnly}

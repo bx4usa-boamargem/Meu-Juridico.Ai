@@ -1,4 +1,4 @@
-import { LayoutDashboard, FolderKanban, FileText, Search, Settings, LogOut } from "lucide-react";
+import { LayoutDashboard, FolderKanban, FileText, Search, Settings, LogOut, Zap } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
 import logoIcon from "@/assets/logo-icon.png";
@@ -25,6 +25,8 @@ const navItems = [
   { title: "Pesquisa", url: "/pesquisa", icon: Search },
   { title: "Configurações", url: "/configuracoes", icon: Settings },
 ];
+
+const impactItem = { title: "Meu Impacto ⚡", url: "/meu-impacto", icon: Zap };
 
 export function AppSidebar() {
   const { signOut } = useAuth();
@@ -64,6 +66,24 @@ export function AppSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+        <SidebarGroup>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild tooltip={impactItem.title}>
+                  <NavLink
+                    to={impactItem.url}
+                    className="text-[#F59E0B] hover:bg-amber-50 font-semibold"
+                    activeClassName="bg-amber-50 text-[#F59E0B] font-bold"
+                  >
+                    <impactItem.icon className="h-4 w-4 shrink-0 text-[#F59E0B]" />
+                    <span>{impactItem.title}</span>
+                  </NavLink>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

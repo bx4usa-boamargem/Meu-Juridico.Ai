@@ -17,6 +17,7 @@ import Pesquisa from "./pages/Pesquisa";
 import Configuracoes from "./pages/Configuracoes";
 import SharedDocument from "./pages/SharedDocument";
 import NotFound from "./pages/NotFound";
+import MeuImpacto from "./pages/MeuImpacto";
 
 const queryClient = new QueryClient();
 
@@ -62,6 +63,7 @@ const App = () => (
                     <Route path="/documentos" element={<Documentos />} />
                     <Route path="/pesquisa" element={<Pesquisa />} />
                     <Route path="/configuracoes" element={<Configuracoes />} />
+                    <Route path="/meu-impacto" element={<MeuImpacto />} />
                     <Route path="/" element={<Navigate to="/dashboard" replace />} />
                     <Route path="*" element={<NotFound />} />
                   </Routes>

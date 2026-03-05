@@ -6,338 +6,405 @@ const corsHeaders = {
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-interface PriceEntry {
+interface PrecoItem {
     orgao: string;
+    cnpj_orgao: string;
     estado: string;
     data: string;
+    descricao_item: string;
     valor_unitario: number;
-    unidade: string;
-    fonte: string;
-    url: string;
+    unidade_medida: string;
+    quantidade: number;
+    fonte: 'ata' | 'contrato' | 'catalogo' | 'base_interna';
+    numero_sequencial: string;
+    url_fonte: string;
+}
+
+interface EstatisticasUnidade {
+    unidade_medida: string;
+    total_fontes: number;
+    minimo: number;
+    maximo: number;
+    media: number;
+    mediana: number;
+    desvio_padrao: number;
+    outliers_removidos: number;
+    preco_referencia: number;
+    saneados: number[];
 }
 
 interface InputBody {
     objeto: string;
     estado?: string;
     municipio?: string;
-    periodo_meses?: number;
+    periodo?: string;
     unidade_medida?: string;
+    processo_id?: string;
 }
 
-// ───────────────────────────────────────────────
-// PASSO 1 — Buscar no PNCP
-// ───────────────────────────────────────────────
-async function fetchPNCP(objeto: string, estado: string, periodoMeses: number): Promise<PriceEntry[]> {
-    const results: PriceEntry[] = [];
-
-    try {
-        const keywords = objeto.split(' ').filter(w => w.length > 3).slice(0, 3).join(' ');
-        const dataFim = new Date().toISOString().split('T')[0];
-        const dataIni = new Date(Date.now() - periodoMeses * 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-
-        const url = `https://pncp.gov.br/api/pncp/v1/orgaos/compras?descricaoObjeto=${encodeURIComponent(keywords)}&uf=${estado}&dataInicio=${dataIni}&dataFim=${dataFim}&pagina=1&tamanhoPagina=50`;
-
-        const res = await fetch(url, {
-            headers: { 'Accept': 'application/json' },
-            signal: AbortSignal.timeout(10000),
-        });
-
-        if (!res.ok) {
-            console.warn('PNCP não retornou 200:', res.status);
-            return results;
-        }
-
-        const data = await res.json();
-        const items = data.data || data.items || data || [];
-
-        for (const item of (Array.isArray(items) ? items.slice(0, 30) : [])) {
-            const valor = parseFloat(item.valorUnitarioEstimado || item.valorTotalEstimado || '0');
-            if (valor > 0) {
-                results.push({
-                    orgao: item.orgaoEntidade?.razaoSocial || item.orgao || 'N/I',
-                    estado: item.uf || estado,
-                    data: item.dataPublicacao || item.dataCriacao || new Date().toISOString().split('T')[0],
-                    valor_unitario: valor,
-                    unidade: item.unidadeMedida || 'unidade',
-                    fonte: 'PNCP',
-                    url: item.linkSistemaOrigem || `https://pncp.gov.br`,
-                });
-            }
-        }
-    } catch (err) {
-        console.warn('Erro ao buscar PNCP:', err);
-    }
-
-    return results;
+// ─── UTILS ──────────────────────────────────────────────────────────────────
+function buildDateRange(periodoMeses: number) {
+    const now = new Date();
+    const from = new Date(now.getTime() - periodoMeses * 30 * 24 * 60 * 60 * 1000);
+    const fmt = (d: Date) => `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
+    return { dataInicial: fmt(from), dataFinal: fmt(now) };
 }
 
-// ───────────────────────────────────────────────
-// PASSO 2 — Buscar no Painel de Preços
-// ───────────────────────────────────────────────
-async function fetchPainelPrecos(objeto: string, estado: string): Promise<PriceEntry[]> {
-    const results: PriceEntry[] = [];
-
-    try {
-        const url = `https://paineldeprecos.planejamento.gov.br/api/precos?descricao=${encodeURIComponent(objeto)}&uf=${estado}&pagina=1&quantidade=50`;
-        const res = await fetch(url, {
-            headers: { 'Accept': 'application/json' },
-            signal: AbortSignal.timeout(10000),
-        });
-
-        if (!res.ok) {
-            console.warn('Painel de Preços não retornou 200:', res.status);
-            return results;
-        }
-
-        const data = await res.json();
-        const items = data.resultado || data.data || data.items || [];
-
-        for (const item of (Array.isArray(items) ? items.slice(0, 30) : [])) {
-            const valor = parseFloat(item.precoUnitario || item.valorUnitario || '0');
-            if (valor > 0) {
-                results.push({
-                    orgao: item.orgao || 'N/I',
-                    estado: item.uf || estado,
-                    data: item.dataReferencia || item.data || new Date().toISOString().split('T')[0],
-                    valor_unitario: valor,
-                    unidade: item.unidade || 'unidade',
-                    fonte: 'Painel de Preços',
-                    url: item.url || 'https://paineldeprecos.planejamento.gov.br',
-                });
-            }
-        }
-    } catch (err) {
-        console.warn('Erro ao buscar Painel de Preços:', err);
-    }
-
-    return results;
+function removeAccents(str: string): string {
+    if (!str) return '';
+    return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 }
 
-// ───────────────────────────────────────────────
-// PASSO 3 — Buscar na tabela interna price_references
-// ───────────────────────────────────────────────
-async function fetchInternal(
-    supabase: ReturnType<typeof createClient>,
-    objeto: string,
+function getTokens(str: string): string[] {
+    return removeAccents(str.toLowerCase()).split(/\s+/).filter(w => w.length > 3).slice(0, 5);
+}
+
+function keywordsMatch(text: string, keywords: string[]): boolean {
+    if (!text) return false;
+    const t = removeAccents(text.toLowerCase());
+    return keywords.some(k => t.includes(removeAccents(k.toLowerCase())));
+}
+
+// Retorna null se não achar unidade clara, senão padroniza.
+function padronizarUnidade(unid: string): string {
+    if (!unid) return 'unidade';
+    let u = removeAccents(unid.toLowerCase()).trim();
+    if (u.includes('m2') || u.includes('metro quadrado')) return 'm²';
+    if (u.includes('m3') || u.includes('metro cubico')) return 'm³';
+    if (u.includes('hora') || u === 'h') return 'hora';
+    if (u.includes('mes') || u === 'mensalidade') return 'mês';
+    if (u.includes('posto')) return 'posto';
+    if (u.includes('diaria')) return 'diária';
+    if (u.includes('ano')) return 'ano';
+    if (u.includes('sv') || u.includes('servico')) return 'serviço global';
+    return u.substring(0, 20); // fallback string curta
+}
+
+// ─── COLETA PNCP (ATAS E CONTRATOS - FETCH HEADERS) ─────────────────────────
+async function fetchPNCPEndpointHeaders(
+    endpoint: 'atas' | 'contratos',
     estado: string,
-    periodoMeses: number
-): Promise<PriceEntry[]> {
-    const termo = objeto.split(' ').filter(w => w.length > 3)[0] || objeto;
+    periodoMeses: number,
+    keywords: string[]
+): Promise<any[]> {
+    const chunks: { inicio: string; fim: string }[] = [];
+    const now = new Date();
+    let remainingDays = periodoMeses * 30;
+    let currentDate = new Date(now.getTime());
+    const fmt = (d: Date) => `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
 
-    const { data, error } = await supabase
-        .from('price_references')
-        .select('*')
-        .ilike('objeto_normalizado', `%${termo}%`)
-        .eq('estado', estado)
-        .gte('data_contratacao', new Date(Date.now() - periodoMeses * 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0])
-        .order('data_contratacao', { ascending: false })
-        .limit(50);
-
-    if (error) {
-        console.warn('Erro ao buscar price_references:', error.message);
-        return [];
+    while (remainingDays > 0) {
+        const days = Math.min(remainingDays, 365);
+        const start = new Date(currentDate.getTime() - days * 24 * 60 * 60 * 1000);
+        chunks.push({ inicio: fmt(start), fim: fmt(currentDate) });
+        currentDate = new Date(start.getTime() - 24 * 60 * 60 * 1000);
+        remainingDays -= days;
     }
 
-    return (data || []).map((r: any) => ({
-        orgao: r.orgao,
-        estado: r.estado,
-        data: r.data_contratacao,
-        valor_unitario: parseFloat(r.valor_unitario),
-        unidade: r.unidade_medida || 'unidade',
-        fonte: r.fonte,
-        url: r.url_fonte || '',
-    }));
+    let results: any[] = [];
+    for (const chunk of chunks) {
+        if (results.length > 50) break; // Travar volume de varredura
+        const url = `https://pncp.gov.br/api/consulta/v1/${endpoint}?dataInicial=${chunk.inicio}&dataFinal=${chunk.fim}&uf=${estado}&pagina=1&tamanhoPagina=500`;
+        try {
+            const res = await fetch(url, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(10000) });
+            if (res.ok) {
+                const body = await res.json();
+                if (Array.isArray(body.data)) {
+                    for (const item of body.data) {
+                        const txt = (endpoint === 'atas' ? item.objetoContratacao : item.objetoContrato) || '';
+                        if (keywordsMatch(txt, keywords)) {
+                            results.push(item);
+                        }
+                    }
+                }
+            }
+        } catch (e) {
+            console.warn(`Erro no PNCP Headers ${endpoint}:`, e);
+        }
+    }
+    return results;
 }
 
-// ───────────────────────────────────────────────
-// PASSO 4 — Calcular estatísticas com remoção de outliers
-// ───────────────────────────────────────────────
-function calcularEstatisticas(precos: number[]): {
-    minimo: number; maximo: number; media: number;
-    mediana: number; desvio_padrao: number; preco_referencia: number;
-    outliers_removidos: number; precos_utilizados: number[];
-} {
-    if (precos.length === 0) {
-        return {
-            minimo: 0, maximo: 0, media: 0, mediana: 0,
-            desvio_padrao: 0, preco_referencia: 0,
-            outliers_removidos: 0, precos_utilizados: [],
-        };
+// ─── N+1 FETCH ITENS DOS CONTRATOS/ATAS ─────────────────────────────────────
+async function fetchItemsForContracts(
+    contratos: any[],
+    endpoint: 'atas' | 'contratos',
+    keywords: string[]
+): Promise<PrecoItem[]> {
+    const resultItens: PrecoItem[] = [];
+    // Pegamos apenas primeiros 30 para não causar timeout absoluto (cada api/itens demora 300ms)
+    const cToFetch = contratos.slice(0, 30);
+
+    const promises = cToFetch.map(async (c) => {
+        const controleCompra = c.numeroControlePncpCompra || c.numeroControlePNCPCompra || '';
+        if (!controleCompra || !controleCompra.includes('-') || !controleCompra.includes('/')) return [];
+
+        const parts = controleCompra.split('-');
+        const cnpj = parts[0];
+        const rightPart = parts[parts.length - 1]; // e.g. "000067/2024" ou "000021/2022-000001"
+        const finalParts = rightPart.split('-')[0].split('/');
+        const seq = parseInt(finalParts[0], 10);
+        const ano = parseInt(finalParts[1], 10);
+
+        if (!cnpj || !ano || isNaN(seq)) return [];
+
+        const urlItens = `https://pncp.gov.br/api/pncp/v1/orgaos/${cnpj}/compras/${ano}/${seq}/itens`;
+        try {
+            const res = await fetch(urlItens, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(6000) });
+            if (!res.ok) return [];
+            const itensArr = await res.json();
+
+            const extracted: PrecoItem[] = [];
+            for (const it of itensArr) {
+                const desc = it.descricao || it.descricaoItem || '';
+                if (keywordsMatch(desc, keywords) || keywordsMatch(c.objetoContratacao || c.objetoContrato || '', keywords)) {
+                    const valor = parseFloat(it.valorUnitarioEstimado || it.valorUnitarioHomologado || '0');
+                    if (valor <= 0) continue;
+
+                    let numAta = c.numeroControlePNCPAta || c.numeroAtaRegistroPreco || '';
+                    let urlF = endpoint === 'atas'
+                        ? `https://pncp.gov.br/app/editais/${cnpj}/1/${numAta.split('-').pop() || ''}`
+                        : `https://pncp.gov.br`;
+
+                    extracted.push({
+                        orgao: c.nomeOrgao || 'N/I',
+                        cnpj_orgao: cnpj,
+                        estado: c.ufOrgao || c.uf || 'N/I',
+                        data: c.dataAssinatura || c.dataPublicacaoPncp || '',
+                        descricao_item: desc,
+                        valor_unitario: valor,
+                        unidade_medida: padronizarUnidade(it.unidadeMedida || 'unidade'),
+                        quantidade: parseFloat(it.quantidade || '1'),
+                        fonte: endpoint === 'atas' ? 'ata' : 'contrato',
+                        numero_sequencial: seq.toString(),
+                        url_fonte: urlF
+                    });
+                }
+            }
+            return extracted;
+        } catch (e) {
+            return [];
+        }
+    });
+
+    const arrays = await Promise.all(promises);
+    for (const arr of arrays) resultItens.push(...arr);
+    return resultItens;
+}
+
+// ─── COLETA CATÁLOGO PNCP (CATMAT/CATSER) ───────────────────────────────────
+async function fetchCatalogoItems(objeto: string): Promise<PrecoItem[]> {
+    const result: PrecoItem[] = [];
+    const query = encodeURIComponent(objeto.substring(0, 30)); // PNCP truncado
+    const url = `https://pncp.gov.br/api/catalogo/v1/itens?q=${query}&pagina=1&tamanhoPagina=50`;
+    try {
+        const res = await fetch(url, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(8000) });
+        if (!res.ok) return result;
+        const body = await res.json();
+        for (const item of (body.dados || body.data || [])) {
+            if (item.valorReferencia && parseFloat(item.valorReferencia) > 0) {
+                result.push({
+                    orgao: 'Catálogo Nacional PNCP',
+                    cnpj_orgao: '',
+                    estado: 'BR',
+                    data: new Date().toISOString(),
+                    descricao_item: item.descricao || item.nome || '',
+                    valor_unitario: parseFloat(item.valorReferencia),
+                    unidade_medida: padronizarUnidade(item.unidadeFornecimento || ''),
+                    quantidade: 1,
+                    fonte: 'catalogo',
+                    numero_sequencial: item.codigoItem || '',
+                    url_fonte: 'https://pncp.gov.br'
+                });
+            }
+        }
+    } catch (e) {
+        console.warn("Erro no Catalogo PNCP:", e);
     }
+    return result;
+}
+
+// ─── ESTATÍSTICAS AGRUPADAS ──────────────────────────────────────────────────
+function calcularStatsUnidade(itens: PrecoItem[], unidade: string): EstatisticasUnidade | null {
+    if (itens.length === 0) return null;
+    const precos = itens.map(i => i.valor_unitario);
 
     const media = precos.reduce((a, b) => a + b, 0) / precos.length;
-    const variancia = precos.reduce((a, b) => a + Math.pow(b - media, 2), 0) / precos.length;
-    const desvioPadrao = Math.sqrt(variancia);
+    const dp = Math.sqrt(precos.reduce((a, b) => a + Math.pow(b - media, 2), 0) / precos.length);
 
-    // Remover outliers: fora de 2 desvios padrão
-    const saneados = precos.filter(p => Math.abs(p - media) <= 2 * desvioPadrao);
+    // Cutout outliers (2 desvios padrão)
+    const saneados = precos.filter(p => Math.abs(p - media) <= 2 * dp);
     const outliers_removidos = precos.length - saneados.length;
 
-    if (saneados.length === 0) {
-        return {
-            minimo: 0, maximo: 0, media: 0, mediana: 0,
-            desvio_padrao: 0, preco_referencia: 0,
-            outliers_removidos, precos_utilizados: [],
-        };
-    }
+    if (saneados.length === 0) return null;
 
     const sorted = [...saneados].sort((a, b) => a - b);
     const mid = Math.floor(sorted.length / 2);
     const mediana = sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
-
     const mediaFinal = saneados.reduce((a, b) => a + b, 0) / saneados.length;
-    const varianciaFinal = saneados.reduce((a, b) => a + Math.pow(b - mediaFinal, 2), 0) / saneados.length;
+    const dpFinal = Math.sqrt(saneados.reduce((a, b) => a + Math.pow(b - mediaFinal, 2), 0) / saneados.length);
 
     return {
-        minimo: Math.min(...saneados),
-        maximo: Math.max(...saneados),
+        unidade_medida: unidade,
+        total_fontes: saneados.length,
+        minimo: Math.round(Math.min(...saneados) * 100) / 100,
+        maximo: Math.round(Math.max(...saneados) * 100) / 100,
         media: Math.round(mediaFinal * 100) / 100,
         mediana: Math.round(mediana * 100) / 100,
-        desvio_padrao: Math.round(Math.sqrt(varianciaFinal) * 100) / 100,
+        desvio_padrao: Math.round(dpFinal * 100) / 100,
         preco_referencia: Math.round(mediana * 100) / 100,
         outliers_removidos,
-        precos_utilizados: saneados,
+        saneados
     };
 }
 
-// ───────────────────────────────────────────────
-// PASSO 5 — Análise com Claude Sonnet via AI Gateway
-// ───────────────────────────────────────────────
+// ─── IA ANALISE ─────────────────────────────────────────────────────────────
 async function gerarAnaliseIA(
     apiKey: string,
     objeto: string,
     estado: string,
-    stats: ReturnType<typeof calcularEstatisticas>,
-    precos: PriceEntry[]
+    stats: EstatisticasUnidade[]
 ): Promise<string> {
-    const prompt = `Você é um especialista em licitações públicas brasileiras. Com base nos seguintes preços coletados para "${objeto}" no estado de ${estado}, gere uma análise de no máximo 3 parágrafos explicando: o valor de referência sugerido, a variação regional observada, e a fundamentação legal para uso da mediana como metodologia. Use linguagem técnica administrativa.
+    const analiseStr = stats.slice(0, 3).map(s =>
+        `- ${s.unidade_medida}: R$ ${s.preco_referencia} (Mediana de ${s.total_fontes} fontes válidas, ${s.outliers_removidos} outliers descartados)`
+    ).join('\n');
 
-Dados:
-- Preço de referência (mediana saneada): R$ ${stats.preco_referencia}
-- Mínimo: R$ ${stats.minimo} | Máximo: R$ ${stats.maximo}
-- Média: R$ ${stats.media} | Desvio padrão: R$ ${stats.desvio_padrao}
-- Total de preços utilizados: ${stats.precos_utilizados.length}
-- Outliers removidos: ${stats.outliers_removidos}
-- Amostras: ${JSON.stringify(precos.slice(0, 10))}`;
+    const prompt = `Você é um especialista em licitações públicas brasileiras (Lei 14.133/2021).
+O usuário pesquisou precos unitários para o objeto "${objeto}" (Estado: ${estado}). 
+Nós agrupamos os custos unitários devolvidos em diferentes unidades de medida (m², posto, hora, etc).
+Resumo estatístico do sistema:
+${analiseStr}
+
+Gere uma análise executiva em NO MÁXIMO 3 PARÁGRAFOS para o Relatório de Pesquisa:
+1. Recomendação de uso da Mediana saneada dos itens colhidos;
+2. Comente que a variação regional e diferentes unidades de medida exigem que o gestor escolha a unidade pertinente ao seu ETP/TR;
+3. Base Legal: Art. 23 Lei 14.133/2021 + IN SEGES 65/2021 + Art. 27 Decreto Municipal 62.100/2022.`;
 
     try {
-        const res = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+        const res = await fetch('https://api.openai.com/v1/chat/completions', {
             method: 'POST',
-            headers: {
-                Authorization: `Bearer ${apiKey}`,
-                'Content-Type': 'application/json',
-            },
+            headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                model: 'anthropic/claude-sonnet-4-5',
+                model: 'gpt-4o-mini',
                 messages: [{ role: 'user', content: prompt }],
-                stream: false,
                 max_tokens: 600,
+                temperature: 0.3,
             }),
-            signal: AbortSignal.timeout(30000),
+            signal: AbortSignal.timeout(20000),
         });
 
-        if (!res.ok) {
-            console.warn('IA não retornou 200:', res.status);
-            return 'Análise automática indisponível no momento. Consulte os dados estatísticos acima.';
-        }
-
+        if (!res.ok) return 'Análise indisponível no momento. Retorno da API: ' + res.status;
         const result = await res.json();
-        return result.choices?.[0]?.message?.content ?? 'Análise não disponível.';
+        return result.choices?.[0]?.message?.content ?? 'Análise não gerada.';
     } catch (err) {
-        console.warn('Erro ao chamar IA:', err);
-        return 'Análise automática indisponível no momento.';
+        return 'Falha ao processar texto por IA.';
     }
 }
 
-// ───────────────────────────────────────────────
-// HANDLER PRINCIPAL
-// ───────────────────────────────────────────────
+// ─── MAIN HANDLER ───────────────────────────────────────────────────────────
 serve(async (req: Request) => {
-    if (req.method === 'OPTIONS') {
-        return new Response('ok', { headers: corsHeaders });
-    }
+    if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
     try {
         const body: InputBody = await req.json();
-        const {
-            objeto,
-            estado = 'DF',
-            municipio = '',
-            periodo_meses = 6,
-            unidade_medida = 'unidade',
-        } = body;
+        const { objeto, estado = 'BR', periodo = '24m' } = body;
+
+        // Converter período string (ex: "6m") para número de meses
+        const periodo_meses = parseInt(periodo.replace('m', '')) || 24;
 
         if (!objeto?.trim()) {
-            return new Response(
-                JSON.stringify({ error: '`objeto` é obrigatório' }),
-                { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-            );
+            return new Response(JSON.stringify({ error: '`objeto` é obrigatório' }), { status: 400, headers: corsHeaders });
         }
 
-        const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-        const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-        const apiKey = Deno.env.get('LOVABLE_API_KEY')!;
-        const supabase = createClient(supabaseUrl, supabaseKey);
+        const keywords = getTokens(objeto);
 
-        // Coletar preços das 3 fontes em paralelo
-        const [pncp, painel, interno] = await Promise.all([
-            fetchPNCP(objeto, estado, periodo_meses),
-            fetchPainelPrecos(objeto, estado),
-            fetchInternal(supabase, objeto, estado, periodo_meses),
+        // 1. Coletar cabeçalhos (até 50 de cada)
+        const [cAtas, cContratos, cCatalogo] = await Promise.all([
+            fetchPNCPEndpointHeaders('atas', estado, periodo_meses, keywords),
+            fetchPNCPEndpointHeaders('contratos', estado, periodo_meses, keywords),
+            fetchCatalogoItems(objeto)
         ]);
 
-        const todosPrecos: PriceEntry[] = [...pncp, ...painel, ...interno];
-        const todosValores = todosPrecos.map(p => p.valor_unitario);
-        const stats = calcularEstatisticas(todosValores);
+        // 2. Coletar N+1 dos Itens de forma protegida / concorrente
+        const [itensAtas, itensContratos] = await Promise.all([
+            fetchItemsForContracts(cAtas, 'atas', keywords),
+            fetchItemsForContracts(cContratos, 'contratos', keywords)
+        ]);
 
-        // Filtrar os preços saneados para enviar no output
-        const precosUtilizadosSet = new Set(stats.precos_utilizados);
-        const precosDetalhados = todosPrecos
-            .filter(p => precosUtilizadosSet.has(p.valor_unitario))
-            .slice(0, 100);
+        const allItems: PrecoItem[] = [...itensAtas, ...itensContratos, ...cCatalogo];
 
-        // Análise via IA
-        const analiseIA = apiKey
-            ? await gerarAnaliseIA(apiKey, objeto, estado, stats, precosDetalhados)
-            : 'LOVABLE_API_KEY não configurado.';
+        // 3. Agrupamento e Cálculo
+        const porUnidade: Record<string, PrecoItem[]> = {};
+        for (const item of allItems) {
+            if (!porUnidade[item.unidade_medida]) porUnidade[item.unidade_medida] = [];
+            porUnidade[item.unidade_medida].push(item);
+        }
 
-        const dataInicio = new Date(Date.now() - periodo_meses * 30 * 24 * 60 * 60 * 1000);
-        const dataFim = new Date();
-        const periodoConsultado = `${dataInicio.toLocaleDateString('pt-BR')} a ${dataFim.toLocaleDateString('pt-BR')}`;
+        const resultadosDeUnidade: EstatisticasUnidade[] = [];
+        for (const [unidade, vals] of Object.entries(porUnidade)) {
+            const st = calcularStatsUnidade(vals, unidade);
+            if (st && st.total_fontes > 0) resultadosDeUnidade.push(st);
+        }
 
-        const response = {
+        // Sort array by count of sources (to surface the most relevant robust units)
+        resultadosDeUnidade.sort((a, b) => b.total_fontes - a.total_fontes);
+
+        // 4. Análise de Texto Gen IA
+        const openAiKey = Deno.env.get('OPENAI_API_KEY') || '';
+        const analiseStr = openAiKey
+            ? await gerarAnaliseIA(openAiKey, objeto, estado, resultadosDeUnidade)
+            : "Configuração OPENAI_API_KEY pendente.";
+
+        const nowStr = new Date().toISOString();
+
+        const responseJSON = {
             objeto,
             estado,
-            municipio: municipio || undefined,
-            unidade_medida,
-            periodo_consultado: periodoConsultado,
-            total_precos_encontrados: todosPrecos.length,
-            total_precos_utilizados: stats.precos_utilizados.length,
-            estatisticas: {
-                minimo: stats.minimo,
-                maximo: stats.maximo,
-                media: stats.media,
-                mediana: stats.mediana,
-                desvio_padrao: stats.desvio_padrao,
-                preco_referencia: stats.preco_referencia,
+            periodo_consultado: `${periodo_meses} meses`,
+            total_contratos_consultados: cAtas.length + cContratos.length,
+            total_itens_encontrados: allItems.length,
+            total_itens_utilizados: resultadosDeUnidade.reduce((acc, curr) => acc + curr.total_fontes, 0),
+
+            resultados_por_unidade: resultadosDeUnidade.map(r => {
+                const { saneados, ...rest } = r;
+                return {
+                    unidade: rest.unidade_medida,
+                    menor: rest.minimo,
+                    mediana: rest.mediana,
+                    maior: rest.maximo,
+                    total: rest.total_fontes,
+                    outliers: rest.outliers_removidos,
+                    itens: allItems.filter(i => i.unidade_medida === rest.unidade_medida).slice(0, 20)
+                };
+            }),
+
+            itens_detalhados: allItems.slice(0, 50).map(i => { // Retorna top 50 p/ tabela por peso de trafego
+                return {
+                    ...i,
+                    valor_unitario: Math.round(i.valor_unitario * 100) / 100
+                }
+            }),
+
+            memoria_calculo: {
+                fontes_consultadas: ["API PNCP Atas", "API PNCP Contratos", "Catálogo V1 PNCP"],
+                metodologia: "Mediana saneada conforme IN SEGES 65/2021 e Decreto 62.100/2022",
+                criterio_exclusao: "Outliers com desvio paramétrico > 2σ da média do grupo unificado",
+                fundamentacao_legal: "Art. 23 Lei 14.133/2021 + IN SEGES 65/2021 + Art. 27 Decreto Municipal 62.100/2022"
             },
-            precos_detalhados: precosDetalhados,
-            analise_ia: analiseIA,
-            fundamentacao_legal: 'Art. 23 Lei 14.133/2021 + IN SEGES 65/2021',
-            data_pesquisa: new Date().toISOString(),
-            outliers_removidos: stats.outliers_removidos,
+
+            analise_ia: analiseStr,
+            data_pesquisa: nowStr
         };
 
-        return new Response(JSON.stringify(response), {
+        return new Response(JSON.stringify(responseJSON), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
             status: 200,
         });
 
     } catch (err: any) {
-        console.error('price-research error:', err);
-        return new Response(
-            JSON.stringify({ error: err.message || 'Erro interno' }),
-            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        console.error('ERROR price-research v2:', err);
+        return new Response(JSON.stringify({ error: err.message || 'Erro Interno do Engine de Preços' }), {
+            status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
     }
 });

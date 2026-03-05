@@ -413,15 +413,15 @@ export default function DocumentView() {
               <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
             </div>
           ) : shareLink ? (
-            <div className="space-y-3">
-              <div className="flex items-center gap-2 rounded-md border p-2">
-                <ExternalLink className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                <span className="text-xs truncate flex-1 font-mono">{shareLink}</span>
-                <Button variant="ghost" size="sm" className="h-6 text-xs gap-1 shrink-0"
-                  onClick={() => { navigator.clipboard.writeText(shareLink); toast.success("Link copiado!"); }}>
-                  <Copy className="h-3 w-3" /> Copiar
-                </Button>
-              </div>
+            <div className="flex justify-center gap-3 pt-4 pb-2">
+              <Button variant="outline" className="gap-2 w-full" onClick={() => window.open(shareLink, '_blank')}>
+                <ExternalLink className="h-4 w-4" />
+                Abrir Link
+              </Button>
+              <Button className="gap-2 w-full" onClick={() => { navigator.clipboard.writeText(shareLink); toast.success("Link copiado!"); }}>
+                <Copy className="h-4 w-4" />
+                Copiar Link
+              </Button>
             </div>
           ) : null}
         </DialogContent>
