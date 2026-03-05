@@ -160,7 +160,31 @@ export async function orchestrateDocument(
       }
     }
 
+    // Agrupar todos os dados estruturados para verificar condições globais (GAP 3)
+    const { data: allSectionsForData } = await supabase
+      .from('document_sections')
+      .select('structured_data')
+      .eq('document_id', documentId);
+
+    let globFormData: Record<string, any> = {};
+    if (allSectionsForData) {
+      for (const st of allSectionsForData) {
+        if (st.structured_data) {
+          globFormData = { ...globFormData, ...(st.structured_data as object) };
+        }
+      }
+    }
+
     for (const sectionPlan of sectionsToProcess) {
+      // GAP 3: Verificar condição antes de gerar a seção
+      if (sectionPlan.condition) {
+        const cond = sectionPlan.condition;
+        const valorAtual = globFormData[cond.field];
+        if (cond.operator === 'equals' && valorAtual !== cond.value) {
+          continue; // Pula a seção condicional não satisfeita
+        }
+      }
+
       // Verificar dependências
       const depsOk = await checkDependencies(supabase, documentId, sectionPlan.depends_on);
       if (!depsOk) {
@@ -289,6 +313,7 @@ async function stagePlan(
       depends_on: s.depends_on as string[] || [],
       order_index: i,
       estimated_tokens: estimateTokens(sectionId),
+      condition: s.condition as Record<string, any> | undefined,
     });
   }
 
@@ -357,6 +382,7 @@ async function stageGenerateSection(
     process_context: processCtx,
     section_memories: sectionMemories,
     payload: {
+      doc_type: doc.doc_type as string, // <--- Add doc_type
       section_id: sectionPlan.section_id,
       section_title: sectionPlan.title,
       structured_data: section?.structured_data || {},
@@ -625,7 +651,37 @@ async function stageFinalize(
   });
 
   // No FINALIZE, o AGENT_RENDER verifica padronização e prepara para export
-  // O export real (DOCX/PDF) ocorre sob demanda via export_official_document_skill
+  // Aqui geramos o conteudo_final concatenando as seções
+  // Agrupar também memories e form data (GAP 5)
+  const { data: finalSections } = await supabase
+    .from('document_sections')
+    .select('section_id, key_facts, values_declared, commitments, defined_terms, normative_refs, rendered_content, structured_data, checklist_score')
+    .eq('document_id', doc.id as string)
+    .order('order_index', { ascending: true });
+
+  const conteudoFinal = finalSections?.map(s => s.rendered_content).join('\n\n') || '';
+
+  const allMemories = finalSections?.map(s => extractSectionMemory(s)) || [];
+  const globFormData = finalSections?.reduce((acc, s) => ({ ...acc, ...(s.structured_data as object || {}) }), {});
+  const score = finalSections?.length ? finalSections.reduce((acc, s) => acc + Number(s.checklist_score || 0), 0) / finalSections.length : 0;
+
+  // Salva na tabela documentos com os nomes exatos do Lovable (GAP 5)
+  await supabase.from('documentos').update({
+    conteudo_final: conteudoFinal,
+    section_memories: allMemories,
+    score_conformidade: score,
+    dados_estruturados: globFormData,
+    status: 'gerado' // Ajustado de acordo com a premissa de IA
+  }).eq('id', doc.id as string);
+
+  // Insere versão 1 para espelhar comportamento do frontend
+  await supabase.from('document_versions').insert({
+    documento_id: doc.id as string,
+    processo_id: (doc as any).process_id,
+    conteudo_html: conteudoFinal,
+    versao: 1,
+    gerado_por: userId,
+  });
 
   await updateAiJob(supabase, jobId, { status: 'completed', output: {}, tokens: { prompt: 0, completion: 0 }, cost_usd: 0 });
 
@@ -736,7 +792,7 @@ async function checkDependencies(
     .eq('document_id', documentId)
     .in('section_id', dependsOn);
 
-  return (data || []).every(s => ['ai_generated', 'validated', 'approved'].includes(s.status));
+  return (data || []).every((s: Record<string, any>) => ['ai_generated', 'validated', 'approved'].includes(s.status));
 }
 
 async function updateUsage(

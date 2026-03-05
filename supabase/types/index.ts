@@ -128,6 +128,7 @@ export interface SectionPlan {
   depends_on: string[];
   order_index: number;
   estimated_tokens: number;
+  condition?: Record<string, any>;
 }
 
 export interface OrchestratorResult {

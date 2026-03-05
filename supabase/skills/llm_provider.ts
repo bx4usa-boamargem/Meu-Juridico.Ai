@@ -71,7 +71,7 @@ const PROVIDER_CONFIG: Record<LLMProvider, ProviderConfig> = {
     openai: {
         url: 'https://api.openai.com/v1/chat/completions',
         envKey: 'OPENAI_API_KEY',
-        defaultModel: 'gpt-4o',
+        defaultModel: 'gpt-4o',           // ← GPT-4o como modelo principal
         costPerInputToken: 0.0000025,
         costPerOutputToken: 0.00001,
     },
@@ -99,7 +99,7 @@ export async function getOrgProvider(
         .single();
 
     if (error || !data?.llm_provider) {
-        // Fallback robusto se a tabela não existir ou estiver vazia
+        // Padrão: OpenAI GPT-4o quando não há configuração de org
         const envProvider = typeof Deno !== 'undefined'
             ? Deno.env.get('LLM_PROVIDER')?.toLowerCase()
             : undefined;
@@ -108,7 +108,7 @@ export async function getOrgProvider(
             return envProvider as LLMProvider;
         }
 
-        return 'openai';
+        return 'openai'; // ← Default fixo: OpenAI GPT-4o
     }
 
     const provider = data.llm_provider.toLowerCase();
@@ -260,11 +260,11 @@ async function callOpenAI(
             'Authorization': `Bearer ${apiKey}`,
         },
         body: JSON.stringify({
-            model,
+            model,                         // gpt-4o (configurado acima)
             max_tokens: maxTokens,
             temperature,
             messages,
-            response_format: { type: 'json_object' },
+            // Sem response_format: json_object — permite texto livre longo
         }),
     });
 

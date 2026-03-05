@@ -19,22 +19,37 @@ serve(async (req) => {
         const supabase = createClient(supabaseUrl, supabaseKey)
 
         const payload = await req.json()
-        const { document_id, process_id, doc_type, form_data } = payload
+        const { document_id, process_id, parent_doc_id } = payload
+        let { doc_type, form_data } = payload
 
-        if (!document_id || !doc_type) {
-            throw new Error('document_id and doc_type are required')
+        if (!document_id) {
+            throw new Error('document_id is required')
         }
 
-        // Obter org_id do documento para descobrir a IA configurada
+        // Obter org_id e doc_type se não fornecido
         const { data: doc, error: docError } = await supabase
             .from('documents')
-            .select('org_id')
+            .select('org_id, doc_type, processo_id, parent_doc_id')
             .eq('id', document_id)
             .single()
 
         if (docError || !doc) {
             throw new Error(`Documento não encontrado: ${document_id}`)
         }
+
+        const actualDocType = doc_type || doc.doc_type
+        const actualProcessId = process_id || doc.processo_id
+        const actualParentDocId = parent_doc_id || doc.parent_doc_id
+
+        // ─── 0. RESOLVER HERANÇA ───
+        const { data: herancaData } = await supabase.rpc('resolver_heranca', {
+            p_processo_id: actualProcessId,
+            p_tipo_documento: actualDocType,
+            p_parent_doc_id: actualParentDocId
+        })
+
+        const contextFromParent = herancaData?.heranca || {}
+        const mergedFormData = { ...contextFromParent, ...(form_data || {}) }
 
         // ─── 1. SELEÇÃO DINÂMICA DE IA (NÃO HARDCODED) ───
         const provider = await getOrgProvider(supabase, doc.org_id)
@@ -44,11 +59,11 @@ serve(async (req) => {
         const { data: template, error: tmplError } = await supabase
             .from('document_templates')
             .select('sections_plan')
-            .eq('doc_type', doc_type)
+            .eq('doc_type', actualDocType.toLowerCase())
             .single()
 
         if (tmplError || !template) {
-            throw new Error(`Template not found for ${doc_type}`)
+            throw new Error(`Template not found for ${actualDocType}`)
         }
 
         const sectionsPlan = Array.isArray(template.sections_plan)
@@ -79,8 +94,8 @@ serve(async (req) => {
         let totalCostUsd = 0
 
         for (const section of sectionsPlan) {
-            // Injeção de TR -> Edital
-            if (doc_type.toLowerCase() === 'edital' && linkedTrMemories) {
+            // Injeção de TR -> Edital (Mantendo legibilidade mas priorizando mergedFormData)
+            if (actualDocType.toLowerCase() === 'edital' && linkedTrMemories) {
                 if (section.section_id === 'ed_02' && linkedTrMemories['tr_01']) {
                     sectionMemories[section.section_id] = linkedTrMemories['tr_01']
                     previousContext += `\n\n=== ${section.title} ===\n${linkedTrMemories['tr_01'].content}`
@@ -93,39 +108,105 @@ serve(async (req) => {
                 }
             }
 
-            const userPrompt = `Seção a ser redigida: ${section.title}
+            let userPrompt = `Seção a ser redigida: ${section.title}
 Instruções OBRIGATÓRIAS para esta seção: ${section.instructions}
 
-Dados do processo (input do usuário):
-${JSON.stringify(form_data, null, 2)}
+Dados do processo e contexto herdado:
+${JSON.stringify(mergedFormData, null, 2)}
 ${previousContext ? `\nContexto das seções anteriores já geradas:\n${previousContext}` : ''}
 
 Gere o conteúdo formal, técnico e juridicamente correto EXCLUSIVAMENTE para a seção "${section.title}". 
 Não inclua o título da seção na sua resposta. Não inclua saudações, placeholders em branco nem conclusões genéricas fora de contexto.`
 
-            const systemPrompt = 'Você é um especialista em licitações públicas brasileiras (Lei 14.133/2021). Seu objetivo é redigir partes de documentos públicos com linguagem formal, obedecendo às exigências legais, à economicidade e à precisão técnica.'
+            if (doc.tipo === 'ETP' || doc.tipo === 'TR') {
+                userPrompt += `\n\nATENÇÃO CRÍTICA (NÍVEL DE PROFUNDIDADE 10X): Este documento deve ser absolutamente exaustivo e aprofundado. Desenvolva o raciocínio de forma extensa (múltiplos parágrafos densos), explorando todos os ângulos técnicos, logísticos, econômicos e jurídicos aplicáveis estritamente à seção "${section.title}". Expanda metodologias, analise riscos detalhadamente, justifique escolhas com rigor analítico e cite jurisprudência aplicável do TCU. NUNCA resuma ou entregue conteúdo superficial.`;
+            }
 
-            console.log(`[ORCHESTRATOR] Gerando seção ${section.section_id} via ${provider}...`)
+            // ─── BUSCA NA BASE DE CONHECIMENTO (RAG) ───
+            let knowledgeContext = ''
+            const openAiKey = Deno.env.get('OPENAI_API_KEY')
+            if (openAiKey) {
+                try {
+                    // 1. Vetorizar a instrução da seção para achar contexto semântico
+                    const embedResp = await fetch('https://api.openai.com/v1/embeddings', {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${openAiKey}`, 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ input: `${doc.tipo} ${section.title} ${section.instructions}`, model: 'text-embedding-3-small' })
+                    })
+
+                    if (embedResp.ok) {
+                        const embedData = await embedResp.json()
+                        const embedding = embedData.data?.[0]?.embedding
+
+                        if (embedding) {
+                            // 2. Buscar normativas e templates do órgão
+                            const { data: chunks } = await supabase.rpc('match_knowledge_chunks', {
+                                p_org_id: doc.org_id,
+                                p_embedding: embedding,
+                                p_match_threshold: 0.70,
+                                p_match_count: 3
+                            })
+
+                            if (chunks && chunks.length > 0) {
+                                knowledgeContext = chunks.map((c: any) => `Documento Fonte [${c.doc_title}]:\n${c.content_text}`).join('\n\n')
+                            }
+                        }
+                    }
+                } catch (ragErr) {
+                    console.error(`[RAG] Erro ao buscar contexto para seção ${section.section_id}:`, ragErr)
+                }
+            }
+
+            let baseSystemPrompt = `Você é um especialista em licitações públicas brasileiras (Lei 14.133/2021). Seu objetivo é redigir partes de documentos públicos com linguagem formal, obedecendo às exigências legais, à economicidade e à precisão técnica.
+
+REGRAS DE BLINDAGEM JURÍDICA (MANDATÓRIO):
+1. No DFD, você DEVE SEMPRE citar o Decreto Federal 10.947/2022 (Plano de Contratações Anual - PCA) como fundamento da necessidade.
+2. NUNCA cite a Lei 8.987/1995 em documentos de compras e serviços comuns (dedetização, vigilância, materiais); ela é exclusiva para concessões e permissões.
+3. No DFD, evite o exagero jurídico de citar a Lei 12.305/2010 (Resíduos Sólidos) ou Súmulas do TCU (ex: Súmula 257); guarde estas para o ETP ou TR se houver impacto ambiental real.
+4. Utilize o Artigo 18 da Lei 14.133/2021 em sua plenitude para fundamentar a fase preparatória da licitação.
+5. Se o documento tratar de pesquisa de preços, mencione a IN SEGES 65/2021.`;
+
+            if (doc.tipo === 'ETP') {
+                baseSystemPrompt = `Você é um Agente Especialista de Planejamento da Contratação Sênior (Lei 14.133/2021). Sua missão é redigir a seção de um Estudo Técnico Preliminar (ETP) de EXTREMA PROFUNDIDADE E ROBUSTEZ TÉCNICA (Nível "Padrão Ouro" da Administração Pública Federal).
+Você deve esgotar o tema da seção atual. Um ETP excelente deve ser exaustivo (modelos reais ultrapassam 30 páginas). Para esta seção específica, produza um conteúdo EXTREMAMENTE DETALHADO, fundamentado, prevendo cenários práticos, riscos mitigados, justificativas detalhadas e jurisprudência aplicável. Desenvolva o texto de forma magistral, analítica e minuciosa, como se fosse auditado rigorosamente pelo TCU. A quantidade e qualidade da informação entregue devem ser excepcionais.
+\n` + baseSystemPrompt;
+            }
+
+            const systemPrompt = baseSystemPrompt + (knowledgeContext
+                ? `\n\nATENÇÃO MÁXIMA - BASE LEGAL EXTRAÍDA DA BASE DE CONHECIMENTO DO ÓRGÃO:\nVocê DEVE pautar a sua formatação e referências jurídicas UTILIZANDO ESTRITAMENTE o contexto normativo ou template fornecido abaixo.\n\n=== CONTEXTO INSTITUCIONAL (RAG) ===\n${knowledgeContext}\n====================================`
+                : '')
+
+            console.log(`[ORCHESTRATOR] Invocando document-generator para seção ${section.section_id} (doc_type: ${doc.tipo})...`)
 
             try {
-                const llmResult = await callLLM({
-                    provider,
-                    system: systemPrompt,
-                    user: userPrompt,
-                    max_tokens: 2000
+                // ─── Delegar ao document-generator (multi-modelo + fallback + logging) ───
+                const { data: genData, error: genError } = await supabase.functions.invoke('document-generator', {
+                    body: {
+                        tipo_documento: doc.tipo?.toLowerCase() || 'etp',
+                        tipo_operacao: 'geracao',
+                        system_prompt: systemPrompt,
+                        user_prompt: userPrompt,
+                        documento_id: document_id,
+                        processo_id: actualProcessId,
+                        org_id: doc.org_id,
+                        user_id: null,  // será enriquecido no futuro via JWT
+                    }
                 })
 
-                const content = llmResult.text || ''
+                if (genError) throw genError
+
+                const content = genData?.texto || ''
 
                 sectionMemories[section.section_id] = {
                     content,
                     generated_at: new Date().toISOString(),
-                    score: 1.0, // Sucesso bruto
-                    tokens_used: llmResult.tokens_used?.completion || 0,
-                    provider: llmResult.provider
+                    score: 1.0,
+                    tokens_used: (genData?.tokens_input || 0) + (genData?.tokens_output || 0),
+                    provider: genData?.modelo_utilizado || 'unknown',
+                    foi_fallback: genData?.foi_fallback || false,
                 }
 
-                totalCostUsd += (llmResult.cost_usd || 0)
+                totalCostUsd += (genData?.custo_usd || 0)
                 previousContext += `\n\n=== ${section.title} ===\n${content}`
             } catch (err: any) {
                 console.error(`Erro ao gerar seção ${section.section_id}:`, err)

@@ -125,8 +125,51 @@ function buildSkillPrompt(skill: SkillDefinition, input: SkillInput): string {
 }
 
 // ── generate_section_skill ──
+const TIPO_CONTEXTO: Record<string, string> = {
+    dfd: `Você está gerando um Documento de Formalização de Demanda (DFD).
+Base legal: Art. 12 da Lei 14.133/2021.
+Objetivo: justificar a necessidade, estimar quantidade e valor, alinhar com planejamento anual.
+Tom: técnico, objetivo, linguagem da administração pública brasileira.`,
+
+    etp: `Você está gerando um Estudo Técnico Preliminar (ETP).
+Base legal: Art. 18 da Lei 14.133/2021.
+Objetivo: analisar viabilidade, soluções de mercado, estimar preços com 3+ fontes, justificar solução escolhida.
+Tom: técnico, fundamentado, com referências normativas quando possível.`,
+
+    tr: `Você está gerando um Termo de Referência (TR).
+Base legal: Art. 6º, inciso XXIII da Lei 14.133/2021.
+Objetivo: definir objeto com precisão, especificações técnicas, prazo, obrigações, critérios de julgamento e habilitação.
+Tom: preciso, sem ambiguidade, linguagem jurídico-administrativa.`,
+
+    edital: `Você está gerando um Edital de Licitação.
+Base legal: Art. 25 da Lei 14.133/2021.
+Objetivo: conter objeto, condições de participação, critérios de julgamento e habilitação, minutas de contratos.
+Tom: formal, jurídico, sem margem para interpretações divergentes.`,
+
+    projeto_basico: `Você está gerando um Projeto Básico.
+Base legal: Art. 6º, inciso XXV da Lei 14.133/2021.
+Aplicação: obras e serviços de engenharia.
+Objetivo: especificações, orçamento detalhado, cronograma físico-financeiro.
+Tom: técnico-engenharia com linguagem administrativa.`,
+
+    mapa_risco: `Você está gerando um Mapa de Riscos da contratação.
+Base legal: Art. 22, §3º da Lei 14.133/2021.
+Objetivo: identificar, avaliar probabilidade/impacto e alocar riscos entre contratante e contratada.
+Tom: analítico, objetivo, com justificativas para cada alocação de risco.`,
+
+    custom: `Você está gerando um documento personalizado de contratação pública.
+Referência: Lei 14.133/2021 e boas práticas de gestão pública.
+Tom: técnico-administrativo, linguagem da administração pública brasileira.`
+};
+
 function buildGenerateSectionPrompt(input: SkillInput, payload: Record<string, unknown>): string {
+    const docType = (payload.doc_type as string) || 'custom';
+    const contextoTipo = TIPO_CONTEXTO[docType] || TIPO_CONTEXTO.custom;
+
     return `Gere o conteúdo técnico-formal da seção "${payload.section_title}" (ID: ${payload.section_id}).
+
+CONTEXTO ESPECÍFICO DO TIPO DE DOCUMENTO:
+${contextoTipo}
 
 PROCESS CONTEXT:
 ${JSON.stringify(input.process_context, null, 2)}
