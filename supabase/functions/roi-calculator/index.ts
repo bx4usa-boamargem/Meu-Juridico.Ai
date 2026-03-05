@@ -158,7 +158,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const processosMes = (processosMes || []).length;
+    const totalProcessosMes = (processosMes || []).length;
 
     const result = {
       horas_economizadas_total: horasEconomizadas,
