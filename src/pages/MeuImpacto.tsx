@@ -162,10 +162,10 @@ export default function MeuImpacto() {
     const d = roi || fallback;
 
     return (
-        <div className="min-h-screen bg-white">
+        <div className="p-6 space-y-6 max-w-7xl mx-auto">
 
             {/* ── Hero ─────────────────────────────────────────────────────────────── */}
-            <div ref={heroRef} className="relative overflow-hidden bg-gradient-to-br from-[#0A1628] to-[#0F2D5E] py-20 px-6">
+            <div ref={heroRef} className="relative overflow-hidden bg-gradient-to-br from-primary to-primary/80 rounded-xl py-16 px-6">
                 {/* Background dots */}
                 <div className="absolute inset-0 opacity-10"
                     style={{ backgroundImage: "radial-gradient(circle, #fff 1px, transparent 1px)", backgroundSize: "32px 32px" }} />
@@ -206,7 +206,7 @@ export default function MeuImpacto() {
                 </div>
             </div>
 
-            <div className="max-w-6xl mx-auto px-6 py-12 space-y-16">
+            <div className="space-y-10">
 
                 {/* ── Bloco 1: Tempo Economizado ────────────────────────────────────── */}
                 <section id="bloco1">
