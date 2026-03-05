@@ -369,7 +369,10 @@ export default function AdminDashboard() {
       <div className="grid gap-4 lg:grid-cols-[6fr_4fr]">
         <div className="rounded-xl p-5 border" style={{ background: MC.card, borderColor: MC.border }}>
           <h3 className="text-sm font-semibold mb-4">Consumo por Estado — Brasil</h3>
-          <BrazilStateMap stateData={stateUsage ?? {}} darkMode />
+          <BrazilStateMap
+            activeStates={new Set(Object.keys(stateUsage ?? {}).filter(k => k !== "N/A"))}
+            onToggleState={() => {}}
+          />
         </div>
         <div className="rounded-xl p-5 border" style={{ background: MC.card, borderColor: MC.border }}>
           <h3 className="text-sm font-semibold mb-4">Top 10 Estados</h3>
