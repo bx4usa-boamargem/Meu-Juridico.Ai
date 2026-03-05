@@ -69,11 +69,11 @@ const DFD_SECTIONS: SectionDef[] = [
     optional: true,
     unlocksNext: true,
     fields: [
-      { key: "alinhamento_estrategico", label: "Alinhamento Estratégico", type: "textarea", required: false },
-      { key: "fundamento_legal", label: "Fundamento Legal", type: "textarea", required: false },
-      { key: "plano_anual_contratacoes", label: "Plano Anual de Contratações", type: "text", required: false },
-      { key: "politica_publica_relacionada", label: "Política Pública Relacionada", type: "textarea", required: false },
-      { key: "instrumento_planejamento", label: "Instrumento de Planejamento", type: "text", required: false },
+      { key: "alinhamento_estrategico", label: "Alinhamento Estratégico", type: "textarea", required: false, showMelhorar: true, showGerarTexto: true, contextoSecao: "Alinhamento da contratação com os objetivos estratégicos do órgão" },
+      { key: "fundamento_legal", label: "Fundamento Legal", type: "textarea", required: false, showMelhorar: true, showGerarTexto: true, contextoSecao: "Fundamento legal da contratação com base na Lei 14.133/2021" },
+      { key: "plano_anual_contratacoes", label: "Plano Anual de Contratações", type: "textarea", required: false, showMelhorar: true, showGerarTexto: true, contextoSecao: "Informar se o item consta no Plano de Contratações Anual (PCA) conforme Art. 12, VII da Lei 14.133/2021 e Decreto 10.947/2022. Incluir o código do item no PCA quando aplicável." },
+      { key: "politica_publica_relacionada", label: "Política Pública Relacionada", type: "textarea", required: false, showMelhorar: true, showGerarTexto: true, contextoSecao: "Políticas públicas relacionadas à contratação" },
+      { key: "instrumento_planejamento", label: "Instrumento de Planejamento", type: "textarea", required: false, showMelhorar: true, showGerarTexto: true, contextoSecao: "Indicar o instrumento de planejamento vigente (PPA, LOA, LDO, PCA, PDTIC, PDTI ou outro) que fundamenta a contratação, citando o exercício financeiro e a ação orçamentária correspondente." },
     ],
   },
   {
