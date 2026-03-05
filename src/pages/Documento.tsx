@@ -518,8 +518,8 @@ export default function Documento() {
       try {
         const { data: result, error } = await supabase.functions.invoke("orchestrate_document", {
           body: {
-            doc_id: docId,
-            processo_id: processoId,
+            document_id: docId,
+            process_id: processoId,
             doc_type: documento?.tipo ?? "custom",
             form_data: formData,
             html_final: htmlFinal,
