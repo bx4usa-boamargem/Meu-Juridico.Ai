@@ -1,7 +1,9 @@
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Trophy, Flame, DollarSign } from "lucide-react";
+import { UserPlus, X } from "lucide-react";
 import { McTheme, formatBrl } from "./types";
+import { toast } from "sonner";
 
 function RankCard({ title, emoji, items, mc, valueKey, valueLabel }: {
   title: string; emoji: string; items: any[]; mc: McTheme; valueKey: string; valueLabel: string;
@@ -31,7 +33,126 @@ function RankCard({ title, emoji, items, mc, valueKey, valueLabel }: {
   );
 }
 
+function InviteUserDialog({ mc, open, onClose }: { mc: McTheme; open: boolean; onClose: () => void }) {
+  const [email, setEmail] = useState("");
+  const [fullName, setFullName] = useState("");
+  const [orgao, setOrgao] = useState("");
+  const [cargo, setCargo] = useState("");
+  const queryClient = useQueryClient();
+
+  const inviteMutation = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke("invite-user", {
+        body: { email, full_name: fullName, orgao, cargo },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: () => {
+      toast.success(`Convite enviado para ${email}`);
+      queryClient.invalidateQueries({ queryKey: ["admin-users-all"] });
+      setEmail(""); setFullName(""); setOrgao(""); setCargo("");
+      onClose();
+    },
+    onError: (err: any) => {
+      toast.error(err.message || "Erro ao enviar convite");
+    },
+  });
+
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+      <div className="rounded-2xl border p-6 w-full max-w-md shadow-2xl" style={{ background: mc.card, borderColor: mc.border }}>
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-lg font-bold flex items-center gap-2" style={{ color: mc.text }}>
+            <UserPlus className="h-5 w-5" style={{ color: mc.accent }} />
+            Convidar Usuário
+          </h2>
+          <button onClick={onClose} className="p-1 rounded hover:bg-white/10 transition-colors">
+            <X className="h-4 w-4" style={{ color: mc.muted }} />
+          </button>
+        </div>
+
+        <p className="text-xs mb-5" style={{ color: mc.muted }}>
+          O usuário receberá um e-mail com link para definir sua senha de acesso à plataforma.
+        </p>
+
+        <div className="space-y-3">
+          <div>
+            <label className="text-[11px] font-medium mb-1 block" style={{ color: mc.muted }}>E-mail *</label>
+            <input
+              type="email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              placeholder="usuario@orgao.gov.br"
+              className="w-full px-3 py-2 rounded-lg text-sm border outline-none focus:ring-2 focus:ring-blue-500/30"
+              style={{ background: mc.bg, borderColor: mc.border, color: mc.text }}
+            />
+          </div>
+          <div>
+            <label className="text-[11px] font-medium mb-1 block" style={{ color: mc.muted }}>Nome completo</label>
+            <input
+              type="text"
+              value={fullName}
+              onChange={e => setFullName(e.target.value)}
+              placeholder="Maria da Silva"
+              className="w-full px-3 py-2 rounded-lg text-sm border outline-none focus:ring-2 focus:ring-blue-500/30"
+              style={{ background: mc.bg, borderColor: mc.border, color: mc.text }}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-[11px] font-medium mb-1 block" style={{ color: mc.muted }}>Órgão</label>
+              <input
+                type="text"
+                value={orgao}
+                onChange={e => setOrgao(e.target.value)}
+                placeholder="Câmara Municipal"
+                className="w-full px-3 py-2 rounded-lg text-sm border outline-none focus:ring-2 focus:ring-blue-500/30"
+                style={{ background: mc.bg, borderColor: mc.border, color: mc.text }}
+              />
+            </div>
+            <div>
+              <label className="text-[11px] font-medium mb-1 block" style={{ color: mc.muted }}>Cargo</label>
+              <input
+                type="text"
+                value={cargo}
+                onChange={e => setCargo(e.target.value)}
+                placeholder="Analista"
+                className="w-full px-3 py-2 rounded-lg text-sm border outline-none focus:ring-2 focus:ring-blue-500/30"
+                style={{ background: mc.bg, borderColor: mc.border, color: mc.text }}
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="flex gap-3 mt-6">
+          <button
+            onClick={onClose}
+            className="flex-1 px-4 py-2.5 rounded-lg text-sm font-medium border hover:bg-white/5 transition-colors"
+            style={{ borderColor: mc.border, color: mc.muted }}
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={() => inviteMutation.mutate()}
+            disabled={!email || inviteMutation.isPending}
+            className="flex-1 px-4 py-2.5 rounded-lg text-sm font-semibold text-white transition-colors disabled:opacity-50"
+            style={{ background: mc.accent }}
+          >
+            {inviteMutation.isPending ? "Enviando..." : "Enviar Convite"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function UsersTab({ mc }: { mc: McTheme }) {
+  const [inviteOpen, setInviteOpen] = useState(false);
+
   const { data: userData } = useQuery({
     queryKey: ["admin-users-all"],
     queryFn: async () => {
@@ -88,6 +209,18 @@ export function UsersTab({ mc }: { mc: McTheme }) {
         ))}
       </div>
 
+      {/* Invite button */}
+      <div className="flex justify-end">
+        <button
+          onClick={() => setInviteOpen(true)}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold text-white transition-colors hover:opacity-90"
+          style={{ background: mc.accent }}
+        >
+          <UserPlus className="h-4 w-4" />
+          Convidar Usuário
+        </button>
+      </div>
+
       {/* Rankings */}
       <div className="grid gap-4 lg:grid-cols-3">
         <RankCard title="Mais Documentos" emoji="🏆" items={topDocs} mc={mc} valueKey="docs" valueLabel="docs" />
@@ -122,6 +255,8 @@ export function UsersTab({ mc }: { mc: McTheme }) {
           </table>
         </div>
       </div>
+
+      <InviteUserDialog mc={mc} open={inviteOpen} onClose={() => setInviteOpen(false)} />
     </div>
   );
 }
