@@ -162,10 +162,10 @@ export default function MeuImpacto() {
     const d = roi || fallback;
 
     return (
-        <div className="min-h-screen bg-white">
+        <div className="p-6 space-y-6 max-w-7xl mx-auto">
 
             {/* ── Hero ─────────────────────────────────────────────────────────────── */}
-            <div ref={heroRef} className="relative overflow-hidden bg-gradient-to-br from-[#0A1628] to-[#0F2D5E] py-20 px-6">
+            <div ref={heroRef} className="relative overflow-hidden bg-gradient-to-br from-primary to-primary/80 rounded-xl py-16 px-6">
                 {/* Background dots */}
                 <div className="absolute inset-0 opacity-10"
                     style={{ backgroundImage: "radial-gradient(circle, #fff 1px, transparent 1px)", backgroundSize: "32px 32px" }} />
@@ -206,7 +206,7 @@ export default function MeuImpacto() {
                 </div>
             </div>
 
-            <div className="max-w-6xl mx-auto px-6 py-12 space-y-16">
+            <div className="space-y-10">
 
                 {/* ── Bloco 1: Tempo Economizado ────────────────────────────────────── */}
                 <section id="bloco1">
@@ -479,7 +479,7 @@ export default function MeuImpacto() {
                 <div className="text-center space-y-4 pb-10">
                     <p className="text-slate-500 text-sm font-medium">Compartilhe esses resultados</p>
                     <div className="flex justify-center gap-4">
-                        <Button onClick={handlePDF} className="gap-2 bg-[#0A1628] hover:bg-[#0F2D5E]">
+                        <Button onClick={handlePDF} className="gap-2">
                             <Download className="h-4 w-4" />
                             Gerar Relatório PDF de Impacto
                         </Button>
@@ -497,7 +497,7 @@ function SectionHeader({ icon, title, color }: { icon: ReactNode; title: string;
             <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: `${color}18` }}>
                 {icon}
             </div>
-            <h2 className="text-2xl font-bold text-slate-900">{title}</h2>
+            <h2 className="text-2xl font-bold text-foreground">{title}</h2>
         </div>
     );
 }
