@@ -22,6 +22,7 @@ import Perfil from "./pages/Perfil";
 import BaseConhecimento from "./pages/BaseConhecimento";
 import AdminMonitoramento from "./pages/AdminMonitoramento";
 import AdminDashboard from "./pages/AdminDashboard";
+import MeuImpacto from "./pages/MeuImpacto";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -81,6 +82,7 @@ const App = () => (
                     <Route path="/base-conhecimento" element={<BaseConhecimento />} />
                     <Route path="/admin/monitoramento" element={<AdminMonitoramento />} />
                     <Route path="/admin/dashboard" element={<AdminDashboard />} />
+                    <Route path="/meu-impacto" element={<MeuImpacto />} />
                     <Route path="/perfil" element={<Perfil />} />
                     <Route path="/" element={<Navigate to="/dashboard" replace />} />
                     <Route path="*" element={<NotFound />} />
