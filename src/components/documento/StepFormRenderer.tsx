@@ -389,20 +389,28 @@ export function StepFormRenderer({
             </SelectContent>
           </Select>
         ) : (
-          <AutoTextarea
-            value={value}
-            onChange={(e) => onChange(field.key, e.target.value)}
-            readOnly={field.readOnly}
-            placeholder={`Digite ${field.label.toLowerCase()}...`}
-            className={cn(
-              "text-sm min-h-[40px]",
-              field.readOnly && "bg-muted cursor-not-allowed",
-              isInherited && "border-success/20 bg-success/5",
-              isAiFilled && !isLowConfidence && "border-primary/20 bg-primary/5",
-              isAiFilled && isLowConfidence && "border-amber-500/30 bg-amber-50",
-              isInvalid && "border-destructive"
+          <div className="space-y-1">
+            <AutoTextarea
+              value={value}
+              onChange={(e) => onChange(field.key, e.target.value)}
+              readOnly={field.readOnly}
+              placeholder={`Digite ${field.label.toLowerCase()}...`}
+              maxLength={field.maxLength}
+              className={cn(
+                "text-sm min-h-[40px]",
+                field.readOnly && "bg-muted cursor-not-allowed",
+                isInherited && "border-success/20 bg-success/5",
+                isAiFilled && !isLowConfidence && "border-primary/20 bg-primary/5",
+                isAiFilled && isLowConfidence && "border-amber-500/30 bg-amber-50",
+                isInvalid && "border-destructive"
+              )}
+            />
+            {field.maxLength && (
+              <p className="text-[10px] text-muted-foreground text-right">
+                {String(value).length}/{field.maxLength}
+              </p>
             )}
-          />
+          </div>
         )}
 
         {isInvalid && (
