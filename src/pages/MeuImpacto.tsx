@@ -479,7 +479,7 @@ export default function MeuImpacto() {
                 <div className="text-center space-y-4 pb-10">
                     <p className="text-slate-500 text-sm font-medium">Compartilhe esses resultados</p>
                     <div className="flex justify-center gap-4">
-                        <Button onClick={handlePDF} className="gap-2 bg-[#0A1628] hover:bg-[#0F2D5E]">
+                        <Button onClick={handlePDF} className="gap-2">
                             <Download className="h-4 w-4" />
                             Gerar Relatório PDF de Impacto
                         </Button>
@@ -497,7 +497,7 @@ function SectionHeader({ icon, title, color }: { icon: ReactNode; title: string;
             <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: `${color}18` }}>
                 {icon}
             </div>
-            <h2 className="text-2xl font-bold text-slate-900">{title}</h2>
+            <h2 className="text-2xl font-bold text-foreground">{title}</h2>
         </div>
     );
 }
