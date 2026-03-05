@@ -1,14 +1,23 @@
+export interface RadioCardOption {
+  value: string;
+  label: string;
+}
+
 export interface FieldDef {
   key: string;
   label: string;
-  type: "text" | "textarea" | "date" | "select";
+  type: "text" | "textarea" | "date" | "select" | "radio_cards" | "team_list";
   readOnly?: boolean;
   source?: "processo";
   options?: string[];
+  radioOptions?: RadioCardOption[];
   required?: boolean;
   maxLength?: number;
   colspan?: number; // 1 (half) or 2 (full width) — default inferred from type
   group?: string; // group fields into sub-section cards
+  showMelhorar?: boolean;
+  showGerarTexto?: boolean;
+  contextoSecao?: string;
 }
 
 export interface SectionDef {
@@ -16,7 +25,9 @@ export interface SectionDef {
   label: string;
   fields: FieldDef[];
   required: boolean;
+  optional?: boolean; // true = user can toggle off via sidebar
   unlocksNext: boolean;
+  condition?: { field: string; value: string };
 }
 
 export type StepStatus = "locked" | "editing" | "complete";
@@ -49,11 +60,20 @@ const DFD_SECTIONS: SectionDef[] = [
       { key: "impacto_esperado", label: "Impacto Esperado", type: "textarea", required: true },
       { key: "continuidade_ou_nova", label: "Continuidade ou Nova Contratação", type: "select", options: ["Continuidade", "Nova contratação"], required: false },
       { key: "publico_beneficiado", label: "Público Beneficiado", type: "textarea", required: false },
-      { key: "alinhamento_estrategico", label: "Alinhamento Estratégico", type: "textarea", required: false },
-      { key: "fundamento_legal", label: "Fundamento Legal", type: "textarea", required: false },
-      { key: "plano_anual_contratacoes", label: "Plano Anual de Contratações", type: "text", required: false },
-      { key: "politica_publica_relacionada", label: "Política Pública Relacionada", type: "textarea", required: false },
-      { key: "instrumento_planejamento", label: "Instrumento de Planejamento", type: "text", required: false },
+    ],
+  },
+  {
+    id: "alinhamento_estrategico",
+    label: "Alinhamento Estratégico",
+    required: false,
+    optional: true,
+    unlocksNext: true,
+    fields: [
+      { key: "alinhamento_estrategico", label: "Alinhamento Estratégico", type: "textarea", required: false, showMelhorar: true, showGerarTexto: true, contextoSecao: "Alinhamento da contratação com os objetivos estratégicos do órgão" },
+      { key: "fundamento_legal", label: "Fundamento Legal", type: "textarea", required: false, showMelhorar: true, showGerarTexto: true, contextoSecao: "Fundamento legal da contratação com base na Lei 14.133/2021" },
+      { key: "plano_anual_contratacoes", label: "Plano Anual de Contratações", type: "textarea", required: false, showMelhorar: true, showGerarTexto: true, contextoSecao: "Informar se o item consta no Plano de Contratações Anual (PCA) conforme Art. 12, VII da Lei 14.133/2021 e Decreto 10.947/2022. Incluir o código do item no PCA quando aplicável." },
+      { key: "politica_publica_relacionada", label: "Política Pública Relacionada", type: "textarea", required: false, showMelhorar: true, showGerarTexto: true, contextoSecao: "Políticas públicas relacionadas à contratação" },
+      { key: "instrumento_planejamento", label: "Instrumento de Planejamento", type: "textarea", required: false, showMelhorar: true, showGerarTexto: true, contextoSecao: "Indicar o instrumento de planejamento vigente (PPA, LOA, LDO, PCA, PDTIC, PDTI ou outro) que fundamenta a contratação, citando o exercício financeiro e a ação orçamentária correspondente." },
     ],
   },
   {
@@ -68,7 +88,6 @@ const DFD_SECTIONS: SectionDef[] = [
       { key: "setor_demandante", label: "Setor Demandante", type: "text", required: true },
       { key: "responsavel", label: "Responsável pela Demanda", type: "text", required: true },
       { key: "data_conclusao_contratacao", label: "Data da conclusão da contratação", type: "date" },
-      { key: "area_requisitante_etp", label: "Área requisitante", type: "select", options: ["Selecione o ETP"], required: false },
       { key: "descricao_sucinta_objeto", label: "Descrição sucinta do objeto", type: "textarea", maxLength: 200 },
       { key: "prioridade_info", label: "Prioridade", type: "select", options: ["Alto", "Médio", "Baixo"] },
       { key: "justificativa_prioridade", label: "Justificativa da prioridade", type: "textarea", maxLength: 500 },
@@ -82,7 +101,16 @@ const DFD_SECTIONS: SectionDef[] = [
     fields: [
       { key: "justificativa_contratacao", label: "Justificativa da Contratação", type: "textarea", required: true },
       { key: "necessidade", label: "Descrição da Necessidade", type: "textarea", required: true },
-      { key: "alinhamento_estrategico_just", label: "Alinhamento Estratégico", type: "textarea", required: false },
+    ],
+  },
+  {
+    id: "vinculacao_dependencia",
+    label: "Vinculação / Dependência",
+    required: false,
+    optional: true,
+    unlocksNext: true,
+    fields: [
+      { key: "vinculacao_dependencia", label: "Vinculação ou Dependência com outros contratos", type: "textarea", required: false },
     ],
   },
   {
@@ -96,6 +124,16 @@ const DFD_SECTIONS: SectionDef[] = [
       { key: "unidade_medida", label: "Unidade de Medida", type: "text" },
       { key: "valor_estimado", label: "Valor Estimado (R$)", type: "text", required: true },
       { key: "fonte_pesquisa", label: "Fonte de Pesquisa de Preço", type: "text" },
+    ],
+  },
+  {
+    id: "recursos_orcamentarios",
+    label: "Recursos Orçamentários",
+    required: false,
+    optional: true,
+    unlocksNext: true,
+    fields: [
+      { key: "observacoes", label: "Observações sobre recursos orçamentários", type: "textarea" },
     ],
   },
   {
@@ -113,11 +151,11 @@ const DFD_SECTIONS: SectionDef[] = [
     id: "acompanhamento",
     label: "Acompanhamento",
     required: false,
+    optional: true,
     unlocksNext: true,
     fields: [
       { key: "prioridade", label: "Prioridade", type: "select", options: ["Alta", "Média", "Baixa"] },
       { key: "prazo_entrega", label: "Prazo de Entrega", type: "text" },
-      { key: "observacoes", label: "Observações Gerais", type: "textarea" },
     ],
   },
   {
@@ -129,59 +167,129 @@ const DFD_SECTIONS: SectionDef[] = [
   },
 ];
 
-// ─── ETP Sections ────────────────────────────────────────────────────
+// ─── ETP Sections (Figma-aligned, 6 sections) ───────────────────────
 
 const ETP_SECTIONS: SectionDef[] = [
   {
-    id: "descricao_necessidade",
-    label: "Descrição da Necessidade",
+    id: "informacoes_basicas_etp",
+    label: "Informações básicas",
     required: true,
     unlocksNext: true,
     fields: [
-      { key: "necessidade_contratacao", label: "Necessidade da Contratação", type: "textarea" },
-      { key: "alinhamento_pca", label: "Alinhamento com o PCA", type: "textarea" },
+      { key: "numero_processo", label: "Número do Processo", type: "text", readOnly: true, source: "processo", group: "basicas" },
+      { key: "orgao", label: "Órgão", type: "text", readOnly: true, source: "processo", group: "basicas" },
+      { key: "objeto_contratacao", label: "Objeto da contratação", type: "textarea", required: true, colspan: 2 },
+      {
+        key: "registro_preco",
+        label: "Registro de preço",
+        type: "radio_cards",
+        radioOptions: [
+          { value: "nao", label: "Não é registro de preço" },
+          { value: "sim", label: "Sim, é registro de preço" },
+        ],
+        required: true,
+        colspan: 2,
+      },
+      {
+        key: "valor_global",
+        label: "Valor global",
+        type: "radio_cards",
+        radioOptions: [
+          { value: "por_lote", label: "Por lote" },
+          { value: "por_item", label: "Item" },
+          { value: "por_grupo", label: "Grupo de itens" },
+        ],
+        required: true,
+        colspan: 2,
+      },
     ],
   },
   {
-    id: "area_requisitante",
-    label: "Área Requisitante",
+    id: "necessidades",
+    label: "Descrição das necessidades",
     required: true,
     unlocksNext: true,
     fields: [
-      { key: "area_requisitante", label: "Área Requisitante", type: "text" },
-      { key: "responsavel_demanda", label: "Responsável pela Demanda", type: "text" },
+      {
+        key: "descricao_necessidade",
+        label: "Necessidades",
+        type: "textarea",
+        required: true,
+        colspan: 2,
+        showMelhorar: true,
+        showGerarTexto: true,
+        contextoSecao: "Descrição da necessidade da contratação conforme Art. 18 da Lei 14.133/2021",
+      },
     ],
   },
   {
-    id: "estimativas",
-    label: "Estimativas e Preços",
+    id: "solucao",
+    label: "Solução",
     required: true,
     unlocksNext: true,
     fields: [
-      { key: "estimativa_quantidade", label: "Estimativa de Quantidade", type: "textarea" },
-      { key: "estimativa_preco", label: "Estimativa de Preço", type: "text" },
-      { key: "metodologia_preco", label: "Metodologia de Pesquisa de Preço", type: "textarea" },
+      {
+        key: "descricao_solucao",
+        label: "Descrição da solução",
+        type: "textarea",
+        required: true,
+        colspan: 2,
+        showMelhorar: true,
+        showGerarTexto: true,
+        contextoSecao: "Solução de mercado escolhida para a contratação",
+      },
+      {
+        key: "sobre_opcao",
+        label: "Sobre a opção escolhida",
+        type: "textarea",
+        colspan: 2,
+        showMelhorar: true,
+        showGerarTexto: false,
+        contextoSecao: "Justificativa da opção escolhida",
+      },
     ],
   },
   {
-    id: "solucoes",
-    label: "Levantamento de Soluções",
+    id: "equipe_planejamento",
+    label: "Equipe de planejamento",
     required: true,
     unlocksNext: true,
     fields: [
-      { key: "solucoes_mercado", label: "Soluções de Mercado", type: "textarea" },
-      { key: "solucao_escolhida", label: "Solução Escolhida", type: "textarea" },
-      { key: "justificativa_escolha", label: "Justificativa da Escolha", type: "textarea" },
+      { key: "equipe_planejamento", label: "Equipe de planejamento", type: "team_list", required: true, colspan: 2 },
     ],
   },
   {
-    id: "riscos",
-    label: "Análise de Riscos",
+    id: "viabilidade",
+    label: "Justificativa registro de preços",
     required: false,
+    unlocksNext: true,
+    condition: { field: "registro_preco", value: "Sim, é registro de preço" },
+    fields: [
+      {
+        key: "justificativa_registro_preco",
+        label: "Justificativa do registro de preços",
+        type: "textarea",
+        colspan: 2,
+        showMelhorar: true,
+        contextoSecao: "Justificativa para adoção do Sistema de Registro de Preços conforme Art. 6º, XLV da Lei 14.133/2021",
+      },
+    ],
+  },
+  {
+    id: "requisitos",
+    label: "Descrição dos Requisitos",
+    required: true,
     unlocksNext: false,
     fields: [
-      { key: "riscos_principais", label: "Riscos Principais", type: "textarea" },
-      { key: "mitigacao", label: "Ações de Mitigação", type: "textarea" },
+      {
+        key: "requisitos_contratacao",
+        label: "Requisitos da contratação",
+        type: "textarea",
+        required: true,
+        colspan: 2,
+        showMelhorar: true,
+        contextoSecao: "Requisitos da contratação e necessidades institucionais",
+      },
     ],
   },
 ];
@@ -282,11 +390,14 @@ const GENERIC_SECTIONS: SectionDef[] = [
 // ─── Section Map ─────────────────────────────────────────────────────
 
 const SECTION_MAP: Record<string, SectionDef[]> = {
-  DFD: DFD_SECTIONS,
-  ETP: ETP_SECTIONS,
-  TR: TR_SECTIONS,
-  Edital: GENERIC_SECTIONS,
-  Contrato: GENERIC_SECTIONS,
+  dfd: DFD_SECTIONS,
+  etp: ETP_SECTIONS,
+  tr: TR_SECTIONS,
+  edital: GENERIC_SECTIONS,
+  contrato: GENERIC_SECTIONS,
+  projeto_basico: GENERIC_SECTIONS,
+  mapa_risco: GENERIC_SECTIONS,
+  custom: GENERIC_SECTIONS,
 };
 
 export function getSectionsForType(tipo: string | null | undefined): SectionDef[] {

@@ -1,8 +1,11 @@
 import { useNavigate } from "react-router-dom";
-import { Pencil, Menu, Calendar, Loader2, Check } from "lucide-react";
+import { Pencil, Menu, Calendar, Loader2, Check, Download } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { useState } from "react";
 
 interface Props {
   tipo: string | null;
@@ -11,14 +14,46 @@ interface Props {
   saving: boolean;
   lastSaved: Date | null;
   processoId: string;
+  docId?: string;
   userEmail?: string;
+  conformityScore?: number | null;
 }
 
-export function DocumentMetaBar({ tipo, numero, status, saving, lastSaved, processoId, userEmail }: Props) {
+export function DocumentMetaBar({ tipo, numero, status, saving, lastSaved, processoId, docId, userEmail, conformityScore }: Props) {
   const navigate = useNavigate();
+  const [exporting, setExporting] = useState(false);
   const initials = userEmail?.slice(0, 2).toUpperCase() ?? "U";
   const displayName = userEmail?.split("@")[0] ?? "Usuário";
   const statusLabel = status ?? "Rascunho";
+  const canExport = status === "gerado" || status === "aprovado";
+
+  const scoreColor = conformityScore != null
+    ? conformityScore > 0.8 ? "text-success" : conformityScore >= 0.6 ? "text-warning" : "text-destructive"
+    : null;
+
+  async function handleExportDocx() {
+    if (!docId) return;
+    setExporting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("export_docx", {
+        body: { document_id: docId },
+      });
+      if (error) throw error;
+      const blob = new Blob([data], {
+        type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${tipo ?? "documento"}-${docId}.docx`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err: any) {
+      toast.error("Erro ao exportar: " + (err?.message ?? "erro desconhecido"));
+    } finally {
+      setExporting(false);
+    }
+  }
 
   const formattedDate = lastSaved
     ? lastSaved.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" })
@@ -88,10 +123,32 @@ export function DocumentMetaBar({ tipo, numero, status, saving, lastSaved, proce
         >
           {statusLabel}
         </Badge>
+
+        {/* Conformity score */}
+        {conformityScore != null && (
+          <Badge
+            className={`text-[10px] px-2 py-0.5 ${scoreColor}`}
+            variant="outline"
+          >
+            Conformidade: {Math.round(conformityScore * 100)}%
+          </Badge>
+        )}
       </div>
 
       {/* RIGHT — Actions */}
       <div className="flex items-center gap-2 shrink-0">
+        {canExport && docId && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 text-xs gap-1"
+            onClick={handleExportDocx}
+            disabled={exporting}
+          >
+            {exporting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Download className="h-3 w-3" />}
+            Exportar DOCX
+          </Button>
+        )}
         <Button
           variant="ghost"
           size="sm"

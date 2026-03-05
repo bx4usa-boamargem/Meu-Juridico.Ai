@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/breadcrumb";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useAuth } from "@/hooks/useAuth";
+import { NotificationBell } from "@/components/layout/NotificationBell";
 
 interface BreadcrumbEntry {
   label: string;
@@ -60,6 +61,8 @@ export function TopBar() {
           })}
         </BreadcrumbList>
       </Breadcrumb>
+
+      <NotificationBell />
 
       <Avatar className="h-7 w-7">
         <AvatarFallback className="text-xs bg-primary text-primary-foreground">

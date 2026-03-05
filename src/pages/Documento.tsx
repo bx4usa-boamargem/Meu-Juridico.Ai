@@ -1,10 +1,12 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ArrowLeft, ArrowRight } from "lucide-react";
+import { ArrowLeft, ArrowRight, Loader2, Sparkles } from "lucide-react";
+import { AlertBanner } from "@/components/documento/AlertBanner";
+import { SectionSuggestionBanner } from "@/components/documento/SectionSuggestionBanner";
 import { DocumentStepSidebar } from "@/components/documento/DocumentStepSidebar";
 import { DocumentMetaBar } from "@/components/documento/DocumentMetaBar";
 import { DocumentToolsBar } from "@/components/documento/DocumentToolsBar";
@@ -12,11 +14,13 @@ import { StepFormRenderer } from "@/components/documento/StepFormRenderer";
 import { MelhorarDialog } from "@/components/documento/MelhorarDialog";
 import { GerarJustificativaDialog } from "@/components/documento/GerarJustificativaDialog";
 import { ValidarObjetoDialog } from "@/components/documento/ValidarObjetoDialog";
+import { AiBuilderOverlay } from "@/components/documento/AiBuilderOverlay";
+import { NormativasSidebar } from "@/components/documento/NormativasSidebar";
+import { SectionActionBar } from "@/components/documento/SectionActionBar";
 import { useDocumentAutoSave } from "@/hooks/useDocumentAutoSave";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import {
-  getSectionsForType,
   calculateDocumentProgress,
   calculateSectionCompletion,
   isSectionUnlocked,
@@ -24,7 +28,22 @@ import {
   type WorkflowState,
   type FieldDef,
 } from "@/lib/document-sections";
+import { useDocumentTemplate } from "@/hooks/useDocumentTemplate";
 import { renderDocumentTemplate, getProcessoStatusAfterApproval } from "@/lib/document-template-renderer";
+
+interface FieldMeta {
+  confianca: string;
+  fontes: string[];
+  sugestao: string;
+}
+
+interface AlertaGlobal {
+  titulo: string;
+  fonte: string;
+  impacto: string;
+  url: string | null;
+  severidade: string;
+}
 
 export default function Documento() {
   const { processoId, docId } = useParams<{ processoId: string; docId: string }>();
@@ -35,8 +54,24 @@ export default function Documento() {
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [inheritedKeys, setInheritedKeys] = useState<Set<string>>(new Set());
   const [invalidFields, setInvalidFields] = useState<Set<string>>(new Set());
+  const [disabledSections, setDisabledSections] = useState<Set<string>>(new Set());
   const [workflow, setWorkflow] = useState<WorkflowState | null>(null);
   const [initialized, setInitialized] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [autoPreenchendo, setAutoPreenchendo] = useState(false);
+  const [aiFilledFields, setAiFilledFields] = useState<Set<string>>(new Set());
+
+  // CORREÇÃO 1+2: No auto AI builder on open. User must confirm objeto first.
+  const [objetoConfirmado, setObjetoConfirmado] = useState(false);
+
+  // AI Builder state
+  const [aiBuilderActive, setAiBuilderActive] = useState(false);
+  const [aiBuilderPhase, setAiBuilderPhase] = useState(0);
+  const [camposMeta, setCamposMeta] = useState<Record<string, FieldMeta>>({});
+  const [alertasGlobais, setAlertasGlobais] = useState<AlertaGlobal[]>([]);
+  const [sectionActions, setSectionActions] = useState<Record<string, "keep" | "improve" | "edit">>({});
+  const [showNormativas, setShowNormativas] = useState(false);
+  const [generatingSectionAi, setGeneratingSectionAi] = useState(false);
 
   // Dialog states
   const [melhorarOpen, setMelhorarOpen] = useState(false);
@@ -86,7 +121,24 @@ export default function Documento() {
     enabled: !!processoId && !!documento?.tipo,
   });
 
-  const sections = useMemo(() => getSectionsForType(documento?.tipo), [documento?.tipo]);
+  const { data: approvedTR } = useQuery({
+    queryKey: ["approved-tr", processoId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("documentos")
+        .select("id, tipo, aprovado_em")
+        .eq("processo_id", processoId!)
+        .eq("tipo", "tr")
+        .eq("status", "aprovado")
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!processoId && documento?.tipo === "edital",
+  });
+
+  const { sections, loading: sectionsLoading } = useDocumentTemplate(documento?.tipo);
 
   // Auto-redirect if document is already approved
   useEffect(() => {
@@ -114,11 +166,37 @@ export default function Documento() {
       }
     }
 
+    // Pre-populate from processo data if not already set
+    if (processo) {
+      const processoMapping: Record<string, string | null> = {
+        orgao: processo.orgao,
+        numero_processo: processo.numero_processo,
+        modalidade: processo.modalidade,
+      };
+      for (const [field, value] of Object.entries(processoMapping)) {
+        if (value && !merged[field]) {
+          merged[field] = value;
+          keys.add(field);
+        }
+      }
+    }
+
     const existingWorkflow = (existing as any)?.meta?.workflow as WorkflowState | undefined;
     const wf = initializeWorkflow(sections, existingWorkflow);
 
+    const objetoValue = merged.objeto_contratacao || merged.objeto;
+    const hasObjeto = !!objetoValue && typeof objetoValue === "string" && objetoValue.trim().length >= 5;
+
+    if (hasObjeto) {
+      setObjetoConfirmado(true);
+    }
+
     sections.forEach((s, i) => {
       if (wf.steps[s.id]?.enabled === false) return;
+      if (!hasObjeto && i > 0) {
+        wf.steps[s.id].status = "locked";
+        return;
+      }
       const { complete } = calculateSectionCompletion(s, merged);
       const unlocked = isSectionUnlocked(i, sections, merged, wf);
       if (complete && unlocked) {
@@ -134,7 +212,39 @@ export default function Documento() {
     setInheritedKeys(keys);
     setWorkflow(wf);
     setInitialized(true);
-  }, [documento, inherited, sections, initialized]);
+  }, [documento, inherited, processo, sections, initialized]);
+
+  // Populate processo data even after initialization (handles late-loading processo)
+  useEffect(() => {
+    if (!initialized || !processo) return;
+    const processoMapping: Record<string, string | null> = {
+      orgao: processo.orgao,
+      numero_processo: processo.numero_processo,
+      modalidade: processo.modalidade,
+    };
+    setFormData((prev) => {
+      const updated = { ...prev };
+      let changed = false;
+      for (const [field, value] of Object.entries(processoMapping)) {
+        if (value && !updated[field]) {
+          updated[field] = value;
+          changed = true;
+        }
+      }
+      return changed ? updated : prev;
+    });
+    setInheritedKeys((prev) => {
+      const next = new Set(prev);
+      let changed = false;
+      for (const [field, value] of Object.entries(processoMapping)) {
+        if (value && !next.has(field)) {
+          next.add(field);
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [initialized, processo]);
 
   // Persist workflow state
   const dataWithWorkflow = useMemo(() => {
@@ -144,16 +254,178 @@ export default function Documento() {
 
   const { saving, lastSaved } = useDocumentAutoSave(docId, dataWithWorkflow);
 
-  const handleFieldChange = useCallback((key: string, value: string) => {
+  const handleFieldChange = useCallback((key: string, value: any) => {
     setFormData((prev) => ({ ...prev, [key]: value }));
-    setInvalidFields((prev) => {
-      if (prev.has(key) && value?.trim()) {
+    // Clear AI badge when user manually edits
+    setAiFilledFields((prev) => {
+      if (prev.has(key)) {
         const next = new Set(prev);
         next.delete(key);
         return next;
       }
       return prev;
     });
+    setInvalidFields((prev) => {
+      const hasValue = typeof value === "string" ? !!value.trim() : !!value;
+      if (prev.has(key) && hasValue) {
+        const next = new Set(prev);
+        next.delete(key);
+        return next;
+      }
+      return prev;
+    });
+  }, []);
+
+  // CORREÇÃO 2: Confirm objeto and unlock sections
+  const handleConfirmarObjeto = useCallback(() => {
+    const objetoValue = formData.objeto_contratacao || formData.objeto;
+    if (!objetoValue || (typeof objetoValue === "string" && objetoValue.trim().length < 5)) {
+      toast.error("Preencha o objeto da contratação antes de confirmar.");
+      return;
+    }
+    setObjetoConfirmado(true);
+    // Unlock all sections
+    setWorkflow((prev) => {
+      if (!prev) return prev;
+      const updated = { ...prev, steps: { ...prev.steps } };
+      sections.forEach((s, i) => {
+        if (i === 0) return; // buscar_objeto already editing
+        if (updated.steps[s.id]?.enabled === false) return;
+        const { complete } = calculateSectionCompletion(s, formData);
+        const unlocked = isSectionUnlocked(i, sections, formData, updated);
+        updated.steps[s.id] = {
+          ...updated.steps[s.id],
+          status: complete && unlocked ? "complete" : unlocked ? "editing" : "locked",
+        };
+      });
+      return updated;
+    });
+    toast.success("Objeto confirmado! Seções desbloqueadas.");
+  }, [formData, sections]);
+
+  // AI Document Builder - explicit user action only (CORREÇÃO 1)
+  const handleAiDocumentBuilder = useCallback(async () => {
+    const objetoValue = formData.objeto_contratacao || formData.objeto;
+    if (!objetoValue || (typeof objetoValue === "string" && objetoValue.length < 10)) {
+      toast.error("Preencha o objeto da contratação primeiro.");
+      return;
+    }
+    setAiBuilderActive(true);
+    setAiBuilderPhase(0);
+
+    const phaseTimer1 = setTimeout(() => setAiBuilderPhase(1), 1500);
+    const phaseTimer2 = setTimeout(() => setAiBuilderPhase(2), 3000);
+
+    try {
+      const { data, error } = await supabase.functions.invoke("ai-document-builder", {
+        body: {
+          objeto: objetoValue,
+          doc_type: documento?.tipo ?? "dfd",
+          orgao: processo?.orgao ?? "",
+          processo_id: processoId,
+        },
+      });
+      if (error) throw error;
+
+      if (data?.campos_preenchidos) {
+        const newAiFields = new Set<string>();
+        setFormData((prev) => {
+          const updated = { ...prev };
+          for (const [key, value] of Object.entries(data.campos_preenchidos)) {
+            if (value !== null && value !== undefined) {
+              // CORREÇÃO 3: Never overwrite objeto_contratacao - that's user's input
+              if (key === "objeto_contratacao" || key === "objeto") continue;
+              if (!updated[key] || (typeof updated[key] === "string" && !updated[key].trim())) {
+                updated[key] = value;
+                newAiFields.add(key);
+              }
+            }
+          }
+          return updated;
+        });
+        setAiFilledFields(newAiFields);
+
+        if (data.campos_meta) {
+          setCamposMeta(data.campos_meta);
+        }
+        if (data.alertas_globais) {
+          setAlertasGlobais(data.alertas_globais);
+          setShowNormativas(data.alertas_globais.length > 0);
+        }
+
+        const count = Object.keys(data.campos_preenchidos).filter(k => k !== "objeto_contratacao" && k !== "objeto").length;
+        toast.success(`IA preencheu ${count} campos!`, {
+          description: "Revise cada seção antes de avançar.",
+        });
+      }
+    } catch (err: any) {
+      console.error("Erro no AI Document Builder:", err);
+      toast.error("Erro ao preencher com IA. Tente novamente.");
+    } finally {
+      clearTimeout(phaseTimer1);
+      clearTimeout(phaseTimer2);
+      setAiBuilderPhase(3);
+      setTimeout(() => setAiBuilderActive(false), 500);
+    }
+  }, [formData, documento?.tipo, processo?.orgao, processoId]);
+
+  // Incremental section generation
+  const handleGenerateCurrentSection = useCallback(async () => {
+    if (!workflow || !formData.objeto_contratacao) return;
+    const curSection = sections.find(s => s.id === workflow.current_step);
+    if (!curSection) return;
+    setGeneratingSectionAi(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("ai-document-builder", {
+        body: {
+          objeto: formData.objeto_contratacao,
+          doc_type: documento?.tipo ?? "dfd",
+          orgao: processo?.orgao ?? "",
+          processo_id: processoId,
+        },
+      });
+      if (error) throw error;
+
+      if (data?.campos_preenchidos) {
+        const sectionFieldKeys = new Set(curSection.fields.map(f => f.key));
+        const newAiFields = new Set(aiFilledFields);
+        setFormData((prev) => {
+          const updated = { ...prev };
+          for (const [key, value] of Object.entries(data.campos_preenchidos)) {
+            if (sectionFieldKeys.has(key) && value !== null && value !== undefined) {
+              // Don't overwrite objeto
+              if (key === "objeto_contratacao" || key === "objeto") continue;
+              updated[key] = value;
+              newAiFields.add(key);
+            }
+          }
+          return updated;
+        });
+        setAiFilledFields(newAiFields);
+        if (data.campos_meta) setCamposMeta(prev => ({ ...prev, ...data.campos_meta }));
+
+        const filled = Object.keys(data.campos_preenchidos).filter(k => sectionFieldKeys.has(k) && k !== "objeto_contratacao").length;
+        toast.success(`IA preencheu ${filled} campos desta seção!`);
+      }
+    } catch (err: any) {
+      console.error("Erro ao gerar seção com IA:", err);
+      toast.error("Erro ao gerar seção. Tente novamente.");
+    } finally {
+      setGeneratingSectionAi(false);
+    }
+  }, [workflow, sections, formData.objeto_contratacao, documento?.tipo, processo?.orgao, processoId, aiFilledFields]);
+
+  // Handle adding suggested sections
+  const handleAddSuggestedSection = useCallback((section: { id: string; label: string; reason: string }) => {
+    setFormData(prev => ({
+      ...prev,
+      [section.id]: prev[section.id] ?? "",
+      meta: {
+        ...(prev.meta ?? {}),
+        extra_sections: [...((prev.meta as any)?.extra_sections ?? []), { id: section.id, label: section.label }],
+      },
+    }));
+    toast.success(`Seção "${section.label}" adicionada ao documento.`);
   }, []);
 
   // Update workflow step statuses when formData changes
@@ -164,6 +436,14 @@ export default function Documento() {
 
     sections.forEach((s, i) => {
       if (updated.steps[s.id]?.enabled === false) return;
+      // CORREÇÃO 2: Keep sections locked if objeto not confirmed
+      if (!objetoConfirmado && i > 0) {
+        if (updated.steps[s.id]?.status !== "locked") {
+          updated.steps[s.id] = { ...updated.steps[s.id], status: "locked" };
+          changed = true;
+        }
+        return;
+      }
       const { complete } = calculateSectionCompletion(s, formData);
       const unlocked = isSectionUnlocked(i, sections, formData, updated);
       const newStatus = complete && unlocked ? "complete" : unlocked ? "editing" : "locked";
@@ -174,34 +454,44 @@ export default function Documento() {
     });
 
     if (changed) setWorkflow(updated);
-  }, [formData, sections, initialized]);
+  }, [formData, sections, initialized, objetoConfirmado]);
 
   const handleSelectStep = useCallback((stepId: string) => {
     setInvalidFields(new Set());
     setWorkflow((prev) => (prev ? { ...prev, current_step: stepId } : prev));
   }, []);
 
-  const handleToggleStep = useCallback((stepId: string, enabled: boolean) => {
-    setWorkflow((prev) => {
-      if (!prev) return prev;
-      return {
-        ...prev,
-        steps: { ...prev.steps, [stepId]: { ...prev.steps[stepId], enabled } },
-      };
+  const handleToggleSection = useCallback((sectionId: string) => {
+    setDisabledSections((prev) => {
+      const next = new Set(prev);
+      if (next.has(sectionId)) {
+        next.delete(sectionId);
+      } else {
+        next.add(sectionId);
+      }
+      return next;
     });
   }, []);
 
   const handleNext = useCallback(async () => {
     if (!workflow) return;
-    const enabledSections = sections.filter((s) => workflow.steps[s.id]?.enabled !== false);
+    const activeSects = sections.filter((s) => !s.condition || formData[s.condition.field] === s.condition.value);
+    const enabledSections = activeSects.filter((s) => workflow.steps[s.id]?.enabled !== false);
     const currentIdx = enabledSections.findIndex((s) => s.id === workflow.current_step);
     if (currentIdx < 0) return;
 
     const currentSection = enabledSections[currentIdx];
+
+    // CORREÇÃO 2: If on buscar_objeto, confirm objeto first
+    if (currentSection.id === "buscar_objeto" && !objetoConfirmado) {
+      handleConfirmarObjeto();
+      // Don't advance yet - let user see the unlocked sections and optionally use AI
+      return;
+    }
+
     const { complete } = calculateSectionCompletion(currentSection, formData);
 
     if (currentSection.required && !complete) {
-      // Identify which required fields are empty
       const missingKeys = currentSection.fields
         .filter((f) => {
           if (f.readOnly) return false;
@@ -224,34 +514,40 @@ export default function Documento() {
 
       const htmlFinal = renderDocumentTemplate(documento?.tipo, formData, processoData);
 
-      const { error: insertError } = await supabase
-        .from("document_versions")
-        .insert({
-          documento_id: docId,
-          processo_id: processoId,
-          conteudo_html: htmlFinal,
-          versao: 1,
-          gerado_por: user?.id,
+      setIsGenerating(true);
+      try {
+        const { data: result, error } = await supabase.functions.invoke("orchestrate_document", {
+          body: {
+            doc_id: docId,
+            processo_id: processoId,
+            doc_type: documento?.tipo ?? "custom",
+            form_data: formData,
+            html_final: htmlFinal,
+            generate_with_ai: true,
+            disabled_sections: Array.from(disabledSections),
+          },
         });
 
-      if (insertError) {
-        console.error("Erro ao inserir versão:", insertError);
-        toast.error("Erro ao gerar documento. Tente novamente.");
-        return;
+        if (error) throw error;
+
+        const { data: docAtualizado } = await supabase
+          .from("documentos")
+          .select("conteudo_final, score_conformidade, section_memories")
+          .eq("id", docId!)
+          .maybeSingle();
+
+        queryClient.invalidateQueries({ queryKey: ["documento", docId] });
+        queryClient.invalidateQueries({ queryKey: ["processo", processoId] });
+        queryClient.invalidateQueries({ queryKey: ["pipeline", processoId] });
+
+        toast.success(`${documento?.tipo ?? "Documento"} finalizado com IA!`);
+        navigate(`/processo/${processoId}/documento/${docId}/view`);
+      } catch (err: any) {
+        console.error("Erro ao finalizar documento:", err);
+        toast.error("Erro ao finalizar documento. Tente novamente.");
+      } finally {
+        setIsGenerating(false);
       }
-
-      await supabase.from("documentos").update({
-        status: "aprovado",
-        conteudo_final: htmlFinal,
-        workflow_status: "rascunho",
-      }).eq("id", docId);
-
-      const newProcessoStatus = getProcessoStatusAfterApproval(documento?.tipo);
-      await supabase.from("processos").update({ status: newProcessoStatus }).eq("id", processoId);
-      queryClient.invalidateQueries({ queryKey: ["processo", processoId] });
-      queryClient.invalidateQueries({ queryKey: ["pipeline", processoId] });
-      toast.success(`${documento?.tipo ?? "Documento"} finalizado! Redirecionando...`);
-      navigate(`/processo/${processoId}/documento/${docId}/view`);
       return;
     }
 
@@ -268,12 +564,13 @@ export default function Documento() {
         },
       };
     });
-  }, [workflow, sections, formData, docId, processoId, queryClient, navigate]);
+  }, [workflow, sections, formData, docId, processoId, queryClient, navigate, objetoConfirmado, handleConfirmarObjeto]);
 
   const handlePrevious = useCallback(() => {
     if (!workflow) return;
     setInvalidFields(new Set());
-    const enabledSections = sections.filter((s) => workflow.steps[s.id]?.enabled !== false);
+    const activeSects = sections.filter((s) => !s.condition || formData[s.condition.field] === s.condition.value);
+    const enabledSections = activeSects.filter((s) => workflow.steps[s.id]?.enabled !== false);
     const currentIdx = enabledSections.findIndex((s) => s.id === workflow.current_step);
     if (currentIdx <= 0) return;
     const prevSection = enabledSections[currentIdx - 1];
@@ -298,11 +595,38 @@ export default function Documento() {
     setFormData((prev) => ({ ...prev, justificativa_contratacao: text }));
   }, []);
 
+  // CORREÇÃO 5: Handle section action (keep/improve/edit)
+  const handleSectionAction = useCallback((action: "keep" | "improve" | "edit") => {
+    if (!currentSection) return;
+    setSectionActions(prev => ({ ...prev, [currentSection.id]: action }));
+    if (action === "keep") {
+      // Remove AI badges for this section's fields - user accepted
+      toast.success("Conteúdo mantido!");
+    } else if (action === "edit") {
+      // Remove AI badges - user wants to edit manually
+      const sectionFieldKeys = new Set(currentSection.fields.map(f => f.key));
+      setAiFilledFields(prev => {
+        const next = new Set(prev);
+        sectionFieldKeys.forEach(k => next.delete(k));
+        return next;
+      });
+    } else if (action === "improve") {
+      const textareaField = currentSection.fields.find(f => f.type === "textarea" && !f.readOnly);
+      if (textareaField) handleMelhorar(textareaField);
+    }
+  }, [handleMelhorar]);
+
   const progress = workflow ? calculateDocumentProgress(sections, formData, workflow) : 0;
   const currentSection = workflow ? sections.find((s) => s.id === workflow.current_step) : null;
+  const activeSections = sections.filter((s) => {
+    if (s.condition) {
+      return formData[s.condition.field] === s.condition.value;
+    }
+    return true;
+  });
   const enabledSections = workflow
-    ? sections.filter((s) => workflow.steps[s.id]?.enabled !== false)
-    : sections;
+    ? activeSections.filter((s) => workflow.steps[s.id]?.enabled !== false && !disabledSections.has(s.id))
+    : activeSections.filter((s) => !disabledSections.has(s.id));
   const currentEnabledIdx = currentSection
     ? enabledSections.findIndex((s) => s.id === currentSection.id)
     : 0;
@@ -314,11 +638,14 @@ export default function Documento() {
     ? !currentSection.required || currentCompletion.complete
     : false;
 
+  const isBuscarObjetoStep = currentSection?.id === "buscar_objeto";
+
   const processoData = processo
     ? {
         numero_processo: processo.numero_processo,
         orgao: processo.orgao,
         objeto: processo.objeto,
+        objeto_contratacao: processo.objeto,
         modalidade: processo.modalidade,
       }
     : undefined;
@@ -352,6 +679,7 @@ export default function Documento() {
         saving={saving}
         lastSaved={lastSaved}
         processoId={processoId!}
+        docId={docId}
         userEmail={user?.email ?? undefined}
       />
 
@@ -359,26 +687,74 @@ export default function Documento() {
       <div className="flex flex-1 overflow-hidden">
         {/* LEFT — Pipeline Sidebar */}
         <DocumentStepSidebar
-          sections={sections}
+          sections={activeSections}
           workflow={workflow}
           formData={formData}
           documentTitle={documento.tipo ?? "Documento"}
           documentNumber={processo?.numero_processo ?? undefined}
+          disabledSections={disabledSections}
           onSelectStep={handleSelectStep}
-          onToggleStep={handleToggleStep}
+          onToggleSection={handleToggleSection}
         />
 
         {/* CENTER — Workspace */}
-        <div className="flex-1 flex flex-col min-w-0">
+        <div className="flex-1 flex flex-col min-w-0 relative">
+          {/* AI Builder Overlay */}
+          <AiBuilderOverlay isActive={aiBuilderActive} currentPhase={aiBuilderPhase} />
+
           <ScrollArea className="flex-1">
-            <div className="p-6 max-w-2xl mx-auto">
+            <div className="p-6 max-w-2xl mx-auto space-y-4">
+              {/* Realtime alert banner */}
+              {documento?.tipo && (
+                <AlertBanner
+                  docType={documento.tipo}
+                  onViewImpact={(alert) => {
+                    setShowNormativas(true);
+                    toast.info(`Alerta: ${alert.title}`, { description: `Fonte: ${alert.source}` });
+                  }}
+                />
+              )}
+
+              {/* CORREÇÃO 6: Section suggestions after confirming objeto */}
+              {objetoConfirmado && formData.objeto_contratacao && isBuscarObjetoStep && (
+                <SectionSuggestionBanner
+                  objeto={formData.objeto_contratacao}
+                  onAddSection={handleAddSuggestedSection}
+                />
+              )}
+
+              {/* Edital banner - TR approved */}
+              {documento?.tipo === "edital" && approvedTR && currentEnabledIdx === 0 && (
+                <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 flex items-start gap-2">
+                  <span className="text-base">💡</span>
+                  <p className="text-xs text-foreground">
+                    Este edital será gerado com base no TR aprovado em{" "}
+                    <span className="font-medium">
+                      {approvedTR.aprovado_em
+                        ? new Date(approvedTR.aprovado_em).toLocaleDateString("pt-BR")
+                        : "data não registrada"}
+                    </span>
+                    . Os dados serão importados automaticamente.
+                  </p>
+                </div>
+              )}
+
               {/* Section header */}
-              <div className="mb-6">
+              <div>
                 <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-semibold mb-1">
                   Seção {currentEnabledIdx + 1} de {enabledSections.length}
                 </p>
                 <h2 className="text-lg font-semibold">{currentSection?.label}</h2>
               </div>
+
+              {/* CORREÇÃO 5: Section action bar only when AI filled content */}
+              {currentSection && (
+                <SectionActionBar
+                  currentAction={sectionActions[currentSection.id] ?? null}
+                  onAction={handleSectionAction}
+                  hasAiContent={currentSection.fields.some(f => aiFilledFields.has(f.key))}
+                />
+              )}
 
               {currentSection && (
                 <StepFormRenderer
@@ -387,11 +763,35 @@ export default function Documento() {
                   processoData={processoData}
                   inheritedKeys={inheritedKeys}
                   invalidFields={invalidFields}
+                  aiFilledFields={aiFilledFields}
+                  autoPreenchendo={autoPreenchendo}
+                  camposMeta={camposMeta}
                   onChange={handleFieldChange}
                   onMelhorar={handleMelhorar}
                   onGerarJustificativa={() => setJustificativaOpen(true)}
                   onValidarObjeto={() => setValidarObjetoOpen(true)}
+                  documentType={documento.tipo ?? "etp"}
                 />
+              )}
+
+              {/* CORREÇÃO 2: After confirming objeto on buscar_objeto step, show "Preencher com IA" button */}
+              {isBuscarObjetoStep && objetoConfirmado && (
+                <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-foreground">Objeto confirmado ✓</p>
+                    <p className="text-xs text-muted-foreground">
+                      Você pode preencher as seções manualmente ou deixar a IA sugerir o conteúdo.
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    className="gap-1.5 text-xs"
+                    onClick={handleAiDocumentBuilder}
+                    disabled={aiBuilderActive}
+                  >
+                    <Sparkles className="h-3.5 w-3.5" /> Preencher documento com IA
+                  </Button>
+                </div>
               )}
             </div>
           </ScrollArea>
@@ -408,6 +808,22 @@ export default function Documento() {
               )}
             </div>
             <div className="flex items-center gap-2">
+              {/* Gerar seção com IA button - only when objeto confirmed and not on buscar_objeto */}
+              {currentSection && !isBuscarObjetoStep && objetoConfirmado && !currentCompletion.complete && formData.objeto_contratacao && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-xs gap-1.5 border-primary/30 text-primary hover:bg-primary/5"
+                  onClick={handleGenerateCurrentSection}
+                  disabled={generatingSectionAi}
+                >
+                  {generatingSectionAi ? (
+                    <><Loader2 className="h-3 w-3 animate-spin" /> Gerando...</>
+                  ) : (
+                    <><Sparkles className="h-3 w-3" /> Gerar seção com IA</>
+                  )}
+                </Button>
+              )}
               {currentEnabledIdx > 0 && (
                 <Button variant="outline" size="sm" className="text-xs gap-1" onClick={handlePrevious}>
                   <ArrowLeft className="h-3 w-3" /> Anterior
@@ -417,22 +833,39 @@ export default function Documento() {
                 size="sm"
                 className="text-xs gap-1"
                 onClick={handleNext}
+                disabled={isGenerating}
               >
-                {isLastStep ? "Finalizar" : "Próximo"} <ArrowRight className="h-3 w-3" />
+                {isGenerating ? (
+                  <>
+                    <Loader2 className="h-3 w-3 animate-spin" /> Gerando com IA...
+                  </>
+                ) : (
+                  <>
+                    {isBuscarObjetoStep && !objetoConfirmado ? "Confirmar Objeto" : isLastStep ? "Finalizar" : "Próximo"} <ArrowRight className="h-3 w-3" />
+                  </>
+                )}
               </Button>
             </div>
           </div>
         </div>
 
-        {/* RIGHT — Tools Bar */}
-        <DocumentToolsBar
-          onMelhorarClick={() => {
-            if (currentSection) {
-              const textareaField = currentSection.fields.find((f) => f.type === "textarea" && !f.readOnly);
-              if (textareaField) handleMelhorar(textareaField);
-            }
-          }}
-        />
+        {/* RIGHT — Normativas Sidebar or Tools Bar */}
+        {showNormativas && alertasGlobais.length > 0 ? (
+          <NormativasSidebar
+            alertas={alertasGlobais}
+            camposMeta={camposMeta}
+            currentSectionFields={currentSection?.fields.map(f => f.key)}
+          />
+        ) : (
+          <DocumentToolsBar
+            onMelhorarClick={() => {
+              if (currentSection) {
+                const textareaField = currentSection.fields.find((f) => f.type === "textarea" && !f.readOnly);
+                if (textareaField) handleMelhorar(textareaField);
+              }
+            }}
+          />
+        )}
       </div>
 
       {/* DIALOGS */}

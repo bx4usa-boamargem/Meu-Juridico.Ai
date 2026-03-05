@@ -379,7 +379,7 @@ export default function DocumentView() {
               modalidade: processo?.modalidade,
               numero_processo: processo?.numero_processo,
             }}
-            documentType={documento?.tipo ?? "DFD"}
+            documentType={documento?.tipo ?? "dfd"}
             sectionType="documento_completo"
             dadosEstruturados={documento?.dados_estruturados as Record<string, any>}
             documentoId={docId}
@@ -401,7 +401,7 @@ export default function DocumentView() {
 
       {/* Share dialog */}
       <Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md overflow-hidden">
           <DialogHeader>
             <DialogTitle className="text-sm">Compartilhar Documento</DialogTitle>
             <DialogDescription className="text-xs">
