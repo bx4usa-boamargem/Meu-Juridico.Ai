@@ -401,7 +401,7 @@ export function StepFormRenderer({
               isInherited && "border-success/20 bg-success/5",
               isInvalid && "border-destructive"
             )}
-          </div>
+          />
         )}
 
         {isInvalid && (

@@ -55,17 +55,20 @@ serve(async (req: Request) => {
         }
 
         // 2. Buscar alertas de monitoramento (radar_intelligence) simulado ou real
-        const { data: alertas } = await supabase
-            .from('radar_intelligence')
-            .select('descricao')
-            .ilike('descricao', `%${termoBusca}%`)
-            .limit(2)
-            .catch(() => ({ data: [] })); // Ignora erro se a tabela não existir ainda
-
         let contextoAlertas = '';
-        if (alertas && alertas.length > 0) {
-            contextoAlertas = "\nAlertas recentes do TCU/Órgãos de Controle (Radar):\n" +
-                alertas.map(a => `- ${a.descricao}`).join('\n');
+        try {
+            const { data: alertas } = await supabase
+                .from('monitoring_alerts')
+                .select('summary')
+                .ilike('title', `%${termoBusca}%`)
+                .limit(2);
+
+            if (alertas && alertas.length > 0) {
+                contextoAlertas = "\nAlertas recentes do TCU/Órgãos de Controle (Radar):\n" +
+                    alertas.map((a: any) => `- ${a.summary}`).join('\n');
+            }
+        } catch (_) {
+            // Ignora erro se a tabela não existir ainda
         }
 
         // 3. Chamar AI usando o modelo adequado (usando OpenAI como fallback se configurado no projeto)
