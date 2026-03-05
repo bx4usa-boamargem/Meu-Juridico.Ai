@@ -176,8 +176,8 @@ Deno.serve(async (req) => {
       documentos_com_fundamentacao_completa: docsComConteudo.length,
       por_tipo: porTipo.sort((a, b) => b.economia_horas - a.economia_horas),
       meta_processos_mes: 10,
-      processos_concluidos_mes: processosMes,
-      pct_meta: Math.round((processosMes / 10) * 100),
+      processos_concluidos_mes: totalProcessosMes,
+      pct_meta: Math.round((totalProcessosMes / 10) * 100),
       evolucao,
       benchmarks: {
         processos_sem_ia: b.processos_servidor_mes_sem_ia || 2.5,
