@@ -24,7 +24,6 @@ import AdminMonitoramento from "./pages/AdminMonitoramento";
 import AdminDashboard from "./pages/AdminDashboard";
 import MeuImpacto from "./pages/MeuImpacto";
 import NotFound from "./pages/NotFound";
-import MeuImpacto from "./pages/MeuImpacto";
 
 const queryClient = new QueryClient();
 
