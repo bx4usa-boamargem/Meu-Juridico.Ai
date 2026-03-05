@@ -389,13 +389,13 @@ export function StepFormRenderer({
             </SelectContent>
           </Select>
         ) : (
-          <Input
+          <AutoTextarea
             value={value}
             onChange={(e) => onChange(field.key, e.target.value)}
             readOnly={field.readOnly}
             placeholder={`Digite ${field.label.toLowerCase()}...`}
             className={cn(
-              "text-sm",
+              "text-sm min-h-[40px]",
               field.readOnly && "bg-muted cursor-not-allowed",
               isInherited && "border-success/20 bg-success/5",
               isAiFilled && !isLowConfidence && "border-primary/20 bg-primary/5",
