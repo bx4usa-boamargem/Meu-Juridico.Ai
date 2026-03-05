@@ -349,35 +349,53 @@ export type Database = {
       }
       document_templates: {
         Row: {
+          agent: string | null
           created_at: string
           description: string | null
           doc_type: string
           icon: string | null
           id: string
+          instructions: string | null
           is_active: boolean
+          order_index: number | null
+          required: boolean | null
+          section_id: string | null
           sections_plan: Json
+          skill: string | null
           title: string
           updated_at: string
         }
         Insert: {
+          agent?: string | null
           created_at?: string
           description?: string | null
           doc_type: string
           icon?: string | null
           id?: string
+          instructions?: string | null
           is_active?: boolean
+          order_index?: number | null
+          required?: boolean | null
+          section_id?: string | null
           sections_plan?: Json
+          skill?: string | null
           title: string
           updated_at?: string
         }
         Update: {
+          agent?: string | null
           created_at?: string
           description?: string | null
           doc_type?: string
           icon?: string | null
           id?: string
+          instructions?: string | null
           is_active?: boolean
+          order_index?: number | null
+          required?: boolean | null
+          section_id?: string | null
           sections_plan?: Json
+          skill?: string | null
           title?: string
           updated_at?: string
         }
