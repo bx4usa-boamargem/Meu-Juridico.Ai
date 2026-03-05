@@ -148,7 +148,6 @@ export default function Documento() {
   }, [documento?.status, processoId, docId, navigate]);
 
   // Initialize form + workflow from existing data
-  // CORREÇÃO 1: NO auto-trigger AI builder
   useEffect(() => {
     if (!documento || initialized) return;
     const existing = (documento.dados_estruturados as Record<string, any>) ?? {};
@@ -169,8 +168,7 @@ export default function Documento() {
 
     // Pre-populate from processo data if not already set
     if (processo) {
-      const processoMapping: Record<string, string> = {
-        objeto_contratacao: processo.objeto,
+      const processoMapping: Record<string, string | null> = {
         orgao: processo.orgao,
         numero_processo: processo.numero_processo,
         modalidade: processo.modalidade,
@@ -186,7 +184,6 @@ export default function Documento() {
     const existingWorkflow = (existing as any)?.meta?.workflow as WorkflowState | undefined;
     const wf = initializeWorkflow(sections, existingWorkflow);
 
-    // CORREÇÃO 2: Check if objeto is already filled to determine if sections should be unlocked
     const objetoValue = merged.objeto_contratacao || merged.objeto;
     const hasObjeto = !!objetoValue && typeof objetoValue === "string" && objetoValue.trim().length >= 5;
 
@@ -196,7 +193,6 @@ export default function Documento() {
 
     sections.forEach((s, i) => {
       if (wf.steps[s.id]?.enabled === false) return;
-      // CORREÇÃO 2: If objeto not confirmed, only first section is unlocked
       if (!hasObjeto && i > 0) {
         wf.steps[s.id].status = "locked";
         return;
@@ -216,8 +212,39 @@ export default function Documento() {
     setInheritedKeys(keys);
     setWorkflow(wf);
     setInitialized(true);
-    // CORREÇÃO 1: Removed auto-trigger of AI Document Builder
   }, [documento, inherited, processo, sections, initialized]);
+
+  // Populate processo data even after initialization (handles late-loading processo)
+  useEffect(() => {
+    if (!initialized || !processo) return;
+    const processoMapping: Record<string, string | null> = {
+      orgao: processo.orgao,
+      numero_processo: processo.numero_processo,
+      modalidade: processo.modalidade,
+    };
+    setFormData((prev) => {
+      const updated = { ...prev };
+      let changed = false;
+      for (const [field, value] of Object.entries(processoMapping)) {
+        if (value && !updated[field]) {
+          updated[field] = value;
+          changed = true;
+        }
+      }
+      return changed ? updated : prev;
+    });
+    setInheritedKeys((prev) => {
+      const next = new Set(prev);
+      let changed = false;
+      for (const [field, value] of Object.entries(processoMapping)) {
+        if (value && !next.has(field)) {
+          next.add(field);
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [initialized, processo]);
 
   // Persist workflow state
   const dataWithWorkflow = useMemo(() => {

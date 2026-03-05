@@ -176,9 +176,9 @@ const ETP_SECTIONS: SectionDef[] = [
     required: true,
     unlocksNext: true,
     fields: [
-      { key: "objeto_contratacao", label: "Objeto da contratação", type: "textarea", required: true, colspan: 2, source: "processo", readOnly: true, group: "basicas" },
       { key: "numero_processo", label: "Número do Processo", type: "text", readOnly: true, source: "processo", group: "basicas" },
       { key: "orgao", label: "Órgão", type: "text", readOnly: true, source: "processo", group: "basicas" },
+      { key: "objeto_contratacao", label: "Objeto da contratação", type: "textarea", required: true, colspan: 2 },
       {
         key: "registro_preco",
         label: "Registro de preço",
