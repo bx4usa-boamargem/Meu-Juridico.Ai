@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Settings, Users, CreditCard, Activity } from "lucide-react";
 import { MonitoramentoPanel } from "@/components/configuracoes/MonitoramentoPanel";
+import { GestaoCreditos } from "@/components/configuracoes/GestaoCreditos";
 
 const TABS = [
   { id: "grupos", label: "Gestão de Grupos", icon: Settings },
@@ -47,12 +48,7 @@ export default function Configuracoes() {
           <p className="text-sm text-muted-foreground">Gestão de Usuários será disponibilizada em breve.</p>
         </div>
       )}
-      {activeTab === "creditos" && (
-        <div className="flex flex-col items-center justify-center py-20 gap-3">
-          <CreditCard className="h-10 w-10 text-muted-foreground/40" />
-          <p className="text-sm text-muted-foreground">Gestão de Créditos será disponibilizada em breve.</p>
-        </div>
-      )}
+      {activeTab === "creditos" && <GestaoCreditos />}
       {activeTab === "monitoramento" && <MonitoramentoPanel />}
     </div>
   );

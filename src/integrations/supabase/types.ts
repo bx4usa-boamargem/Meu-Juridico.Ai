@@ -65,6 +65,88 @@ export type Database = {
           },
         ]
       }
+      ai_usage_log: {
+        Row: {
+          action: string
+          created_at: string
+          custo_usd: number | null
+          documento_id: string | null
+          duracao_ms: number | null
+          erro: string | null
+          estado: string | null
+          fallback_de: string | null
+          foi_fallback: boolean | null
+          id: string
+          modelo_utilizado: string
+          org_id: string | null
+          orgao: string | null
+          tipo_documento: string | null
+          tokens_input: number | null
+          tokens_output: number | null
+          user_id: string
+        }
+        Insert: {
+          action?: string
+          created_at?: string
+          custo_usd?: number | null
+          documento_id?: string | null
+          duracao_ms?: number | null
+          erro?: string | null
+          estado?: string | null
+          fallback_de?: string | null
+          foi_fallback?: boolean | null
+          id?: string
+          modelo_utilizado: string
+          org_id?: string | null
+          orgao?: string | null
+          tipo_documento?: string | null
+          tokens_input?: number | null
+          tokens_output?: number | null
+          user_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          custo_usd?: number | null
+          documento_id?: string | null
+          duracao_ms?: number | null
+          erro?: string | null
+          estado?: string | null
+          fallback_de?: string | null
+          foi_fallback?: boolean | null
+          id?: string
+          modelo_utilizado?: string
+          org_id?: string | null
+          orgao?: string | null
+          tipo_documento?: string | null
+          tokens_input?: number | null
+          tokens_output?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_usage_log_documento_id_fkey"
+            columns: ["documento_id"]
+            isOneToOne: false
+            referencedRelation: "documentos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_usage_log_documento_id_fkey"
+            columns: ["documento_id"]
+            isOneToOne: false
+            referencedRelation: "vw_processo_com_dfd"
+            referencedColumns: ["dfd_id"]
+          },
+          {
+            foreignKeyName: "ai_usage_log_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "org_settings"
+            referencedColumns: ["org_id"]
+          },
+        ]
+      }
       alertas_cascata: {
         Row: {
           campo: string
@@ -149,6 +231,33 @@ export type Database = {
             referencedColumns: ["processo_id"]
           },
         ]
+      }
+      api_health_log: {
+        Row: {
+          created_at: string
+          error: string | null
+          id: string
+          latency_ms: number | null
+          provider: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          error?: string | null
+          id?: string
+          latency_ms?: number | null
+          provider: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          error?: string | null
+          id?: string
+          latency_ms?: number | null
+          provider?: string
+          status?: string
+        }
+        Relationships: []
       }
       cadeias_documentais: {
         Row: {
@@ -1044,6 +1153,24 @@ export type Database = {
           },
         ]
       }
+      user_roles: {
+        Row: {
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       vw_processo_com_dfd: {
@@ -1108,6 +1235,13 @@ export type Database = {
         }
       }
       get_user_orgao: { Args: { p_user_id: string }; Returns: string }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
       match_knowledge_chunks: {
         Args: {
           p_doc_types?: string[]
@@ -1138,7 +1272,7 @@ export type Database = {
       }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "moderator" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1265,6 +1399,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "moderator", "user"],
+    },
   },
 } as const
