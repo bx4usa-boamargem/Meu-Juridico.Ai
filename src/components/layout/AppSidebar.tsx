@@ -1,4 +1,4 @@
-import { LayoutDashboard, FolderKanban, FileText, Search, Settings, LogOut, Zap } from "lucide-react";
+import { LayoutDashboard, FolderKanban, FileText, Search, Settings, LogOut, Zap, BookOpen, Satellite } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
 import logoIcon from "@/assets/logo-icon.png";
