@@ -1,4 +1,7 @@
 
+-- Habilitar pgcrypto para gen_random_bytes (token de compartilhamento)
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
 -- 1. document_versions table
 CREATE TABLE public.document_versions (
   id uuid NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -28,7 +31,7 @@ CREATE TABLE public.document_share_links (
   id uuid NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   documento_id uuid NOT NULL REFERENCES public.documentos(id) ON DELETE CASCADE,
   version_id uuid NOT NULL REFERENCES public.document_versions(id) ON DELETE CASCADE,
-  token text NOT NULL DEFAULT encode(gen_random_bytes(32), 'hex') UNIQUE,
+  token text NOT NULL DEFAULT encode(extensions.gen_random_bytes(32), 'hex') UNIQUE,
   created_by uuid,
   ativo boolean NOT NULL DEFAULT true,
   expires_at timestamptz,
