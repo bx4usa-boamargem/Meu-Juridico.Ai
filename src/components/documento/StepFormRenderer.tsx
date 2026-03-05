@@ -1,5 +1,6 @@
 import { useRef, useState, useEffect, useCallback } from "react";
 import { Info, Sparkles, Shield, Copy, Loader2, BookOpen, Search } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -401,7 +402,7 @@ export function StepFormRenderer({
               isInherited && "border-success/20 bg-success/5",
               isInvalid && "border-destructive"
             )}
-          </div>
+          />
         )}
 
         {isInvalid && (

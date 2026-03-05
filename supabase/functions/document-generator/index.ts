@@ -149,7 +149,7 @@ async function generateWithFallback({
     org_id?: string
     user_id?: string
     user_email?: string
-    supabase: ReturnType<typeof createClient>
+    supabase: any
 }) {
     // Buscar configuração de modelos
     const { data: config } = await supabase

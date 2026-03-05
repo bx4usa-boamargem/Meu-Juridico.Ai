@@ -94,11 +94,11 @@ export async function getOrgProvider(
 ): Promise<LLMProvider> {
     const { data, error } = await supabase
         .from('org_settings')
-        .select('llm_provider')
+        .select('*')
         .eq('org_id', orgId)
-        .single();
+        .single() as { data: any; error: any };
 
-    if (error || !data?.llm_provider) {
+    if (error || !(data as any)?.llm_provider) {
         // Padrão: OpenAI GPT-4o quando não há configuração de org
         const envProvider = typeof Deno !== 'undefined'
             ? Deno.env.get('LLM_PROVIDER')?.toLowerCase()
@@ -111,10 +111,10 @@ export async function getOrgProvider(
         return 'openai'; // ← Default fixo: OpenAI GPT-4o
     }
 
-    const provider = data.llm_provider.toLowerCase();
+    const provider = (data as any).llm_provider.toLowerCase();
     if (provider !== 'openai' && provider !== 'gemini' && provider !== 'anthropic') {
         throw new Error(
-            `Provider "${data.llm_provider}" inválido. ` +
+            `Provider "${(data as any).llm_provider}" inválido. ` +
             `Valores aceitos: openai, gemini, anthropic.`
         );
     }

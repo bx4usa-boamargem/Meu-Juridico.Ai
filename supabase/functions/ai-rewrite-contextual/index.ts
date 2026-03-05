@@ -284,8 +284,7 @@ serve(async (req) => {
       throw new Error(`AI failed: ${result.text}`);
     }
 
-    // Audit log (service role)
-    const adminClient = createClient(supabaseUrl, supabaseServiceKey);
+    // Audit log (service role) - reuse existing adminClient
     await adminClient.from("ai_audit_log").insert({
       user_id: user.id,
       documento_id: documento_id ?? null,
