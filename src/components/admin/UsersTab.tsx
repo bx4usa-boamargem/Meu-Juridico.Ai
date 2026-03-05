@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { UserPlus, X } from "lucide-react";
+import { UserPlus, X, RefreshCw, CheckCircle, Clock } from "lucide-react";
 import { McTheme, formatBrl } from "./types";
 import { toast } from "sonner";
 
@@ -52,6 +52,7 @@ function InviteUserDialog({ mc, open, onClose }: { mc: McTheme; open: boolean; o
     onSuccess: () => {
       toast.success(`Convite enviado para ${email}`);
       queryClient.invalidateQueries({ queryKey: ["admin-users-all"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-auth-users"] });
       setEmail(""); setFullName(""); setOrgao(""); setCargo("");
       onClose();
     },
@@ -82,66 +83,40 @@ function InviteUserDialog({ mc, open, onClose }: { mc: McTheme; open: boolean; o
         <div className="space-y-3">
           <div>
             <label className="text-[11px] font-medium mb-1 block" style={{ color: mc.muted }}>E-mail *</label>
-            <input
-              type="email"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              placeholder="usuario@orgao.gov.br"
+            <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="usuario@orgao.gov.br"
               className="w-full px-3 py-2 rounded-lg text-sm border outline-none focus:ring-2 focus:ring-blue-500/30"
-              style={{ background: mc.bg, borderColor: mc.border, color: mc.text }}
-            />
+              style={{ background: mc.bg, borderColor: mc.border, color: mc.text }} />
           </div>
           <div>
             <label className="text-[11px] font-medium mb-1 block" style={{ color: mc.muted }}>Nome completo</label>
-            <input
-              type="text"
-              value={fullName}
-              onChange={e => setFullName(e.target.value)}
-              placeholder="Maria da Silva"
+            <input type="text" value={fullName} onChange={e => setFullName(e.target.value)} placeholder="Maria da Silva"
               className="w-full px-3 py-2 rounded-lg text-sm border outline-none focus:ring-2 focus:ring-blue-500/30"
-              style={{ background: mc.bg, borderColor: mc.border, color: mc.text }}
-            />
+              style={{ background: mc.bg, borderColor: mc.border, color: mc.text }} />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-[11px] font-medium mb-1 block" style={{ color: mc.muted }}>Órgão</label>
-              <input
-                type="text"
-                value={orgao}
-                onChange={e => setOrgao(e.target.value)}
-                placeholder="Câmara Municipal"
+              <input type="text" value={orgao} onChange={e => setOrgao(e.target.value)} placeholder="Câmara Municipal"
                 className="w-full px-3 py-2 rounded-lg text-sm border outline-none focus:ring-2 focus:ring-blue-500/30"
-                style={{ background: mc.bg, borderColor: mc.border, color: mc.text }}
-              />
+                style={{ background: mc.bg, borderColor: mc.border, color: mc.text }} />
             </div>
             <div>
               <label className="text-[11px] font-medium mb-1 block" style={{ color: mc.muted }}>Cargo</label>
-              <input
-                type="text"
-                value={cargo}
-                onChange={e => setCargo(e.target.value)}
-                placeholder="Analista"
+              <input type="text" value={cargo} onChange={e => setCargo(e.target.value)} placeholder="Analista"
                 className="w-full px-3 py-2 rounded-lg text-sm border outline-none focus:ring-2 focus:ring-blue-500/30"
-                style={{ background: mc.bg, borderColor: mc.border, color: mc.text }}
-              />
+                style={{ background: mc.bg, borderColor: mc.border, color: mc.text }} />
             </div>
           </div>
         </div>
 
         <div className="flex gap-3 mt-6">
-          <button
-            onClick={onClose}
+          <button onClick={onClose}
             className="flex-1 px-4 py-2.5 rounded-lg text-sm font-medium border hover:bg-white/5 transition-colors"
-            style={{ borderColor: mc.border, color: mc.muted }}
-          >
-            Cancelar
-          </button>
-          <button
-            onClick={() => inviteMutation.mutate()}
+            style={{ borderColor: mc.border, color: mc.muted }}>Cancelar</button>
+          <button onClick={() => inviteMutation.mutate()}
             disabled={!email || inviteMutation.isPending}
             className="flex-1 px-4 py-2.5 rounded-lg text-sm font-semibold text-white transition-colors disabled:opacity-50"
-            style={{ background: mc.accent }}
-          >
+            style={{ background: mc.accent }}>
             {inviteMutation.isPending ? "Enviando..." : "Enviar Convite"}
           </button>
         </div>
@@ -150,8 +125,40 @@ function InviteUserDialog({ mc, open, onClose }: { mc: McTheme; open: boolean; o
   );
 }
 
+function StatusBadge({ confirmed, mc }: { confirmed: boolean; mc: McTheme }) {
+  if (confirmed) {
+    return (
+      <span className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full"
+        style={{ background: `${mc.green}20`, color: mc.green }}>
+        <CheckCircle className="h-3 w-3" /> Ativo
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full"
+      style={{ background: "#F59E0B20", color: "#F59E0B" }}>
+      <Clock className="h-3 w-3" /> Pendente
+    </span>
+  );
+}
+
 export function UsersTab({ mc }: { mc: McTheme }) {
   const [inviteOpen, setInviteOpen] = useState(false);
+  const queryClient = useQueryClient();
+
+  // Fetch auth users with confirmation status
+  const { data: authUsers } = useQuery({
+    queryKey: ["admin-auth-users"],
+    queryFn: async () => {
+      const { data, error } = await supabase.functions.invoke("admin-list-users");
+      if (error) throw error;
+      return (data?.users || []) as Array<{
+        id: string; email: string; confirmed: boolean; last_sign_in: string | null;
+        created_at: string; full_name: string; orgao: string; cargo: string;
+      }>;
+    },
+    refetchInterval: 30000,
+  });
 
   const { data: userData } = useQuery({
     queryKey: ["admin-users-all"],
@@ -182,14 +189,52 @@ export function UsersTab({ mc }: { mc: McTheme }) {
     refetchInterval: 30000,
   });
 
+  const resendMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      const { data, error } = await supabase.functions.invoke("invite-user", {
+        body: { resend: true, user_id: userId },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: () => {
+      toast.success("Convite reenviado com sucesso!");
+    },
+    onError: (err: any) => {
+      toast.error(err.message || "Erro ao reenviar convite");
+    },
+  });
+
+  // Merge auth users data with usage data
+  const authUsersMap = new Map((authUsers || []).map(u => [u.id, u]));
   const users = userData ?? [];
+  
+  // Build merged table: start from auth users (complete list), enrich with usage data
+  const mergedUsers = (authUsers || []).map(au => {
+    const usageData = users.find(u => u.id === au.id);
+    return {
+      id: au.id,
+      email: au.email,
+      full_name: usageData?.full_name || au.full_name || "Sem nome",
+      orgao: usageData?.orgao || au.orgao || "",
+      confirmed: au.confirmed,
+      last_sign_in: au.last_sign_in,
+      docs: usageData?.docs || 0,
+      cost: usageData?.cost || 0,
+      calls: usageData?.calls || 0,
+      calls_7d: usageData?.calls_7d || 0,
+    };
+  });
+
   const topDocs = [...users].sort((a, b) => b.docs - a.docs).slice(0, 5);
   const topCost = [...users].sort((a, b) => b.cost - a.cost).slice(0, 5);
   const topActive = [...users].sort((a, b) => b.calls_7d - a.calls_7d).slice(0, 5);
 
-  const totalUsers = users.length;
-  const activeToday = new Set((userData ?? []).filter(u => u.calls > 0).map(u => u.id)).size;
-  const avgDocs = totalUsers > 0 ? Math.round(users.reduce((s, u) => s + u.docs, 0) / totalUsers) : 0;
+  const totalUsers = mergedUsers.length || users.length;
+  const activeUsers = mergedUsers.filter(u => u.confirmed).length;
+  const pendingUsers = mergedUsers.filter(u => !u.confirmed).length;
+  const avgDocs = totalUsers > 0 ? Math.round(mergedUsers.reduce((s, u) => s + u.docs, 0) / totalUsers) : 0;
 
   return (
     <div className="space-y-6">
@@ -197,8 +242,8 @@ export function UsersTab({ mc }: { mc: McTheme }) {
       <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
         {[
           { emoji: "👥", label: "Total Usuários", value: totalUsers },
-          { emoji: "⚡", label: "Com Atividade", value: activeToday },
-          { emoji: "📄", label: "Média Docs/Usuário", value: avgDocs },
+          { emoji: "✅", label: "Ativos", value: activeUsers },
+          { emoji: "⏳", label: "Pendentes", value: pendingUsers },
           { emoji: "💰", label: "Custo Total", value: formatBrl(users.reduce((s, u) => s + u.cost, 0)) },
         ].map(k => (
           <div key={k.label} className="rounded-xl p-4 border" style={{ background: mc.card, borderColor: mc.border }}>
@@ -211,13 +256,10 @@ export function UsersTab({ mc }: { mc: McTheme }) {
 
       {/* Invite button */}
       <div className="flex justify-end">
-        <button
-          onClick={() => setInviteOpen(true)}
+        <button onClick={() => setInviteOpen(true)}
           className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold text-white transition-colors hover:opacity-90"
-          style={{ background: mc.accent }}
-        >
-          <UserPlus className="h-4 w-4" />
-          Convidar Usuário
+          style={{ background: mc.accent }}>
+          <UserPlus className="h-4 w-4" /> Convidar Usuário
         </button>
       </div>
 
@@ -228,29 +270,59 @@ export function UsersTab({ mc }: { mc: McTheme }) {
         <RankCard title="Mais Ativos (7d)" emoji="⚡" items={topActive} mc={mc} valueKey="calls_7d" valueLabel="chamadas" />
       </div>
 
-      {/* User table */}
+      {/* User table with status */}
       <div className="rounded-xl border overflow-hidden" style={{ background: mc.card, borderColor: mc.border }}>
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
               <tr style={{ borderBottom: `1px solid ${mc.border}`, color: mc.muted }}>
                 <th className="text-left px-4 py-2.5 font-medium">Nome</th>
+                <th className="text-left px-4 py-2.5 font-medium">E-mail</th>
                 <th className="text-left px-4 py-2.5 font-medium">Órgão</th>
+                <th className="text-center px-4 py-2.5 font-medium">Status</th>
                 <th className="text-right px-4 py-2.5 font-medium">Docs</th>
-                <th className="text-right px-4 py-2.5 font-medium">Chamadas IA</th>
                 <th className="text-right px-4 py-2.5 font-medium">Custo BRL</th>
+                <th className="text-center px-4 py-2.5 font-medium">Ações</th>
               </tr>
             </thead>
             <tbody>
-              {[...users].sort((a, b) => b.docs - a.docs).slice(0, 50).map((u, i) => (
-                <tr key={i} style={{ borderBottom: `1px solid ${mc.border}` }} className="hover:bg-white/5">
+              {mergedUsers.sort((a, b) => {
+                // Pending first, then by name
+                if (a.confirmed !== b.confirmed) return a.confirmed ? 1 : -1;
+                return (a.full_name || "").localeCompare(b.full_name || "");
+              }).map((u, i) => (
+                <tr key={u.id} style={{ borderBottom: `1px solid ${mc.border}` }} className="hover:bg-white/5">
                   <td className="px-4 py-2.5 font-medium">{u.full_name || "Sem nome"}</td>
+                  <td className="px-4 py-2.5" style={{ color: mc.muted }}>{u.email}</td>
                   <td className="px-4 py-2.5" style={{ color: mc.muted }}>{u.orgao || "N/A"}</td>
+                  <td className="px-4 py-2.5 text-center">
+                    <StatusBadge confirmed={u.confirmed} mc={mc} />
+                  </td>
                   <td className="px-4 py-2.5 text-right font-mono">{u.docs}</td>
-                  <td className="px-4 py-2.5 text-right font-mono">{u.calls}</td>
                   <td className="px-4 py-2.5 text-right font-mono">{formatBrl(u.cost)}</td>
+                  <td className="px-4 py-2.5 text-center">
+                    {!u.confirmed && (
+                      <button
+                        onClick={() => resendMutation.mutate(u.id)}
+                        disabled={resendMutation.isPending}
+                        className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-1 rounded-md hover:bg-white/10 transition-colors"
+                        style={{ color: mc.accent }}
+                        title="Reenviar convite"
+                      >
+                        <RefreshCw className={`h-3 w-3 ${resendMutation.isPending ? "animate-spin" : ""}`} />
+                        Reenviar
+                      </button>
+                    )}
+                  </td>
                 </tr>
               ))}
+              {mergedUsers.length === 0 && (
+                <tr>
+                  <td colSpan={7} className="px-4 py-8 text-center" style={{ color: mc.muted }}>
+                    Nenhum usuário encontrado
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
