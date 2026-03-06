@@ -13,9 +13,9 @@ import { cn } from "@/lib/utils";
 
 // ── Mock data ────────────────────────────────────────────────────────────────
 const MOCK_INSIGHT = {
-  text: "Encontrei 6 cotações de notebooks com preços homologados entre R$ 2.349 e R$ 7.798. Descartei itens de leilão, valores inconsistentes e produtos que não correspondem à descrição solicitada.",
-  count: 6,
-  savings: "49,3%",
+  text: "Encontrei 56 cotações de notebooks com preços homologados entre R$ 1.800 e R$ 8.800. Descartei itens de leilão, valores inconsistentes e produtos que não correspondem à descrição solicitada.",
+  count: 56,
+  savings: "42,1%",
 };
 
 interface Cotacao {
@@ -43,7 +43,7 @@ interface Cotacao {
   municipio: string;
 }
 
-const MOCK_COTACOES: Cotacao[] = [
+const BASE_COTACOES: Cotacao[] = [
   {
     id: "1", valor: 3599.0, valorEstimado: 7096.64,
     descricao: "Notebook Ultrabook 14\" i5 16GB SSD 512GB", categoria: "Material",
@@ -117,6 +117,56 @@ const MOCK_COTACOES: Cotacao[] = [
     item: 1, srp: false, esfera: "Federal", municipio: "",
   },
 ];
+
+// Generate 50 extra mock cotações for scroll stress-test
+const UFS = ["SP", "RJ", "MG", "SC", "PR", "RS", "BA", "PE", "CE", "DF", "GO", "PA", "AM", "MT", "MS"];
+const ESFERAS = ["Municipal", "Estadual", "Federal"];
+const PORTES = ["ME", "EPP", "Grande Empresa"];
+const DESCRICOES = [
+  "Notebook 14\" i5 8GB SSD 256GB", "Notebook 15.6\" i7 16GB SSD 512GB",
+  "Notebook Educacional 11.6\" Celeron 4GB", "Ultrabook 13\" i7 16GB SSD 1TB",
+  "Notebook Workstation 15.6\" i9 32GB SSD 1TB", "Notebook Corporativo 14\" Ryzen 7 16GB",
+  "Notebook Básico 14\" Pentium 4GB HDD 500GB", "Notebook Gamer 15.6\" i7 32GB RTX",
+];
+const FORNECEDORES = [
+  "LENOVO TECNOLOGIA LTDA", "DELL COMPUTADORES LTDA", "HP BRASIL LTDA",
+  "POSITIVO TECNOLOGIA S.A.", "ACER DO BRASIL LTDA", "SAMSUNG ELETRONICA LTDA",
+  "ASUS COMPUTADORES LTDA", "MULTILASER INDUSTRIAL LTDA",
+];
+
+const EXTRA_COTACOES: Cotacao[] = Array.from({ length: 50 }, (_, i) => {
+  const idx = i + 7;
+  const valor = Math.round(1800 + Math.random() * 7000);
+  const valorEstimado = Math.round(valor * (1.2 + Math.random() * 0.8));
+  const quantidade = Math.round(10 + Math.random() * 500);
+  const uf = UFS[i % UFS.length];
+  return {
+    id: String(idx),
+    valor,
+    valorEstimado,
+    descricao: DESCRICOES[i % DESCRICOES.length],
+    categoria: "Material",
+    uf,
+    orgao: `ORGAO ${uf} ${idx}`,
+    orgaoCompleto: `Órgão Público ${idx} - ${uf}`,
+    fornecedor: FORNECEDORES[i % FORNECEDORES.length],
+    cnpj: `${String(10 + i).padStart(2, "0")}.000.000/0001-${String(10 + i)}`,
+    porte: PORTES[i % PORTES.length],
+    tipo: "PJ",
+    dataHomologacao: `${String(1 + (i % 28)).padStart(2, "0")}/${String(1 + (i % 12)).padStart(2, "0")}/2024`,
+    situacao: "Homologado",
+    unidade: "Unidade",
+    quantidade,
+    valorTotal: valorEstimado * quantidade,
+    valorTotalHomologado: valor * quantidade,
+    item: (i % 5) + 1,
+    srp: i % 3 === 0,
+    esfera: ESFERAS[i % ESFERAS.length],
+    municipio: i % 3 === 0 ? `Cidade ${idx}` : "",
+  };
+});
+
+const MOCK_COTACOES: Cotacao[] = [...BASE_COTACOES, ...EXTRA_COTACOES];
 
 function formatBRL(value: number) {
   return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
