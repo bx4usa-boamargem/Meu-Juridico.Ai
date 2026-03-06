@@ -1,11 +1,30 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Plus, FolderKanban, FileText, AlertTriangle, Clock } from "lucide-react";
 import { NovoProcessoDialog } from "@/components/NovoProcessoDialog";
 import { KpiCard } from "@/components/KpiCard";
-import { ProcessCard } from "@/components/ProcessCard";
-import { useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, LineChart, Line } from "recharts";
+
+const barChartData = [
+  { month: "Jan", processos: 12 },
+  { month: "Fev", processos: 19 },
+  { month: "Mar", processos: 15 },
+  { month: "Abr", processos: 22 },
+  { month: "Mai", processos: 30 },
+  { month: "Jun", processos: 28 },
+];
+
+const lineChartData = [
+  { month: "Jan", economia: 2.4 },
+  { month: "Fev", economia: 3.1 },
+  { month: "Mar", economia: 4.8 },
+  { month: "Abr", economia: 5.2 },
+  { month: "Mai", economia: 7.9 },
+  { month: "Jun", economia: 8.5 },
+];
 
 export default function Dashboard() {
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -62,38 +81,108 @@ export default function Dashboard() {
         <KpiCard icon={Clock} label="Total Processos" value={stats?.total ?? 0} />
       </div>
 
-      {/* Process Grid */}
-      <div>
-        <h2 className="text-sm font-medium text-muted-foreground mb-3">Processos Recentes</h2>
-        {isLoading ? (
-          <div className="flex justify-center py-12">
-            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
-          </div>
-        ) : !processos?.length ? (
-          <div className="border border-dashed rounded-lg p-12 text-center">
-            <FolderKanban className="h-10 w-10 mx-auto text-muted-foreground/50 mb-3" />
-            <p className="text-sm text-muted-foreground mb-3">Nenhum processo encontrado.</p>
-            <Button size="sm" variant="outline" onClick={() => setDialogOpen(true)}>
-              <Plus className="h-4 w-4 mr-1" /> Criar primeiro processo
-            </Button>
-          </div>
-        ) : (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {processos.map((p) => (
-              <ProcessCard
-                key={p.id}
-                id={p.id}
-                numero_processo={p.numero_processo}
-                orgao={p.orgao}
-                objeto={p.objeto}
-                modalidade={p.modalidade}
-                status={p.status}
-                created_at={p.created_at}
-                documentos={p.documentos ?? []}
-              />
-            ))}
-          </div>
-        )}
+      {/* Graphs Section */}
+      <div className="grid gap-6 md:grid-cols-2">
+        <Card className="border-border/50 shadow-sm">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base font-semibold">Processos por Mês</CardTitle>
+            <p className="text-sm text-muted-foreground">Volume de processos iniciados no ano</p>
+          </CardHeader>
+          <CardContent className="h-[280px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={barChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+                <XAxis dataKey="month" fontSize={12} tickLine={false} axisLine={false} />
+                <YAxis fontSize={12} tickLine={false} axisLine={false} />
+                <RechartsTooltip
+                  cursor={{ fill: '#f3f4f6' }}
+                  contentStyle={{ borderRadius: '8px', border: '1px solid #e5e7eb', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                />
+                <Bar dataKey="processos" fill="#1A56DB" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        <Card className="border-border/50 shadow-sm">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base font-semibold">Economia Estimada</CardTitle>
+            <p className="text-sm text-muted-foreground">Evolução do savings gerado (em milhões R$)</p>
+          </CardHeader>
+          <CardContent className="h-[280px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={lineChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+                <XAxis dataKey="month" fontSize={12} tickLine={false} axisLine={false} />
+                <YAxis fontSize={12} tickLine={false} axisLine={false} />
+                <RechartsTooltip
+                  contentStyle={{ borderRadius: '8px', border: '1px solid #e5e7eb', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                />
+                <Line type="monotone" dataKey="economia" stroke="#10b981" strokeWidth={3} dot={{ r: 4, strokeWidth: 2 }} activeDot={{ r: 6 }} />
+              </LineChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Secondary Graphs / Metrics Row */}
+      <div className="grid gap-6 md:grid-cols-3">
+        <Card className="border-border/50 shadow-sm md:col-span-2">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base font-semibold">Status Geral da Operação</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4 pt-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="h-3 w-3 rounded-full bg-emerald-500" />
+                  <span className="text-sm font-medium">Concluídos com Sucesso</span>
+                </div>
+                <span className="text-sm font-bold">45%</span>
+              </div>
+              <div className="w-full bg-muted rounded-full h-2">
+                <div className="bg-emerald-500 h-2 rounded-full" style={{ width: '45%' }} />
+              </div>
+
+              <div className="flex items-center justify-between pt-2">
+                <div className="flex items-center gap-2">
+                  <div className="h-3 w-3 rounded-full bg-blue-500" />
+                  <span className="text-sm font-medium">Em Andamento (Dentro do Prazo)</span>
+                </div>
+                <span className="text-sm font-bold">35%</span>
+              </div>
+              <div className="w-full bg-muted rounded-full h-2">
+                <div className="bg-blue-500 h-2 rounded-full" style={{ width: '35%' }} />
+              </div>
+
+              <div className="flex items-center justify-between pt-2">
+                <div className="flex items-center gap-2">
+                  <div className="h-3 w-3 rounded-full bg-amber-500" />
+                  <span className="text-sm font-medium">Atrasados / Com Alertas</span>
+                </div>
+                <span className="text-sm font-bold">20%</span>
+              </div>
+              <div className="w-full bg-muted rounded-full h-2">
+                <div className="bg-amber-500 h-2 rounded-full" style={{ width: '20%' }} />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-border/50 shadow-sm bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base font-semibold text-primary">Produtividade IA</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col justify-center items-center h-[200px] text-center space-y-4">
+            <div className="p-4 bg-primary/10 rounded-full">
+              <FileText className="h-8 w-8 text-primary" />
+            </div>
+            <div>
+              <p className="text-3xl font-bold text-primary">120h</p>
+              <p className="text-sm text-muted-foreground mt-1">Tempo economizado essa semana<br /> na geração de ETPs e TRs</p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       <NovoProcessoDialog
