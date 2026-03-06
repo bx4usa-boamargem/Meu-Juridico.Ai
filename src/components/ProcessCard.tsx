@@ -2,6 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 
 interface DocInfo {
@@ -17,9 +18,12 @@ interface ProcessCardProps {
   orgao: string | null;
   objeto: string | null;
   modalidade: string | null;
-  status: string | null;
+  status?: string | null;
   created_at: string;
   documentos?: DocInfo[];
+  totalChainSteps?: number;
+  responsavel_nome?: string;
+  responsavel_avatar?: string;
 }
 
 const statusVariant: Record<string, string> = {
@@ -28,7 +32,6 @@ const statusVariant: Record<string, string> = {
   finalizado: "outline",
 };
 
-// Nova ordem técnica da cadeia
 const CHAIN_STEPS = [
   { key: "pca", label: "PCA" },
   { key: "dfd", label: "DFD" },
@@ -79,6 +82,9 @@ export function ProcessCard({
   status,
   created_at,
   documentos = [],
+  totalChainSteps = 7,
+  responsavel_nome,
+  responsavel_avatar,
 }: ProcessCardProps) {
   const navigate = useNavigate();
 
@@ -116,15 +122,17 @@ export function ProcessCard({
       <div className={cn("absolute top-3 right-3 h-2.5 w-2.5 rounded-full", healthColors[health])} />
 
       <CardContent className="p-4 space-y-3">
-        {/* Header: número + badge */}
+        {/* Header */}
         <div className="flex items-start justify-between gap-2 pr-4">
           <div className="min-w-0">
             <p className="font-semibold text-sm truncate">{numero_processo || "Sem número"}</p>
             {orgao && <p className="text-xs text-muted-foreground truncate">{orgao}</p>}
           </div>
-          <Badge variant={statusVariant[status ?? "rascunho"] as any} className="shrink-0 text-[10px]">
-            {status ?? "rascunho"}
-          </Badge>
+          {status && (
+            <Badge variant={(statusVariant[status] || "secondary") as "default" | "secondary" | "destructive" | "outline"} className="shrink-0 text-[10px]">
+              {status}
+            </Badge>
+          )}
         </div>
 
         {/* Objeto */}
@@ -132,30 +140,33 @@ export function ProcessCard({
           <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">{objeto}</p>
         )}
 
-        {/* Avatar do responsável */}
-        <div className="flex items-center gap-2">
-          <div className="h-6 w-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-[10px] font-bold shrink-0">
-            {getInitials(orgao)}
+        <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-1">
+          <span className="bg-muted text-muted-foreground px-2 py-0.5 rounded-sm font-medium border">
+            {modalidade || "—"}
+          </span>
+          <div className="flex items-center gap-1.5">
+            <span className="opacity-75">{new Date(created_at).toLocaleDateString("pt-BR", { day: '2-digit', month: 'short' })}</span>
+            <Avatar className="h-5 w-5 border shrink-0 shadow-sm">
+              <AvatarImage src={responsavel_avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${numero_processo}&backgroundColor=1A56DB`} />
+              <AvatarFallback className="text-[10px]">{getInitials(orgao)}</AvatarFallback>
+            </Avatar>
           </div>
-          <span className="text-[11px] text-muted-foreground truncate">{orgao || "Sem responsável"}</span>
         </div>
 
-        {/* Progress text */}
         <div className="flex items-center justify-between">
           <p className="text-[10px] text-muted-foreground font-medium">
             {completed}/{total} etapas — {pct}%
           </p>
-          <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded">{modalidade || "—"}</span>
         </div>
 
         {/* Chain pipeline bars */}
-        <div className="flex items-center gap-0.5">
+        <div className="flex items-center gap-[2px] pt-1">
           {steps.map((step) => (
             <Tooltip key={step.key}>
               <TooltipTrigger asChild>
                 <div
                   className={cn(
-                    "h-1.5 flex-1 rounded-full transition-colors",
+                    "h-1.5 flex-1 rounded-sm transition-colors",
                     STEP_STATUS_COLORS[step.status]
                   )}
                 />
@@ -166,11 +177,6 @@ export function ProcessCard({
             </Tooltip>
           ))}
         </div>
-
-        {/* Date */}
-        <p className="text-[10px] text-muted-foreground text-right">
-          {new Date(created_at).toLocaleDateString("pt-BR")}
-        </p>
       </CardContent>
     </Card>
   );
