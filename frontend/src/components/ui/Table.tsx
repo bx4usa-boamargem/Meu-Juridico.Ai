@@ -23,6 +23,13 @@ export const TableHeader = React.forwardRef<HTMLTableSectionElement, React.HTMLA
 );
 TableHeader.displayName = "TableHeader"
 
+export const TableBody = React.forwardRef<HTMLTableSectionElement, React.HTMLAttributes<HTMLTableSectionElement>>(
+    ({ className, ...props }, ref) => (
+        <tbody ref={ref} className={cn("[&_tr:last-child]:border-0", className)} {...props} />
+    )
+);
+TableBody.displayName = "TableBody"
+
 export const TableRow = React.forwardRef<HTMLTableRowElement, React.HTMLAttributes<HTMLTableRowElement>>(
     ({ className, ...props }, ref) => (
         <tr
@@ -52,12 +59,12 @@ export const TableCell = React.forwardRef<HTMLTableCellElement, React.TdHTMLAttr
 );
 TableCell.displayName = "TableCell"
 
-export const TableEmpty = () => (
+export const TableEmpty = ({ message }: { message?: string }) => (
     <TableRow>
         <TableCell colSpan={100} className="h-64 text-center">
             <div className="flex flex-col items-center justify-center text-text-muted">
                 <FileText className="h-12 w-12 mb-4 opacity-50" />
-                <p className="text-lg font-medium text-text-primary">Nenhum documento encontrado</p>
+                <p className="text-lg font-medium text-text-primary">{message || 'Nenhum documento encontrado'}</p>
             </div>
         </TableCell>
     </TableRow>
