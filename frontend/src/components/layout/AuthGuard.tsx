@@ -3,6 +3,7 @@ import { Navigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
+    if (import.meta.env.DEV) return <>{children}</>;
     const { session, loading } = useAuth();
 
     if (loading) {
