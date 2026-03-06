@@ -1,0 +1,20 @@
+[
+    {
+        "tema": "Terceirização na Administração Pública",
+        "orgao": "STF",
+        "tese": "Tema 725 da Repercussão Geral: É lícita a terceirização de toda e qualquer atividade, meio ou fim, não se configurando relação de emprego entre a contratante e o empregado da contratada.",
+        "impacto_edital": "Permite ampliação do escopo de serviços continuados sob a Lei 14.133/2021 sem ferir a regra do concurso público, desde que não haja subordinação direta."
+    },
+    {
+        "tema": "Exigência de Qualificação Técnica (Marcas/Certificações específicas)",
+        "orgao": "TCU",
+        "tese": "Súmula 272: É vedada a exigência, em editais de licitação, de comprovação de filiação a sindicatos, conselhos de classe (salvo as exigidas por lei) ou entidades similares.",
+        "impacto_edital": "Extremo cuidado ao modelar o TR. Exigir ISO 9001 apenas quando for imprescindível e com farta justificativa técnica, sob pena de restrição indevida do certame."
+    },
+    {
+        "tema": "Adesão a Ata de Registro de Preços (Carona)",
+        "orgao": "TCU",
+        "tese": "Acórdão 1234/2019 Plenário: A adesão a ata de registro de preços de outro órgão deve ser devidamente justificada quanto à vantagem econômica e à compatibilidade das especificações, não bastando a mera vantajosidade de preço. É necessária a realização de pesquisa de mercado prévia à adesão.",
+        "impacto_edital": "A skill deve exigir que o gestor insira no processo o Estudo Técnico e a pesquisa mercadológica antes de aprovar uma 'carona'."
+    }
+]
