@@ -73,7 +73,6 @@ serve(async (req) => {
         // ─── 1. SELEÇÃO DINÂMICA DE IA (NÃO HARDCODED) ───
         const provider = await getOrgProvider(supabase as any, '')
         console.log(`[ORCHESTRATOR] Usando provedor LLM configurado: ${provider}`)
-
         // ─── 2. CARREGAR TEMPLATE (multi-row format) ───
         const { data: templateRows, error: tmplError } = await supabase
             .from('document_templates')
@@ -111,7 +110,6 @@ serve(async (req) => {
         }
 
         sectionsPlan.sort((a: any, b: any) => (a.order_index || 0) - (b.order_index || 0))
-
         // ─── 3. MODO SEM IA: salvar HTML pré-renderizado ───
         if (generate_with_ai === false || (html_final && !generate_with_ai)) {
             const { error: updError } = await supabase
@@ -184,48 +182,79 @@ serve(async (req) => {
             let userPrompt = `Seção a ser redigida: ${section.title}
 Instruções OBRIGATÓRIAS para esta seção: ${section.instructions}
 
-Dados do processo e contexto herdado:
+DADOS DA CONTRATAÇÃO (FORMULÁRIO, PREMISSAS E HERANÇA):
 ${JSON.stringify(mergedFormData, null, 2)}
-${previousContext ? `\nContexto das seções anteriores já geradas:\n${previousContext}` : ''}
+${previousContext ? `\nCONTEXTO DAS SEÇÕES ANTERIORES JÁ GERADAS (Mantenha a coerência e continuidade narrativa):\n${previousContext}` : ''}
 
-Gere o conteúdo formal, técnico e juridicamente correto EXCLUSIVAMENTE para a seção "${section.title}". 
-Não inclua o título da seção na sua resposta. Não inclua saudações, placeholders em branco nem conclusões genéricas fora de contexto.`
+AJA AGORA: Com base estritamente nas "Instruções OBRIGATÓRIAS" desta seção, elabore o conteúdo textual completo. 
+PROIBIDO RESPONDER CURTO. Você deve expandir e aprofundar a narrativa em múltiplos parágrafos bem desenvolvidos. Considere aspectos logísticos, jurídicos, técnicos e de conformidade aplicáveis à contratação.
+Não repita ou inclua o título da seção na sua resposta; comece diretamente a redação do conteúdo. Sem saudações ou comentários extras.`
 
-            if (doc.tipo === 'ETP' || doc.tipo === 'TR') {
-                userPrompt += `\n\nATENÇÃO CRÍTICA (NÍVEL DE PROFUNDIDADE 10X): Este documento deve ser absolutamente exaustivo e aprofundado. Desenvolva o raciocínio de forma extensa (múltiplos parágrafos densos), explorando todos os ângulos técnicos, logísticos, econômicos e jurídicos aplicáveis estritamente à seção "${section.title}". Expanda metodologias, analise riscos detalhadamente, justifique escolhas com rigor analítico e cite jurisprudência aplicável do TCU. NUNCA resuma ou entregue conteúdo superficial.`;
+            if (actualDocType.toLowerCase() === 'etp' || actualDocType.toLowerCase() === 'tr' || actualDocType.toLowerCase() === 'edital' || actualDocType.toLowerCase() === 'projeto_basico') {
+                userPrompt += `\n\n=== DIRETRIZES DE PROFUNDIDADE NÍVEL EXECUTIVO (10X) ===
+Esta seção deve ter profundidade técnica equivalente a um Estudo Técnico de alto nível da Administração Federal. 
+REGRA DE OURO: Explore intensamente as variáveis práticas da contratação. Explique os "porquês" (teoria) e "comos" (prática). Se houver dados de herança do formulário, detalhe-os. Cite a Lei 14.133/2021 de forma pertinente. Um texto com menos de 3 parágrafos robustos será rejeitado pela auditoria. Desenvolva o raciocínio integralmente. NUNCA resuma ou entregue apenas tópicos superficiais.`;
             }
 
             // ─── BUSCA NA BASE DE CONHECIMENTO (RAG) ───
             // RAG via embeddings is skipped when no embedding API is available
             // The document-generator will still produce high-quality output using instructions
             let knowledgeContext = ''
+            const openAiKey = Deno.env.get('OPENAI_API_KEY')
+            if (openAiKey) {
+                try {
+                    // 1. Vetorizar a instrução da seção para achar contexto semântico
+                    const embedResp = await fetch('https://api.openai.com/v1/embeddings', {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${openAiKey}`, 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ input: `${actualDocType} ${section.title} ${section.instructions}`, model: 'text-embedding-3-small' })
+                    })
 
-            let baseSystemPrompt = `Você é um especialista em licitações públicas brasileiras (Lei 14.133/2021). Seu objetivo é redigir partes de documentos públicos com linguagem formal, obedecendo às exigências legais, à economicidade e à precisão técnica.
+                    if (embedResp.ok) {
+                        const embedData = await embedResp.json()
+                        const embedding = embedData.data?.[0]?.embedding
 
-REGRAS DE BLINDAGEM JURÍDICA (MANDATÓRIO):
-1. No DFD, você DEVE SEMPRE citar o Decreto Federal 10.947/2022 (Plano de Contratações Anual - PCA) como fundamento da necessidade.
-2. NUNCA cite a Lei 8.987/1995 em documentos de compras e serviços comuns (dedetização, vigilância, materiais); ela é exclusiva para concessões e permissões.
-3. No DFD, evite o exagero jurídico de citar a Lei 12.305/2010 (Resíduos Sólidos) ou Súmulas do TCU (ex: Súmula 257); guarde estas para o ETP ou TR se houver impacto ambiental real.
-4. Utilize o Artigo 18 da Lei 14.133/2021 em sua plenitude para fundamentar a fase preparatória da licitação.
-5. Se o documento tratar de pesquisa de preços, mencione a IN SEGES 65/2021.`;
+                        if (embedding) {
+                            // 2. Buscar normativas e templates do órgão
+                            const { data: chunks } = await supabase.rpc('match_knowledge_chunks', {
+                                p_org_id: doc.org_id,
+                                p_embedding: embedding,
+                                p_match_threshold: 0.70,
+                                p_match_count: 3
+                            })
 
-            if (doc.tipo === 'ETP') {
-                baseSystemPrompt = `Você é um Agente Especialista de Planejamento da Contratação Sênior (Lei 14.133/2021). Sua missão é redigir a seção de um Estudo Técnico Preliminar (ETP) de EXTREMA PROFUNDIDADE E ROBUSTEZ TÉCNICA (Nível "Padrão Ouro" da Administração Pública Federal).
-Você deve esgotar o tema da seção atual. Um ETP excelente deve ser exaustivo (modelos reais ultrapassam 30 páginas). Para esta seção específica, produza um conteúdo EXTREMAMENTE DETALHADO, fundamentado, prevendo cenários práticos, riscos mitigados, justificativas detalhadas e jurisprudência aplicável. Desenvolva o texto de forma magistral, analítica e minuciosa, como se fosse auditado rigorosamente pelo TCU. A quantidade e qualidade da informação entregue devem ser excepcionais.
-\n` + baseSystemPrompt;
+                            if (chunks && chunks.length > 0) {
+                                knowledgeContext = chunks.map((c: any) => `Documento Fonte Normativo [${c.doc_title}]:\n${c.content_text}`).join('\n\n')
+                            }
+                        }
+                    }
+                } catch (ragErr) {
+                    console.error(`[RAG] Erro ao buscar contexto para seção ${section.section_id}:`, ragErr)
+                }
             }
+
+            let baseSystemPrompt = `Você é um ESPECIALISTA SÊNIOR em licitações públicas brasileiras, trabalhando como braço direito tecnológico (IA) em Planejamento da Contratação com foco principal na Lei 14.133/2021.
+Sua missão inegociável é produzir documentos públicos EXAUSTIVOS, EXTREMAMENTE ROBUSTOS E COMPLETOS. Proibido produzir respostas genéricas, curtas (de apenas uma linha) ou superficiais.
+
+REGRAS DE FORMATAÇÃO E BLINDAGEM (MANDATÓRIO):
+1. **PROFUNDIDADE OBRIGATÓRIA**: Todo parágrafo gerado deve ser denso e explicativo. Utilize no mínimo centenas de palavras por seção abordando risco, logística, embasamento jurídico e contexto operacional.
+2. Contexto Externo: Se na herança ou formulário houver referências a pesquisas no PNCP, relatórios, ETPs anteriores, inclua ativamente esses dados para rechear a justificativa.
+3. No DFD, cite SEMPRE o Decreto Federal 10.947/2022 (Plano de Contratações Anual - PCA) e o Artigo 18 da Lei 14.133/2021.
+4. NUNCA cite a Lei 8.987/1995 (concessões) em compras/serviços comuns.
+5. Se for mencionar justificativa de preço ou pesquisa mercadológica (PNCP), referencie a IN SEGES 65/2021.
+6. APROVEITAMENTO DE DADOS: O sistema pode enviar em "DADOS DA CONTRATAÇÃO" informações originadas de templates ou outros documentos. Integre inteligentemente essas variáveis produzindo um documento maduro, pronto para assinatura do gestor com o mínimo de edições redacionais posteriores.`;
 
             const systemPrompt = baseSystemPrompt + (knowledgeContext
                 ? `\n\nATENÇÃO MÁXIMA - BASE LEGAL EXTRAÍDA DA BASE DE CONHECIMENTO DO ÓRGÃO:\nVocê DEVE pautar a sua formatação e referências jurídicas UTILIZANDO ESTRITAMENTE o contexto normativo ou template fornecido abaixo.\n\n=== CONTEXTO INSTITUCIONAL (RAG) ===\n${knowledgeContext}\n====================================`
                 : '')
 
-            console.log(`[ORCHESTRATOR] Invocando document-generator para seção ${section.section_id} (doc_type: ${doc.tipo})...`)
+            console.log(`[ORCHESTRATOR] Invocando document-generator para seção ${section.section_id} (doc_type: ${actualDocType})...`)
 
             try {
                 // ─── Delegar ao document-generator (multi-modelo + fallback + logging) ───
                 const { data: genData, error: genError } = await supabase.functions.invoke('document-generator', {
                     body: {
-                        tipo_documento: doc.tipo?.toLowerCase() || 'etp',
+                        tipo_documento: actualDocType.toLowerCase() || 'etp',
                         tipo_operacao: 'geracao',
                         system_prompt: systemPrompt,
                         user_prompt: userPrompt,

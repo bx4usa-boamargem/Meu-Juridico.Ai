@@ -41,3 +41,9 @@ verify_jwt = false
 
 [functions.roi-calculator]
 verify_jwt = false
+
+[functions.daily-api-sync]
+verify_jwt = false
+
+[functions.weekly-ai-extraction]
+verify_jwt = false

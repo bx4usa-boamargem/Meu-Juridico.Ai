@@ -3,10 +3,10 @@
 // Alinhados com o Data Model (data_model.sql)
 // ============================================================
 
-export type DocumentType = 'dfd' | 'etp' | 'tr' | 'edital' | 'contrato' | 'parecer_juridico' | 'portaria_designacao';
+export type DocumentType = 'pca' | 'dfd' | 'etp' | 'tr' | 'edital' | 'contrato' | 'parecer_juridico' | 'portaria_designacao';
 export type DocumentStatus = 'rascunho' | 'em_elaboracao' | 'em_revisao' | 'em_ajuste' | 'aprovado' | 'finalizado' | 'arquivado';
 export type SectionStatus = 'empty' | 'draft' | 'ai_generated' | 'user_edited' | 'validated' | 'approved';
-export type AgentId = 'AGENT_ADMIN' | 'AGENT_LICIT' | 'AGENT_JURIDICO' | 'AGENT_CONTROLE_INTERNO' | 'AGENT_RESEARCH' | 'AGENT_CONSOLIDATOR' | 'AGENT_RENDER';
+export type AgentId = 'AGENT_ADMIN' | 'AGENT_LICIT' | 'AGENT_JURIDICO' | 'AGENT_PROCURADOR_SUPREMO' | 'AGENT_CONTROLE_INTERNO' | 'AGENT_INTELIGENCIA_CRUZADA' | 'AGENT_RESEARCH' | 'AGENT_CONSOLIDATOR' | 'AGENT_RENDER';
 export type ExecutionStage = 'PLAN' | 'GENERATE_SECTION' | 'VALIDATE_SECTION' | 'CONSOLIDATE' | 'FINALIZE';
 export type AiJobStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
 
