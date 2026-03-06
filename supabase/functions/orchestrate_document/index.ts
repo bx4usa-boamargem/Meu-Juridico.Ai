@@ -74,20 +74,41 @@ serve(async (req) => {
         const provider = await getOrgProvider(supabase as any, '')
         console.log(`[ORCHESTRATOR] Usando provedor LLM configurado: ${provider}`)
 
-        // ─── 2. CARREGAR TEMPLATE ───
-        const { data: template, error: tmplError } = await supabase
+        // ─── 2. CARREGAR TEMPLATE (multi-row format) ───
+        const { data: templateRows, error: tmplError } = await supabase
             .from('document_templates')
-            .select('sections_plan')
+            .select('section_id, title, order_index, required, instructions, agent, skill')
             .eq('doc_type', actualDocType.toLowerCase())
-            .single()
+            .not('section_id', 'is', null)
+            .order('order_index')
 
-        if (tmplError || !template) {
-            throw new Error(`Template not found for ${actualDocType}`)
+        let sectionsPlan: any[] = []
+
+        if (!tmplError && templateRows && templateRows.length > 0) {
+            // New multi-row format
+            sectionsPlan = templateRows.map((r: any) => ({
+                section_id: r.section_id,
+                title: r.title,
+                order_index: r.order_index ?? 0,
+                required: r.required ?? true,
+                instructions: r.instructions ?? '',
+            }))
+        } else {
+            // Fallback: legacy single-row with sections_plan JSONB
+            const { data: legacy, error: legacyErr } = await supabase
+                .from('document_templates')
+                .select('sections_plan')
+                .eq('doc_type', actualDocType.toLowerCase())
+                .maybeSingle()
+
+            if (legacyErr || !legacy || !legacy.sections_plan) {
+                throw new Error(`Template not found for ${actualDocType}`)
+            }
+
+            sectionsPlan = Array.isArray(legacy.sections_plan)
+                ? legacy.sections_plan
+                : (JSON.parse(legacy.sections_plan as string) || [])
         }
-
-        const sectionsPlan = Array.isArray(template.sections_plan)
-            ? template.sections_plan
-            : (JSON.parse(template.sections_plan as string) || [])
 
         sectionsPlan.sort((a: any, b: any) => (a.order_index || 0) - (b.order_index || 0))
 
