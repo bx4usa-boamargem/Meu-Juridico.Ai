@@ -7,8 +7,6 @@ import { Plus, Search, FolderKanban, LayoutGrid, List } from "lucide-react";
 import { NovoProcessoDialog } from "@/components/NovoProcessoDialog";
 import { ProcessCard } from "@/components/ProcessCard";
 import { KanbanBoard } from "@/components/KanbanBoard";
-import { useAuth } from "@/hooks/useAuth";
-import { cn } from "@/lib/utils";
 
 type ViewMode = "kanban" | "list";
 
@@ -16,7 +14,6 @@ export default function Processos() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [viewMode, setViewMode] = useState<ViewMode>("kanban");
-  const { user, loading: authLoading } = useAuth();
 
   const { data: processos, isLoading, refetch } = useQuery({
     queryKey: ["processos"],
@@ -51,10 +48,7 @@ export default function Processos() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-semibold tracking-tight">Processos</h1>
-          <p className="text-sm text-muted-foreground">
-            Gerencie seus processos licitatórios
-            {user && <span className="ml-1">— {user.email}</span>}
-          </p>
+          <p className="text-sm text-muted-foreground">Gerencie seus processos licitatórios</p>
         </div>
         <Button size="sm" onClick={() => setDialogOpen(true)}>
           <Plus className="h-4 w-4 mr-1" /> Novo Processo
