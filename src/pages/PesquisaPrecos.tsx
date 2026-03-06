@@ -7,14 +7,15 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import {
   Search, Sparkles, Check, ExternalLink, MapPin, Building2,
-  Hash, Package, Users, Tag,
+  Hash, Package, Users, TrendingDown, ArrowRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // ── Mock data ────────────────────────────────────────────────────────────────
 const MOCK_INSIGHT = {
-  text: "Encontrei notebooks com preços homologados e descrições consistentes, em uma faixa realista (aprox. de R$ 2.300 a R$ 7.800, variando conforme configuração). Descartei os resultados de leilão e itens com valores muito baixos/altos ou que não eram notebooks (ex.: caderno, suporte).",
+  text: "Encontrei 6 cotações de notebooks com preços homologados entre R$ 2.349 e R$ 7.798. Descartei itens de leilão, valores inconsistentes e produtos que não correspondem à descrição solicitada.",
   count: 6,
+  savings: "49,3%",
 };
 
 interface Cotacao {
@@ -44,105 +45,85 @@ interface Cotacao {
 
 const MOCK_COTACOES: Cotacao[] = [
   {
-    id: "1",
-    valor: 3599.0,
-    valorEstimado: 7096.64,
-    descricao: "notebook / ultrabook",
-    categoria: "Material",
-    uf: "SP",
-    orgao: "MUNICIPIO DE ATIBAIA",
+    id: "1", valor: 3599.0, valorEstimado: 7096.64,
+    descricao: "Notebook Ultrabook 14\" i5 16GB SSD 512GB", categoria: "Material",
+    uf: "SP", orgao: "MUNICIPIO DE ATIBAIA",
     orgaoCompleto: "Prefeitura Municipal da Estância de Atibaia",
     fornecedor: "IRMAOS RIGO COMERCIO E ASSISTENCIA EM INFORMATICA LTDA",
-    cnpj: "32.228.232/0001-98",
-    porte: "EPP",
-    tipo: "PJ",
-    dataHomologacao: "29/01/2024",
-    situacao: "Homologado",
-    unidade: "Unidade",
-    quantidade: 315,
-    valorTotal: 2235441.6,
-    valorTotalHomologado: 1133685.0,
-    item: 1,
-    srp: true,
-    esfera: "Municipal",
-    municipio: "Atibaia",
+    cnpj: "32.228.232/0001-98", porte: "EPP", tipo: "PJ",
+    dataHomologacao: "29/01/2024", situacao: "Homologado",
+    unidade: "Unidade", quantidade: 315,
+    valorTotal: 2235441.6, valorTotalHomologado: 1133685.0,
+    item: 1, srp: true, esfera: "Municipal", municipio: "Atibaia",
   },
   {
-    id: "2",
-    valor: 3599.0,
-    valorEstimado: 5200.0,
-    descricao: "notebook / ultrabook",
-    categoria: "Material",
-    uf: "SP",
-    orgao: "MUNICIPIO DE CAMPINAS",
+    id: "2", valor: 3599.0, valorEstimado: 5200.0,
+    descricao: "Notebook Corporativo 15.6\" i5 8GB SSD 256GB", categoria: "Material",
+    uf: "SP", orgao: "MUNICIPIO DE CAMPINAS",
     orgaoCompleto: "Prefeitura Municipal de Campinas",
     fornecedor: "TECH SOLUTIONS INFORMATICA LTDA",
-    cnpj: "15.443.221/0001-45",
-    porte: "ME",
-    tipo: "PJ",
-    dataHomologacao: "29/01/2024",
-    situacao: "Homologado",
-    unidade: "Unidade",
-    quantidade: 120,
-    valorTotal: 624000.0,
-    valorTotalHomologado: 431880.0,
-    item: 1,
-    srp: false,
-    esfera: "Municipal",
-    municipio: "Campinas",
+    cnpj: "15.443.221/0001-45", porte: "ME", tipo: "PJ",
+    dataHomologacao: "29/01/2024", situacao: "Homologado",
+    unidade: "Unidade", quantidade: 120,
+    valorTotal: 624000.0, valorTotalHomologado: 431880.0,
+    item: 1, srp: false, esfera: "Municipal", municipio: "Campinas",
   },
   {
-    id: "3",
-    valor: 7798.0,
-    valorEstimado: 9500.0,
-    descricao: "notebook avançado",
-    categoria: "Material",
-    uf: "SC",
-    orgao: "GOVERNO DO ESTADO DE SC",
+    id: "3", valor: 7798.0, valorEstimado: 9500.0,
+    descricao: "Notebook Avançado 14\" i7 32GB SSD 1TB", categoria: "Material",
+    uf: "SC", orgao: "GOVERNO DO ESTADO DE SC",
     orgaoCompleto: "Secretaria de Administração de Santa Catarina",
     fornecedor: "DELL COMPUTADORES DO BRASIL LTDA",
-    cnpj: "72.381.189/0010-25",
-    porte: "Grande Empresa",
-    tipo: "PJ",
-    dataHomologacao: "19/01/2024",
-    situacao: "Homologado",
-    unidade: "Peça",
-    quantidade: 50,
-    valorTotal: 475000.0,
-    valorTotalHomologado: 389900.0,
-    item: 3,
-    srp: true,
-    esfera: "Estadual",
-    municipio: "",
+    cnpj: "72.381.189/0010-25", porte: "Grande Empresa", tipo: "PJ",
+    dataHomologacao: "19/01/2024", situacao: "Homologado",
+    unidade: "Peça", quantidade: 50,
+    valorTotal: 475000.0, valorTotalHomologado: 389900.0,
+    item: 3, srp: true, esfera: "Estadual", municipio: "",
   },
   {
-    id: "4",
-    valor: 2349.0,
-    valorEstimado: 4100.0,
-    descricao: "notebook básico educacional",
-    categoria: "Material",
-    uf: "MG",
-    orgao: "PREFEITURA DE BELO HORIZONTE",
+    id: "4", valor: 2349.0, valorEstimado: 4100.0,
+    descricao: "Notebook Básico Educacional 14\" Celeron 4GB", categoria: "Material",
+    uf: "MG", orgao: "PREFEITURA DE BH",
     orgaoCompleto: "Prefeitura Municipal de Belo Horizonte",
     fornecedor: "POSITIVO TECNOLOGIA S.A.",
-    cnpj: "81.243.735/0001-48",
-    porte: "Grande Empresa",
-    tipo: "PJ",
-    dataHomologacao: "15/02/2024",
-    situacao: "Homologado",
-    unidade: "Unidade",
-    quantidade: 800,
-    valorTotal: 3280000.0,
-    valorTotalHomologado: 1879200.0,
-    item: 2,
-    srp: true,
-    esfera: "Municipal",
-    municipio: "Belo Horizonte",
+    cnpj: "81.243.735/0001-48", porte: "Grande Empresa", tipo: "PJ",
+    dataHomologacao: "15/02/2024", situacao: "Homologado",
+    unidade: "Unidade", quantidade: 800,
+    valorTotal: 3280000.0, valorTotalHomologado: 1879200.0,
+    item: 2, srp: true, esfera: "Municipal", municipio: "Belo Horizonte",
+  },
+  {
+    id: "5", valor: 4250.0, valorEstimado: 6800.0,
+    descricao: "Notebook Intermediário 15.6\" Ryzen 5 16GB SSD 512GB", categoria: "Material",
+    uf: "RJ", orgao: "GOVERNO DO ESTADO DO RJ",
+    orgaoCompleto: "Secretaria de Estado de Fazenda do Rio de Janeiro",
+    fornecedor: "LENOVO TECNOLOGIA BRASIL LTDA",
+    cnpj: "07.275.920/0001-61", porte: "Grande Empresa", tipo: "PJ",
+    dataHomologacao: "05/03/2024", situacao: "Homologado",
+    unidade: "Unidade", quantidade: 200,
+    valorTotal: 1360000.0, valorTotalHomologado: 850000.0,
+    item: 2, srp: true, esfera: "Estadual", municipio: "",
+  },
+  {
+    id: "6", valor: 5890.0, valorEstimado: 8200.0,
+    descricao: "Notebook Profissional 14\" i7 16GB SSD 512GB Touch", categoria: "Material",
+    uf: "DF", orgao: "SENADO FEDERAL",
+    orgaoCompleto: "Senado Federal - Secretaria de Administração",
+    fornecedor: "HP BRASIL INDUSTRIA E COMERCIO LTDA",
+    cnpj: "61.797.924/0007-40", porte: "Grande Empresa", tipo: "PJ",
+    dataHomologacao: "12/02/2024", situacao: "Homologado",
+    unidade: "Unidade", quantidade: 80,
+    valorTotal: 656000.0, valorTotalHomologado: 471200.0,
+    item: 1, srp: false, esfera: "Federal", municipio: "",
   },
 ];
 
 function formatBRL(value: number) {
   return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
+function getDiscount(estimado: number, homologado: number) {
+  return ((1 - homologado / estimado) * 100).toFixed(1);
 }
 
 export default function PesquisaPrecos() {
@@ -158,40 +139,54 @@ export default function PesquisaPrecos() {
 
   return (
     <div className="p-6 max-w-[1600px] mx-auto space-y-4">
+      {/* Header */}
+      <div>
+        <h1 className="text-xl font-semibold tracking-tight">Pesquisa de Preços</h1>
+        <p className="text-sm text-muted-foreground">Consulte preços homologados do PNCP com auxílio da IA</p>
+      </div>
+
       {/* Search bar */}
       <div className="relative max-w-lg">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          placeholder="Buscar item no PNCP..."
+          placeholder="Buscar item no PNCP (ex: notebook, cadeira ergonômica)..."
           className="pl-9 text-base"
         />
       </div>
 
       <div className="flex gap-6 items-start">
-        {/* LEFT PANEL - AI Picks */}
-        <div className="w-[420px] shrink-0 space-y-4">
-          {/* AI Insight card */}
-          <Card className="border-primary/20 bg-primary/[0.02]">
-            <CardContent className="p-4 space-y-2">
+        {/* LEFT PANEL */}
+        <div className="w-[400px] shrink-0 space-y-3">
+          {/* AI Insight */}
+          <Card className="border-primary/30 bg-primary/[0.03] shadow-sm">
+            <CardContent className="p-4 space-y-3">
               <div className="flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-primary" />
+                <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Sparkles className="h-3.5 w-3.5 text-primary" />
+                </div>
                 <span className="text-sm font-semibold">Escolhas da IA</span>
-                <Badge variant="secondary" className="text-[10px]">{MOCK_INSIGHT.count}</Badge>
+                <Badge variant="secondary" className="text-[10px] ml-auto">{MOCK_INSIGHT.count} resultados</Badge>
               </div>
               <p className="text-xs text-muted-foreground leading-relaxed">
                 {MOCK_INSIGHT.text}
               </p>
+              <div className="flex items-center gap-2 pt-1">
+                <Badge className="bg-success/10 text-success border-success/20 text-[10px] gap-1">
+                  <TrendingDown className="h-2.5 w-2.5" /> Economia média de {MOCK_INSIGHT.savings}
+                </Badge>
+              </div>
             </CardContent>
           </Card>
 
           {/* Cotações list */}
-          <ScrollArea className="h-[calc(100vh-280px)]">
-            <div className="space-y-3 pr-2">
+          <ScrollArea className="h-[calc(100vh-320px)]">
+            <div className="space-y-2.5 pr-2">
               {MOCK_COTACOES.map((cot) => {
                 const isSelected = selectedId === cot.id;
                 const isAdded = addedIds.has(cot.id);
+                const discount = getDiscount(cot.valorEstimado, cot.valor);
                 return (
                   <Card
                     key={cot.id}
@@ -203,49 +198,48 @@ export default function PesquisaPrecos() {
                     )}
                     onClick={() => setSelectedId(cot.id)}
                   >
-                    <CardContent className="p-4 space-y-2.5">
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-center gap-2">
-                          <span className="text-lg font-bold text-primary">
-                            {formatBRL(cot.valor)}
-                          </span>
-                          <Badge className="bg-success/10 text-success border-success/20 text-[10px] gap-0.5">
-                            <Sparkles className="h-2.5 w-2.5" /> IA
-                          </Badge>
+                    <CardContent className="p-3.5 space-y-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <div className="flex items-center gap-1.5 mb-0.5">
+                            <span className="text-base font-bold text-foreground">
+                              {formatBRL(cot.valor)}
+                            </span>
+                            <Badge className="bg-success/10 text-success border-success/20 text-[9px] gap-0.5 h-4">
+                              <Sparkles className="h-2 w-2" /> IA
+                            </Badge>
+                          </div>
+                          <p className="text-[11px] text-muted-foreground">
+                            Homologado · {cot.unidade} · -{discount}%
+                          </p>
                         </div>
                         <Button
                           size="sm"
                           variant={isAdded ? "secondary" : "default"}
-                          className="text-xs h-7"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleAdd(cot.id);
-                          }}
+                          className="text-[11px] h-7 px-2.5"
+                          onClick={(e) => { e.stopPropagation(); handleAdd(cot.id); }}
                           disabled={isAdded}
                         >
-                          <Check className="h-3 w-3 mr-1" />
+                          <Check className="h-3 w-3 mr-0.5" />
                           {isAdded ? "Adicionado" : "Adicionar"}
                         </Button>
                       </div>
 
-                      <p className="text-xs text-muted-foreground">
-                        Homologado - {formatBRL(cot.valor)} ({cot.unidade})
-                      </p>
-                      <p className="text-xs text-muted-foreground">{cot.descricao}</p>
+                      <p className="text-xs text-muted-foreground line-clamp-1">{cot.descricao}</p>
 
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-[10px] flex items-center gap-1 px-1.5 py-0.5 rounded bg-accent">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-[10px] flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-accent text-accent-foreground">
                           <MapPin className="h-2.5 w-2.5" /> {cot.uf}
                         </span>
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-accent">
-                          Homologado
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-accent text-accent-foreground">
+                          {cot.esfera}
                         </span>
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-accent">
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-accent text-accent-foreground">
                           {cot.dataHomologacao}
                         </span>
-                        {cot.municipio && (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-accent">
-                            {cot.municipio}
+                        {cot.srp && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-medium">
+                            SRP
                           </span>
                         )}
                       </div>
@@ -255,139 +249,118 @@ export default function PesquisaPrecos() {
               })}
             </div>
           </ScrollArea>
+
+          {/* Summary */}
+          {addedIds.size > 0 && (
+            <Card className="bg-success/5 border-success/20">
+              <CardContent className="p-3 flex items-center justify-between">
+                <span className="text-xs text-success font-medium">
+                  {addedIds.size} {addedIds.size === 1 ? "item selecionado" : "itens selecionados"}
+                </span>
+                <Button size="sm" className="h-7 text-xs bg-success hover:bg-success/90 text-success-foreground">
+                  Usar na cesta <ArrowRight className="h-3 w-3 ml-1" />
+                </Button>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
-        {/* RIGHT PANEL - Detail */}
+        {/* RIGHT PANEL */}
         <div className="flex-1 min-w-0">
           <Card className="sticky top-6">
-            <CardContent className="p-6 space-y-6">
+            <CardContent className="p-6 space-y-5">
               {/* Header */}
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <h2 className="text-lg font-semibold">
-                    Homologado - {formatBRL(selected.valor)} ({selected.unidade})
-                  </h2>
-                  <p className="text-sm text-muted-foreground mt-1">{selected.descricao}</p>
+                  <div className="flex items-center gap-2 mb-1">
+                    <Badge className="bg-success/10 text-success border-success/20 text-[10px]">{selected.situacao}</Badge>
+                    <Badge variant="outline" className="text-[10px]">{selected.esfera}</Badge>
+                  </div>
+                  <h2 className="text-base font-semibold">{selected.descricao}</h2>
+                  <p className="text-xs text-muted-foreground mt-1">{selected.orgaoCompleto}</p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
-                  <Button size="sm" className="bg-success hover:bg-success/90 text-success-foreground gap-1.5">
-                    <ExternalLink className="h-3.5 w-3.5" />
-                    Ver no PNCP
+                  <Button size="sm" className="bg-primary hover:bg-primary/90 gap-1.5 text-xs">
+                    <ExternalLink className="h-3.5 w-3.5" /> Ver no PNCP
                   </Button>
-                  <Button size="sm" variant="outline" className="gap-1.5">
-                    <ExternalLink className="h-3.5 w-3.5" />
-                    Ver na plataforma de origem
+                  <Button size="sm" variant="outline" className="gap-1.5 text-xs">
+                    <ExternalLink className="h-3.5 w-3.5" /> Plataforma de origem
                   </Button>
                 </div>
               </div>
 
               {/* Badges */}
-              <div className="flex flex-wrap gap-2">
-                <Badge variant="outline" className="gap-1 text-xs">
+              <div className="flex flex-wrap gap-1.5">
+                <Badge variant="outline" className="gap-1 text-[11px]">
                   <Hash className="h-3 w-3" /> Item {selected.item}
                 </Badge>
-                <Badge variant="outline" className="gap-1 text-xs">
+                <Badge variant="outline" className="gap-1 text-[11px]">
                   <Package className="h-3 w-3" /> {selected.categoria}
                 </Badge>
-                <Badge variant="outline" className="gap-1 text-xs">
+                <Badge variant="outline" className="gap-1 text-[11px]">
                   <Building2 className="h-3 w-3" /> {selected.orgao}
                 </Badge>
-                <Badge variant="outline" className="gap-1 text-xs">
-                  {selected.orgaoCompleto}
+                <Badge variant="outline" className="gap-1 text-[11px]">
+                  <MapPin className="h-3 w-3" /> {selected.municipio || selected.uf}
                 </Badge>
-                <Badge variant="outline" className="gap-1 text-xs">
-                  <Users className="h-3 w-3" /> {selected.fornecedor.split(" ").slice(0, 3).join(" ")}...
-                </Badge>
-                <Badge variant="outline" className="gap-1 text-xs">
-                  <MapPin className="h-3 w-3" /> {selected.municipio || selected.uf} - {selected.uf}
+                <Badge variant="outline" className="gap-1 text-[11px]">
+                  <Users className="h-3 w-3" /> {selected.porte}
                 </Badge>
               </div>
 
               <Separator />
 
-              {/* Value comparison */}
-              <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
-                <div className="p-4 rounded-lg border bg-card space-y-1">
-                  <p className="text-xs text-muted-foreground font-medium">Valor Estimado</p>
-                  <p className="text-2xl font-bold text-primary">{formatBRL(selected.valorEstimado)}</p>
-                  <p className="text-xs text-muted-foreground">
+              {/* Value comparison boxes */}
+              <div className="grid grid-cols-3 gap-4">
+                <div className="rounded-xl border-2 border-muted p-5 space-y-1 text-center">
+                  <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wide">Valor Estimado</p>
+                  <p className="text-2xl font-bold text-foreground">{formatBRL(selected.valorEstimado)}</p>
+                  <p className="text-[11px] text-muted-foreground">
                     Total: {formatBRL(selected.valorTotal)}
                   </p>
-                  <p className="text-xs text-muted-foreground">
-                    {selected.quantidade} {selected.unidade}
-                  </p>
                 </div>
 
-                <div className="p-4 rounded-lg border bg-card space-y-1">
-                  <p className="text-xs text-muted-foreground font-medium">Valor Homologado</p>
+                <div className="rounded-xl border-2 border-success/30 bg-success/[0.03] p-5 space-y-1 text-center">
+                  <p className="text-[11px] text-success font-medium uppercase tracking-wide">Valor Homologado</p>
                   <p className="text-2xl font-bold text-success">{formatBRL(selected.valor)}</p>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-[11px] text-muted-foreground">
                     Total: {formatBRL(selected.valorTotalHomologado)}
                   </p>
-                  <p className="text-xs text-muted-foreground">{selected.fornecedor.slice(0, 30)}...</p>
                 </div>
 
-                <div className="p-4 rounded-lg border bg-card space-y-1">
-                  <p className="text-xs text-muted-foreground font-medium">Situação</p>
-                  <Badge className="bg-success/10 text-success border-success/20 mt-1">
-                    {selected.situacao}
-                  </Badge>
-                  <p className="text-xs text-muted-foreground mt-2">
-                    Menor preço
+                <div className="rounded-xl border-2 border-primary/30 bg-primary/[0.03] p-5 space-y-1 text-center">
+                  <p className="text-[11px] text-primary font-medium uppercase tracking-wide">Economia</p>
+                  <p className="text-2xl font-bold text-primary">
+                    -{getDiscount(selected.valorEstimado, selected.valor)}%
                   </p>
-                  <p className="text-xs text-muted-foreground">
-                    SRP: {selected.srp ? "Sim" : "Não"}
+                  <p className="text-[11px] text-muted-foreground">
+                    {formatBRL(selected.valorEstimado - selected.valor)}/un
                   </p>
                 </div>
               </div>
 
               <Separator />
 
-              {/* Result details */}
+              {/* Details grid */}
               <div className="grid grid-cols-2 gap-6">
                 <div className="space-y-4">
-                  <h3 className="text-sm font-semibold">Resultado</h3>
+                  <h3 className="text-sm font-semibold">Resultado da Licitação</h3>
                   <div className="space-y-3 text-sm">
-                    <div>
-                      <p className="text-muted-foreground text-xs">Fornecedor</p>
-                      <p className="font-medium">{selected.fornecedor}</p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground text-xs">Tipo do Fornecedor</p>
-                      <p className="font-medium">{selected.tipo}</p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground text-xs">Valor unitário homologado</p>
-                      <p className="font-medium text-success">{formatBRL(selected.valor)}</p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground text-xs">Quantidade homologada</p>
-                      <p className="font-medium">{selected.quantidade}</p>
-                    </div>
+                    <DetailRow label="Fornecedor" value={selected.fornecedor} />
+                    <DetailRow label="CNPJ" value={selected.cnpj} />
+                    <DetailRow label="Tipo" value={`${selected.tipo} · ${selected.porte}`} />
+                    <DetailRow label="Valor unitário" value={formatBRL(selected.valor)} highlight />
+                    <DetailRow label="Quantidade" value={`${selected.quantidade} ${selected.unidade}`} />
                   </div>
                 </div>
-
                 <div className="space-y-4">
-                  <h3 className="text-sm font-semibold">Edital</h3>
+                  <h3 className="text-sm font-semibold">Informações do Edital</h3>
                   <div className="space-y-3 text-sm">
-                    <div>
-                      <p className="text-muted-foreground text-xs">CNPJ/CPF do Fornecedor</p>
-                      <p className="font-medium">{selected.cnpj}</p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground text-xs">Porte do Fornecedor</p>
-                      <p className="font-medium">{selected.porte}</p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground text-xs">Valor total homologado</p>
-                      <p className="font-medium text-success">{formatBRL(selected.valorTotalHomologado)}</p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground text-xs">Percentual de desconto</p>
-                      <p className="font-medium">
-                        {((1 - selected.valor / selected.valorEstimado) * 100).toFixed(2)}%
-                      </p>
-                    </div>
+                    <DetailRow label="Data de homologação" value={selected.dataHomologacao} />
+                    <DetailRow label="SRP" value={selected.srp ? "Sim" : "Não"} />
+                    <DetailRow label="Esfera" value={selected.esfera} />
+                    <DetailRow label="Valor total estimado" value={formatBRL(selected.valorTotal)} />
+                    <DetailRow label="Valor total homologado" value={formatBRL(selected.valorTotalHomologado)} highlight />
                   </div>
                 </div>
               </div>
@@ -395,6 +368,15 @@ export default function PesquisaPrecos() {
           </Card>
         </div>
       </div>
+    </div>
+  );
+}
+
+function DetailRow({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
+  return (
+    <div>
+      <p className="text-muted-foreground text-xs">{label}</p>
+      <p className={cn("font-medium", highlight && "text-success")}>{value}</p>
     </div>
   );
 }
