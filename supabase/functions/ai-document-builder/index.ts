@@ -123,26 +123,7 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     const docType = doc_type ?? "dfd";
-    let sections = DOC_SECTIONS[docType];
-
-    if (!sections) {
-      const { data: dbSections, error: dbError } = await supabase
-        .from("document_templates")
-        .select("section_id, title, order_index, required, instructions")
-        .eq("doc_type", docType)
-        .order("order_index");
-
-      if (!dbError && dbSections && dbSections.length > 0) {
-        sections = dbSections.map((s: any) => ({
-          id: s.section_id,
-          label: s.title,
-          fields: [s.section_id],
-          instructions: s.instructions || "Preencha o conteúdo desta seção detalhadamente"
-        }));
-      } else {
-        sections = DOC_SECTIONS.dfd;
-      }
-    }
+    const sections = DOC_SECTIONS[docType] ?? DOC_SECTIONS.dfd;
 
     // ── Parallel context gathering ─────────────────────────────────
     const [ragResult, alertsResult, processoResult] = await Promise.all([
@@ -223,10 +204,10 @@ Deno.serve(async (req) => {
     const allFields = sections.flatMap(s => s.fields).filter(f => f !== "objeto_contratacao" && f !== "objeto");
     const fieldsSchema = allFields.map(f => `"${f}": { "valor": "string", "confianca": "alta|media|baixa", "fontes": ["string"], "sugestao_melhoria": "string" }`).join(",\n  ");
 
-    // CORREÇÃO 3: Updated prompt with strict instructions not to invent data and ADDED DEEP GENERATION RULES
-    const systemPrompt = `Você é um ESPECIALISTA SÊNIOR em contratações públicas brasileiras (Lei 14.133/2021).
-    
-Seu trabalho é SUGERIR preenchimento EXAUSTIVO E ROBUSTO dos campos de um ${docType.toUpperCase()} com base no objeto da contratação informado pelo usuário.
+    // CORREÇÃO 3: Updated prompt with strict instructions not to invent data
+    const systemPrompt = `Você é um agente especialista em contratações públicas brasileiras (Lei 14.133/2021).
+
+Seu trabalho é SUGERIR preenchimento dos campos de um ${docType.toUpperCase()} com base no objeto da contratação informado pelo usuário.
 
 ## CONTEXTO DO PROCESSO
 - Objeto: ${objeto}
@@ -240,20 +221,27 @@ ${sections.map(s => `### ${s.label}\nCampos: ${s.fields.join(", ")}\n${s.instruc
 
 ## REGRAS OBRIGATÓRIAS — LEIA COM ATENÇÃO
 
-1. **PROFUNDIDADE NÍVEL EXECUTIVO (10X)**: Este documento deve ser exaustivo e aprofundado. Desenvolva o raciocínio de forma extensa, em múltiplos parágrafos densos por campo. Explore todos os ângulos técnicos, legais e logísticos. Um texto muito curto ou em tópicos será rejeitado. Justifique metodologias e cite a Lei 14.133/2021/INs aplicáveis. NUNCA resuma!
-2. Use APENAS as informações factuais fornecidas na seção "CONTEXTO DO PROCESSO". Para preencher a "narrativa" profunda, utilize todo seu conhecimento sobre como o Governo Federal estrutura as contratações para elaborar um texto prático e de excelente redação jurídica-administrativa.
-3. Se uma informação específica (nome próprio, valor exato, dado financeiro) NÃO foi fornecida, use linguagem genérica ou placeholders na narrativa (ex: "[nome do órgão]", "[a ser apurado mediante pesquisa de preços]"), MAS mantenha a longa explanação técnica em torno do tema do campo.
-4. NUNCA invente:
-   - Secretarias ou departamentos específicos em casos particulares que você não saiba.
-   - Números de decretos que não existem.
-5. Se for DFD, obrigatoriamente fundamente a necessidade no artigo 18 da Lei 14.133/2021 e PCA (Decreto 10.947/2022). Se for ETP/TR, siga a IN SEGES 65/2021 para orçamentos e INs de serviço de acordo com a área do projeto.
-6. APROVEITAMENTO DA BASE DE CONHECIMENTO: Se houver ALERTAS ou RAG vinculados (em Contexto do Processo), referencie esse material intensamente dentro das respostas.
-7. Avalie a confiança do campo:
-   - "alta": baseado em dados concretos (RAG/Usuário)
-   - "media": texto muito bem elaborado por inferência legal
-   - "baixa": text que o usuário obrigatoriamente precisará editar placeholders sensíveis
-8. Campos como "responsavel_tecnico", "fiscal_contrato" devem ter confiança "baixa" com valor sugerido "[a ser designado pelo ordenador de despesa]"
-9. NÃO preencha o campo "objeto_contratacao" ou "objeto" sob hipótese alguma.
+1. Use APENAS as informações fornecidas pelo usuário acima.
+2. Se uma informação NÃO foi fornecida pelo usuário, use linguagem genérica com placeholders como:
+   - "[nome do órgão]" ou "[secretaria requisitante]"
+   - "[quantidade a ser definida pelo setor técnico]"
+   - "[valor a ser apurado mediante pesquisa de preços]"
+   - "[responsável a ser designado]"
+3. NUNCA invente:
+   - Nomes de secretarias, departamentos ou setores específicos
+   - Números de normas, decretos ou instruções normativas que possam não existir
+   - Quantidades, valores ou preços
+   - Nomes de pessoas, cargos específicos
+   - Dados de planejamento (PPA, LOA) que o usuário não informou
+4. Cite APENAS artigos da Lei 14.133/2021 e normas federais amplamente conhecidas.
+5. Para cada campo, avalie a confiança:
+   - "alta": baseado em dados concretos fornecidos pelo usuário ou legislação clara
+   - "media": inferido com razoável certeza a partir do objeto
+   - "baixa": sugestão genérica que o usuário DEVE revisar
+6. Em "fontes", liste APENAS normas que você tem CERTEZA que existem
+7. Seja CONCISO — máximo 3 parágrafos por campo
+8. Campos como "responsavel_tecnico", "fiscal_contrato" devem ter confiança "baixa" com valor "[a ser designado pelo ordenador de despesa]"
+9. NÃO preencha o campo "objeto_contratacao" — esse é fornecido pelo usuário
 
 Retorne APENAS um JSON válido com esta estrutura exata:
 {
@@ -307,7 +295,7 @@ Modalidade: "${processoModalidade}"`;
       for (const fieldId of section.fields) {
         // CORREÇÃO 3: Skip objeto field
         if (fieldId === "objeto_contratacao" || fieldId === "objeto") continue;
-
+        
         const fieldData = parsed[fieldId];
         if (fieldData && typeof fieldData === "object" && fieldData.valor) {
           campos[fieldId] = {

@@ -1,7 +1,7 @@
 import { supabase } from '../lib/supabase';
 
 export async function submitWizardData(data: any, userId: string, orgId: string) {
-    // 1. Iniciar pipeline de criação via serviço 
+    // 1. Iniciar pipeline de criação via serviço (similar à Correção 5, mas com os dados do Wizard e Edge Function)
 
     // a. processes
     const { data: processData, error: processErr } = await supabase
@@ -24,10 +24,16 @@ export async function submitWizardData(data: any, userId: string, orgId: string)
         throw new Error('Falha ao criar Processo (Base)');
     }
 
-    // In the data-driven model, data.template_id IS the doc_type string (e.g. 'etp')
-    const docType = data.template_id;
-    if (!docType) {
-        throw new Error('Template (doc_type) não selecionado.');
+    // Fetch the template to get the exact doc_type
+    const { data: templateData, error: templateErr } = await supabase
+        .from('document_templates')
+        .select('doc_type')
+        .eq('id', data.template_id)
+        .single();
+
+    if (templateErr || !templateData) {
+        console.error("Falha ao buscar template:", templateErr);
+        throw new Error('Falha ao buscar doc_type do Template selecionado');
     }
 
     // b. documents (status: 'generating')
@@ -37,7 +43,7 @@ export async function submitWizardData(data: any, userId: string, orgId: string)
             process_id: processData.id,
             org_id: orgId,
             created_by: userId,
-            doc_type: docType,
+            doc_type: templateData.doc_type,
             title: `Documento - ${data.tipo_objeto}`,
             status: 'em_elaboracao'
         })
@@ -46,7 +52,7 @@ export async function submitWizardData(data: any, userId: string, orgId: string)
 
     if (docErr || !docData) {
         console.error("Falha ao criar Entidade Documento:", docErr);
-        // Rollback silencioso conceitual
+        // Rollback silencioso conceitual (Apenas pra não sujar BD, idealmente via RPC, mantemos split pra simplificar Frontend sem alterar schema via regras)
         await supabase.from('processes').delete().eq('id', processData.id);
         throw new Error('Falha ao criar Entidade Documento');
     }
@@ -87,8 +93,17 @@ export async function submitWizardData(data: any, userId: string, orgId: string)
 }
 
 export async function createNextDocument(processId: string, docType: string, parentDocId: string, userId: string, orgId: string) {
-    // 1. Em novo modelo data-driven, docType já é o ID suficiente, não buscaremos is_default da tabela templates
-    const templateName = docType.toUpperCase();
+    // 1. Buscar o template padrão para este tipo
+    const { data: templateData, error: templateErr } = await supabase
+        .from('document_templates')
+        .select('id, name')
+        .eq('doc_type', docType.toLowerCase())
+        .eq('is_default', true)
+        .single();
+
+    if (templateErr || !templateData) {
+        throw new Error(`Não foi possível encontrar o template padrão para ${docType}`);
+    }
 
     // 2. Criar o documento
     const { data: docData, error: docErr } = await supabase
@@ -98,7 +113,7 @@ export async function createNextDocument(processId: string, docType: string, par
             org_id: orgId,
             created_by: userId,
             doc_type: docType.toLowerCase(),
-            title: `${templateName} - Automático`,
+            title: `${docType.toUpperCase()} - ${templateData.name}`,
             status: 'em_elaboracao',
             parent_doc_id: parentDocId
         })
@@ -125,7 +140,7 @@ export async function createNextDocument(processId: string, docType: string, par
             body: {
                 document_id: docData.id,
                 process_id: processId,
-                template_id: docType.toLowerCase(),
+                template_id: templateData.id,
                 user_id: userId,
                 parent_doc_id: parentDocId
             }
