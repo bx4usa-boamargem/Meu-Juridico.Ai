@@ -3,18 +3,12 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, FolderKanban, Clock, PlayCircle, CheckCircle2, LayoutGrid, List } from "lucide-react";
+import { Plus, Search, FolderKanban, LayoutGrid, List } from "lucide-react";
 import { NovoProcessoDialog } from "@/components/NovoProcessoDialog";
 import { ProcessCard } from "@/components/ProcessCard";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { KanbanBoard } from "@/components/KanbanBoard";
 
 type ViewMode = "kanban" | "list";
-
-const KANBAN_COLUMNS = [
-  { id: "rascunho", label: "Planejamento (Rascunho)", icon: Clock, color: "text-amber-600", bg: "bg-amber-100" },
-  { id: "ativo", label: "Em Andamento (Ativo)", icon: PlayCircle, color: "text-blue-600", bg: "bg-blue-100" },
-  { id: "finalizado", label: "Concluído", icon: CheckCircle2, color: "text-emerald-600", bg: "bg-emerald-100" },
-];
 
 export default function Processos() {
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -43,51 +37,54 @@ export default function Processos() {
     );
   });
 
-  const getProcessosByStatus = (status: string) => {
-    return filtered?.filter((p) => (p.status || "rascunho") === status) || [];
-  };
+  const processItems = (filtered ?? []).map((p) => ({
+    ...p,
+    documentos: (p.documentos ?? []) as { id: string; tipo: string | null; status: string | null; posicao_cadeia: number | null }[],
+  }));
 
   return (
-    <div className="h-screen flex flex-col p-6 space-y-4 max-w-[1600px] mx-auto overflow-hidden">
-      <div className="flex items-center justify-between shrink-0">
+    <div className="p-6 space-y-6 max-w-7xl mx-auto">
+      {/* Header */}
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Fluxo de Compras</h1>
-          <p className="text-sm text-muted-foreground mt-1">Gerencie seus processos de contratação em tempo real</p>
+          <h1 className="text-xl font-semibold tracking-tight">Processos</h1>
+          <p className="text-sm text-muted-foreground">Gerencie seus processos licitatórios</p>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="relative w-72">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Buscar por número, órgão..."
-              className="pl-9 bg-background"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
+        <Button size="sm" onClick={() => setDialogOpen(true)}>
+          <Plus className="h-4 w-4 mr-1" /> Novo Processo
+        </Button>
+      </div>
 
-          <div className="flex items-center border rounded-md p-0.5 bg-muted/50">
-            <Button
-              variant={viewMode === "kanban" ? "default" : "ghost"}
-              size="sm"
-              className="h-7 px-2.5"
-              onClick={() => setViewMode("kanban")}
-            >
-              <LayoutGrid className="h-3.5 w-3.5 mr-1" />
-              Kanban
-            </Button>
-            <Button
-              variant={viewMode === "list" ? "default" : "ghost"}
-              size="sm"
-              className="h-7 px-2.5"
-              onClick={() => setViewMode("list")}
-            >
-              <List className="h-3.5 w-3.5 mr-1" />
-              Lista
-            </Button>
-          </div>
+      {/* Search + View Toggle */}
+      <div className="flex items-center justify-between gap-3">
+        <div className="relative flex-1 max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Buscar por número, órgão ou objeto..."
+            className="pl-9"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
 
-          <Button onClick={() => setDialogOpen(true)} className="bg-primary hover:bg-primary/90">
-            <Plus className="h-4 w-4 mr-2" /> Novo Processo
+        <div className="flex items-center border rounded-md p-0.5 bg-muted/50">
+          <Button
+            variant={viewMode === "kanban" ? "default" : "ghost"}
+            size="sm"
+            className="h-7 px-2.5"
+            onClick={() => setViewMode("kanban")}
+          >
+            <LayoutGrid className="h-3.5 w-3.5 mr-1" />
+            Kanban
+          </Button>
+          <Button
+            variant={viewMode === "list" ? "default" : "ghost"}
+            size="sm"
+            className="h-7 px-2.5"
+            onClick={() => setViewMode("list")}
+          >
+            <List className="h-3.5 w-3.5 mr-1" />
+            Lista
           </Button>
         </div>
       </div>
@@ -97,81 +94,35 @@ export default function Processos() {
         <div className="flex-1 flex items-center justify-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
         </div>
-      ) : !filtered?.length && !search ? (
-        <div className="flex-1 flex flex-col items-center justify-center border-2 border-dashed rounded-xl bg-muted/30">
-          <FolderKanban className="h-12 w-12 text-muted-foreground/50 mb-4" />
-          <h3 className="text-lg font-medium mb-1">Crie seu primeiro processo</h3>
-          <p className="text-sm text-muted-foreground mb-4">Seu fluxo de compras está vazio no momento.</p>
-          <Button onClick={() => setDialogOpen(true)} className="bg-primary hover:bg-primary/90">
-            <Plus className="h-4 w-4 mr-2" /> Iniciar Contratação
-          </Button>
+      ) : !processItems.length ? (
+        <div className="border border-dashed rounded-lg p-12 text-center">
+          <FolderKanban className="h-10 w-10 mx-auto text-muted-foreground/50 mb-3" />
+          <p className="text-sm text-muted-foreground mb-3">
+            {search ? "Nenhum processo encontrado para esta busca." : "Nenhum processo encontrado."}
+          </p>
+          {!search && (
+            <Button size="sm" variant="outline" onClick={() => setDialogOpen(true)}>
+              <Plus className="h-4 w-4 mr-1" /> Criar primeiro processo
+            </Button>
+          )}
         </div>
       ) : viewMode === "kanban" ? (
-        <div className="flex-1 flex gap-6 overflow-x-auto pb-4 items-start">
-          {KANBAN_COLUMNS.map((col) => {
-            const columnProcessos = getProcessosByStatus(col.id);
-            const Icon = col.icon;
-
-            return (
-              <div key={col.id} className="flex flex-col flex-1 min-w-[320px] max-w-[400px] bg-muted/30 rounded-xl border h-full">
-                {/* Column Header */}
-                <div className="flex items-center justify-between p-4 border-b shrink-0">
-                  <div className="flex items-center gap-2">
-                    <div className={`p-1.5 rounded-md ${col.bg}`}>
-                      <Icon className={`h-4 w-4 ${col.color}`} />
-                    </div>
-                    <h3 className="font-semibold text-foreground/80">{col.label}</h3>
-                  </div>
-                  <span className="bg-muted text-muted-foreground text-xs font-medium px-2.5 py-1 rounded-full">
-                    {columnProcessos.length}
-                  </span>
-                </div>
-
-                {/* Column Content/Cards */}
-                <ScrollArea className="flex-1 p-3">
-                  <div className="flex flex-col gap-3 pb-4">
-                    {columnProcessos.length > 0 ? (
-                      columnProcessos.map((p) => (
-                        <ProcessCard
-                          key={p.id}
-                          id={p.id}
-                          numero_processo={p.numero_processo}
-                          orgao={p.orgao}
-                          objeto={p.objeto}
-                          modalidade={p.modalidade}
-                          status={p.status}
-                          created_at={p.created_at}
-                          documentos={p.documentos ?? []}
-                        />
-                      ))
-                    ) : (
-                      <div className="p-6 text-center border-2 border-dashed rounded-lg">
-                        <p className="text-sm text-muted-foreground">Nenhum processo nesta fase</p>
-                      </div>
-                    )}
-                  </div>
-                </ScrollArea>
-              </div>
-            );
-          })}
-        </div>
+        <KanbanBoard processos={processItems} />
       ) : (
-        <div className="flex-1 overflow-y-auto">
-          <div className="flex flex-col gap-3 pb-4">
-            {filtered?.map((p) => (
-              <ProcessCard
-                key={p.id}
-                id={p.id}
-                numero_processo={p.numero_processo}
-                orgao={p.orgao}
-                objeto={p.objeto}
-                modalidade={p.modalidade}
-                status={p.status}
-                created_at={p.created_at}
-                documentos={p.documentos ?? []}
-              />
-            ))}
-          </div>
+        <div className="flex flex-col gap-3 pb-8">
+          {processItems.map((p) => (
+            <ProcessCard
+              key={p.id}
+              id={p.id}
+              numero_processo={p.numero_processo}
+              orgao={p.orgao}
+              objeto={p.objeto}
+              modalidade={p.modalidade}
+              status={p.status}
+              created_at={p.created_at}
+              documentos={p.documentos}
+            />
+          ))}
         </div>
       )}
 
