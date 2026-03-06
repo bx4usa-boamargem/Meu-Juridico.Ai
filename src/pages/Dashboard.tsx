@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Plus, FolderKanban, FileText, AlertTriangle, Clock } from "lucide-react";
 import { NovoProcessoDialog } from "@/components/NovoProcessoDialog";
 import { KpiCard } from "@/components/KpiCard";
-import { ProcessCard } from "@/components/ProcessCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, LineChart, Line } from "recharts";
 

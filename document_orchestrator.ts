@@ -711,16 +711,13 @@ function getSectionSkills(sectionId: string, _docType: string): string[] {
     'etp_07': ['risk_analysis_skill', 'generate_section_skill'],
     'tr_04': ['price_research_skill', 'generate_section_skill'],
     'tr_07': ['risk_analysis_skill', 'generate_section_skill'],
-    'pca_02': ['procurement_strategy_skill', 'generate_section_skill'],
-    'dfd_02': ['interpret_requirement_skill', 'generate_section_skill'],
-    'ct_03': ['price_research_skill', 'generate_section_skill'],
   };
   return specialSkills[sectionId] || ['generate_section_skill'];
 }
 
 function getTargetLength(sectionId: string): string {
-  const extended = ['etp_03', 'etp_07', 'tr_03', 'tr_07', 'ct_05', 'ct_06', 'pca_02'];
-  const concise = ['dfd_01', 'dfd_02', 'etp_01', 'etp_02', 'pca_01', 'pca_06', 'ct_10'];
+  const extended = ['etp_03', 'etp_07', 'tr_03', 'tr_07'];
+  const concise = ['dfd_01', 'dfd_02', 'etp_01', 'etp_02'];
   if (extended.includes(sectionId)) return 'extended';
   if (concise.includes(sectionId)) return 'concise';
   return 'standard';
@@ -747,11 +744,11 @@ ${JSON.stringify(payload.structured_data, null, 2)}
 
 SECTION MEMORY DAS SEÇÕES ANTERIORES:
 ${JSON.stringify(input.section_memories.map(m => ({
-    section: m.section_id,
-    key_facts: m.key_facts,
-    values_declared: m.values_declared,
-    defined_terms: m.defined_terms,
-  })), null, 2)}
+  section: m.section_id,
+  key_facts: m.key_facts,
+  values_declared: m.values_declared,
+  defined_terms: m.defined_terms,
+})), null, 2)}
 
 NORMAS RELEVANTES (RAG):
 ${JSON.stringify(payload.normative_context, null, 2)}
@@ -810,12 +807,12 @@ function buildConsolidatePrompt(memories: SectionMemory[]): string {
 
 SECTION MEMORIES COMPLETAS:
 ${JSON.stringify(memories.map(m => ({
-    section_id: m.section_id,
-    values_declared: m.values_declared,
-    key_facts: m.key_facts,
-    defined_terms: m.defined_terms,
-    commitments: m.commitments,
-  })), null, 2)}
+  section_id: m.section_id,
+  values_declared: m.values_declared,
+  key_facts: m.key_facts,
+  defined_terms: m.defined_terms,
+  commitments: m.commitments,
+})), null, 2)}
 
 Identifique inconsistências de valores, termos e datas entre seções.
 

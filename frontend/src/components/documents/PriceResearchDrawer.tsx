@@ -4,6 +4,7 @@ import {
     Search,
     BarChart3,
     Sparkles,
+    FileText,
     Download,
     ArrowLeft,
     CheckCircle2,
@@ -17,16 +18,16 @@ import {
     SheetTitle,
     SheetDescription,
     SheetFooter
-} from "../ui/Sheet";
-import { Input } from "../ui/Input";
-import { Button } from "../ui/Button";
+} from "@/components/ui/sheet";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import {
     Select,
     SelectContent,
     SelectItem,
     SelectTrigger,
     SelectValue,
-} from "../ui/Select";
+} from "@/components/ui/select";
 import {
     Table,
     TableBody,
@@ -34,8 +35,8 @@ import {
     TableHead,
     TableHeader,
     TableRow,
-} from "../ui/Table";
-import { Badge } from "../ui/Badge";
+} from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 
 interface UnitGroup {
@@ -306,7 +307,7 @@ export function PriceResearchDrawer({
                                 <label className="text-sm font-medium text-slate-700">Objeto da pesquisa</label>
                                 <Input
                                     value={objeto}
-                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setObjeto(e.target.value)}
+                                    onChange={(e) => setObjeto(e.target.value)}
                                     placeholder="Ex: serviços de controle de pragas"
                                     className="bg-white"
                                 />
@@ -332,7 +333,7 @@ export function PriceResearchDrawer({
                                     <label className="text-sm font-medium text-slate-700">Município (opcional)</label>
                                     <Input
                                         value={municipio}
-                                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setMunicipio(e.target.value)}
+                                        onChange={(e) => setMunicipio(e.target.value)}
                                         placeholder="Ex: São Paulo"
                                         className="bg-white"
                                     />
@@ -359,7 +360,7 @@ export function PriceResearchDrawer({
                                     <label className="text-sm font-medium text-slate-700">Unidade de medida</label>
                                     <Input
                                         value={unidade}
-                                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setUnidade(e.target.value)}
+                                        onChange={(e) => setUnidade(e.target.value)}
                                         placeholder="Ex: mensal, unidade, m²"
                                         className="bg-white"
                                     />
@@ -400,7 +401,7 @@ export function PriceResearchDrawer({
                     {/* Results View */}
                     {hasResults && (
                         <div className="space-y-6 animate-in fade-in duration-500">
-                            <Button variant="ghost" onClick={() => setUnitGroups(null)} className="gap-2 mb-2">
+                            <Button variant="ghost" size="sm" onClick={() => setUnitGroups(null)} className="gap-2 mb-2">
                                 <ArrowLeft className="w-4 h-4" />
                                 Nova pesquisa
                             </Button>
@@ -432,7 +433,7 @@ export function PriceResearchDrawer({
                                                             <div className="flex flex-col">
                                                                 {group.unidade}
                                                                 {isRecommended && (
-                                                                    <Badge variant="rascunho" className="w-fit text-[10px] h-4 mt-1 bg-blue-100 text-blue-700 border-blue-200">
+                                                                    <Badge variant="secondary" className="w-fit text-[10px] h-4 mt-1 bg-blue-100 text-blue-700 border-blue-200">
                                                                         Recomendada
                                                                     </Badge>
                                                                 )}
@@ -443,7 +444,7 @@ export function PriceResearchDrawer({
                                                         <TableCell className="text-xs">{fmt(group.maior)}</TableCell>
                                                         <TableCell>{group.total}</TableCell>
                                                         <TableCell className="text-right">
-                                                            <Button variant="ghost" onClick={() => handleUseValue(group)} className="h-8 text-xs">
+                                                            <Button size="sm" variant="outline" onClick={() => handleUseValue(group)} className="h-8 text-xs">
                                                                 Usar este valor
                                                             </Button>
                                                         </TableCell>
@@ -485,7 +486,7 @@ export function PriceResearchDrawer({
                                     Não encontramos contratações similares. Tente ampliar o período ou usar termos mais genéricos.
                                 </p>
                             </div>
-                            <Button variant="primary" onClick={() => setUnitGroups(null)}>Tentar novamente</Button>
+                            <Button variant="outline" onClick={() => setUnitGroups(null)}>Tentar novamente</Button>
                         </div>
                     )}
                 </div>
