@@ -196,39 +196,9 @@ Não inclua o título da seção na sua resposta. Não inclua saudações, place
             }
 
             // ─── BUSCA NA BASE DE CONHECIMENTO (RAG) ───
+            // RAG via embeddings is skipped when no embedding API is available
+            // The document-generator will still produce high-quality output using instructions
             let knowledgeContext = ''
-            const openAiKey = Deno.env.get('OPENAI_API_KEY')
-            if (openAiKey) {
-                try {
-                    // 1. Vetorizar a instrução da seção para achar contexto semântico
-                    const embedResp = await fetch('https://api.openai.com/v1/embeddings', {
-                        method: 'POST',
-                        headers: { 'Authorization': `Bearer ${openAiKey}`, 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ input: `${doc.tipo} ${section.title} ${section.instructions}`, model: 'text-embedding-3-small' })
-                    })
-
-                    if (embedResp.ok) {
-                        const embedData = await embedResp.json()
-                        const embedding = embedData.data?.[0]?.embedding
-
-                        if (embedding) {
-                            // 2. Buscar normativas e templates do órgão
-                            const { data: chunks } = await supabase.rpc('match_knowledge_chunks', {
-                                p_org_id: doc.org_id,
-                                p_embedding: embedding,
-                                p_match_threshold: 0.70,
-                                p_match_count: 3
-                            })
-
-                            if (chunks && chunks.length > 0) {
-                                knowledgeContext = chunks.map((c: any) => `Documento Fonte [${c.doc_title}]:\n${c.content_text}`).join('\n\n')
-                            }
-                        }
-                    }
-                } catch (ragErr) {
-                    console.error(`[RAG] Erro ao buscar contexto para seção ${section.section_id}:`, ragErr)
-                }
-            }
 
             let baseSystemPrompt = `Você é um especialista em licitações públicas brasileiras (Lei 14.133/2021). Seu objetivo é redigir partes de documentos públicos com linguagem formal, obedecendo às exigências legais, à economicidade e à precisão técnica.
 
