@@ -80,13 +80,14 @@ const App = () => (
                     <Route path="/processos" element={<Processos />} />
                     <Route path="/processo/:id" element={<Processo />} />
                     <Route path="/documentos" element={<Documentos />} />
-                    <Route path="/pesquisa" element={<Pesquisa />} />
+                    <Route path="/pesquisa" element={<PesquisaPrecos />} />
                     <Route path="/configuracoes" element={<Configuracoes />} />
                     <Route path="/perfil" element={<Perfil />} />
                     <Route path="/meu-impacto" element={<MeuImpacto />} />
                     <Route path="/base-conhecimento" element={<BaseConhecimento />} />
                     <Route path="/admin/dashboard" element={<AdminDashboard />} />
                     <Route path="/admin/monitoramento" element={<AdminMonitoramento />} />
+                    <Route path="/admin/analytics" element={<AdminAnalytics />} />
                     <Route path="/" element={<Navigate to="/dashboard" replace />} />
                     <Route path="*" element={<NotFound />} />
                   </Routes>
