@@ -1,10 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Card } from '../ui/Card';
 import { Table, TableHeader, TableRow, TableHead, TableCell, TableEmpty, TableLoading } from '../ui/Table';
 import { Tabs } from '../ui/Tabs';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
-import { FileText, MoreVertical, Lock, PlusCircle, LayoutTemplate } from 'lucide-react';
+import { LayoutTemplate, PlusCircle, MoreVertical } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useNavigate } from 'react-router-dom';
 
@@ -54,23 +53,18 @@ export function DashboardPage() {
                 }
             }
 
-            // Fetch Templates (DFD, ETP, TR)
             const { data: templatesData } = await supabase
                 .from('document_templates')
                 .select('id, name, description, doc_type')
                 .eq('is_default', true)
-                .in('doc_type', ['DFD', 'ETP', 'TR']);
+                .in('doc_type', ['pca', 'dfd', 'etp', 'tr', 'edital', 'contrato']);
 
             if (templatesData) setTemplates(templatesData);
 
             // Fetch Documents
             const { data, error: docError } = await supabase
                 .from('documents')
-                .select(`
-                    id, title, doc_type, status, process_number, updated_at, created_by,
-                    processes(tipo_objeto),
-                    created_by_user:users!documents_created_by_fkey(full_name, avatar_url)
-                `)
+                .select('id, title, doc_type, status, process_number, updated_at, created_by, processes(tipo_objeto), created_by_user: users!documents_created_by_fkey(full_name, avatar_url)')
                 .order('updated_at', { ascending: false });
 
             if (docError) {
@@ -160,7 +154,7 @@ export function DashboardPage() {
             {/* Tabela de Documentos */}
             <div className="flex flex-col space-y-4 pt-2">
                 <Tabs
-                    variant="underline"
+                    variant="line"
                     tabs={[
                         { id: 'Meus documentos', label: 'Meus documentos' },
                         { id: 'Documentos da minha UASG', label: 'Documentos da minha UASG' },
@@ -195,7 +189,7 @@ export function DashboardPage() {
                                     <TableEmpty message="Nenhum documento encontrado para esta visão." />
                                 ) : (
                                     filteredDocuments.map((doc) => (
-                                        <TableRow key={doc.id} className="hover:bg-blue-50/50 cursor-pointer transition-colors" onClick={() => navigate(`/documentos/${doc.id}`)}>
+                                        <TableRow key={doc.id} className="hover:bg-blue-50/50 cursor-pointer transition-colors" onClick={() => navigate(`/ documentos / ${doc.id} `)}>
                                             <TableCell>
                                                 <div className="flex flex-col">
                                                     <span className="font-bold text-gray-900 line-clamp-1">{doc.title}</span>
