@@ -16,7 +16,7 @@ import AdminAnalytics from "./pages/AdminAnalytics";
 import Documentos from "./pages/Documentos";
 import Documento from "./pages/Documento";
 import DocumentView from "./pages/DocumentView";
-import Pesquisa from "./pages/Pesquisa";
+
 import Configuracoes from "./pages/Configuracoes";
 import SharedDocument from "./pages/SharedDocument";
 import SelecionarTipoDocumento from "./pages/SelecionarTipoDocumento";
