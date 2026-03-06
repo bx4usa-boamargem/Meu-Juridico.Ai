@@ -9,7 +9,7 @@ import { DocumentLayout } from "@/components/layout/DocumentLayout";
 import Auth from "./pages/Auth";
 import ResetPassword from "./pages/ResetPassword";
 import Dashboard from "./pages/Dashboard";
-import Processos from "./pages/ProcessosKanban";
+import Processos from "./pages/Processos";
 import Processo from "./pages/Processo";
 import PesquisaPrecos from "./pages/PesquisaPrecos";
 import AdminAnalytics from "./pages/AdminAnalytics";
