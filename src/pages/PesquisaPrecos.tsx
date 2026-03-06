@@ -13,9 +13,9 @@ import { cn } from "@/lib/utils";
 
 // ── Mock data ────────────────────────────────────────────────────────────────
 const MOCK_INSIGHT = {
-  text: "Encontrei 6 cotações de notebooks com preços homologados entre R$ 2.349 e R$ 7.798. Descartei itens de leilão, valores inconsistentes e produtos que não correspondem à descrição solicitada.",
-  count: 6,
-  savings: "49,3%",
+  text: "Encontrei 56 cotações de notebooks com preços homologados entre R$ 1.800 e R$ 8.800. Descartei itens de leilão, valores inconsistentes e produtos que não correspondem à descrição solicitada.",
+  count: 56,
+  savings: "42,1%",
 };
 
 interface Cotacao {
