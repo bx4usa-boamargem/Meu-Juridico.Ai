@@ -13,7 +13,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card } from "@/components/ui/card";
 import {
   Save, Printer, Share2, Send, FileText, ArrowLeft,
-  Loader2, Check, Copy, ExternalLink, Info
+  Loader2, Check, Copy, ExternalLink, Info, Sparkles
 } from "lucide-react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription
@@ -347,6 +347,55 @@ export default function DocumentView() {
               </Button>
             </>
           )}
+          {documento?.workflow_status === "aprovado" && (() => {
+            const nextMap: Record<string, { type: string, label: string }> = {
+              "pca": { type: "dfd", label: "Gerar DFD" },
+              "dfd": { type: "etp", label: "Gerar ETP" },
+              "etp": { type: "tr", label: "Gerar TR" },
+              "tr": { type: "edital", label: "Gerar Edital" }
+            };
+            const nextDoc = documento?.tipo ? nextMap[documento.tipo] : null;
+            if (nextDoc) {
+              return (
+                <Button
+                  size="sm"
+                  className="h-7 text-xs gap-1 bg-primary hover:bg-primary/90 text-white ml-2"
+                  onClick={async () => {
+                    try {
+                      // Navigate directly to create the next document type
+                      // But the create flow occurs in SelecionarTipoDocumento or we can do it directly
+                      const { data: user } = await supabase.auth.getUser();
+                      if (!user.user) throw new Error("Não autenticado");
+
+                      const insertData = {
+                        processo_id: processoId,
+                        tipo: nextDoc.type,
+                        status: "rascunho",
+                        workflow_status: "rascunho",
+                        gerado_por: user.user.id,
+                        parent_doc_id: docId // Store lineage!
+                      };
+
+                      const { data: newDoc, error } = await supabase
+                        .from("documentos")
+                        .insert(insertData)
+                        .select("id")
+                        .single();
+
+                      if (error) throw error;
+                      toast.success(`Sucesso! Iniciando geração do ${nextDoc.type.toUpperCase()}...`);
+                      navigate(`/processo/${processoId}/documento/${newDoc.id}`);
+                    } catch (err: any) {
+                      toast.error("Erro ao iniciar próximo documento: " + err.message);
+                    }
+                  }}
+                >
+                  <Sparkles className="h-3 w-3" /> {nextDoc.label}
+                </Button>
+              );
+            }
+            return null;
+          })()}
         </div>
       </div>
 

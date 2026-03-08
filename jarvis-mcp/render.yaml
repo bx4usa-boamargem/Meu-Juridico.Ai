@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: jarvis-mcp
+    runtime: docker
+    plan: free
+    region: ohio
+    envVars:
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: TRANSPORT
+        value: sse
+      - key: PORT
+        value: 10000
+      - key: NODE_ENV
+        value: production

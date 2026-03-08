@@ -87,17 +87,20 @@ const DOC_SECTIONS: Record<string, Array<{ id: string; label: string; fields: st
     { id: "responsaveis", label: "Responsáveis", fields: ["responsavel_tecnico", "fiscal_contrato", "ordenador_despesa"], instructions: "Responsável técnico e fiscal do contrato" },
   ],
   etp: [
-    { id: "informacoes_basicas_etp", label: "Informações Básicas", fields: ["registro_preco", "valor_global"], instructions: "Se é registro de preço e como o valor global será computado" },
+    { id: "informacoes_basicas_etp", label: "Informações Básicas", fields: ["objeto_contratacao", "registro_preco", "valor_global"], instructions: "Se é registro de preço e como o valor global será computado. O objeto deve ser detalhado e expandido formalmente." },
     { id: "necessidades", label: "Descrição das Necessidades", fields: ["descricao_necessidade"], instructions: "Necessidades da contratação conforme Art. 18 da Lei 14.133/2021" },
     { id: "solucao", label: "Solução", fields: ["descricao_solucao", "sobre_opcao"], instructions: "Solução de mercado escolhida e justificativa da opção" },
+    { id: "equipe_planejamento", label: "Equipe de Planejamento", fields: ["equipe_planejamento"], instructions: "Lista da equipe de planejamento" },
+    { id: "viabilidade", label: "Justificativa Registro de Preços", fields: ["justificativa_registro_preco"], instructions: "Justificativa para o registro de preços se aplicável" },
     { id: "requisitos", label: "Requisitos", fields: ["requisitos_contratacao"], instructions: "Requisitos técnicos e necessidades institucionais" },
   ],
   tr: [
-    { id: "objeto", label: "Definição do Objeto", fields: ["objeto_contratacao", "natureza_objeto", "justificativa_contratacao"], instructions: "Objeto, natureza e justificativa da contratação" },
+    { id: "objeto", label: "Definição do Objeto", fields: ["objeto_contratacao", "natureza_objeto", "justificativa_contratacao"], instructions: "Objeto oficial, natureza e justificativa robusta da contratação" },
     { id: "especificacoes", label: "Especificações Técnicas", fields: ["especificacoes_tecnicas", "requisitos_tecnicos", "padroes_qualidade"], instructions: "Especificações técnicas detalhadas, requisitos obrigatórios e padrões de qualidade" },
     { id: "execucao", label: "Condições de Execução", fields: ["prazo_execucao", "local_execucao", "condicoes_recebimento", "criterios_aceitacao"], instructions: "Prazos, local, condições de recebimento" },
     { id: "obrigacoes", label: "Obrigações das Partes", fields: ["obrigacoes_contratante", "obrigacoes_contratada"], instructions: "Obrigações da contratante e contratada" },
-    { id: "penalidades", label: "Penalidades e Sanções", fields: ["penalidades", "sancoes"], instructions: "Penalidades aplicáveis e sanções administrativas" },
+    { id: "penalidades", label: "Penalidades e Sanções", fields: ["penalidades", "sancoes", "anexos"], instructions: "Penalidades aplicáveis, sanções administrativas e descrição dos anexos" },
+    { id: "responsaveis_tr", label: "Responsáveis", fields: ["responsavel_tecnico", "fiscal_contrato"], instructions: "Apenas cite que será designado pelo ordenador." },
   ],
 };
 
@@ -107,7 +110,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { objeto, doc_type, orgao, processo_id } = await req.json();
+    const { objeto, doc_type, orgao, processo_id, contexto_anterior } = await req.json();
 
     if (!objeto || objeto.length < 5) {
       return new Response(JSON.stringify({ error: "Objeto muito curto" }), {
@@ -199,15 +202,25 @@ Deno.serve(async (req) => {
       }
     }
 
+    if (contexto_anterior && Object.keys(contexto_anterior).length > 0) {
+      contextBlock += `\n## DADOS JÁ DEFINIDOS EM FASES ANTERIORES (CONTEXTO HERDADO)\n`;
+      contextBlock += `Os seguintes dados foram definidos no PCA ou DFD anterior. Você DEVE reaproveitá-colos e MANTER coerência estrita:\n`;
+      const cleanAnterior = Object.fromEntries(
+        Object.entries(contexto_anterior).filter(([k, v]) => v && typeof v === "string" && v.trim().length > 0 && k !== 'meta')
+      );
+      contextBlock += JSON.stringify(cleanAnterior, null, 2) + "\n";
+    }
+
     // ── Generate all sections ──────────────────────────────────────
     // CORREÇÃO 3: Exclude objeto_contratacao from AI generation - user provides it
-    const allFields = sections.flatMap(s => s.fields).filter(f => f !== "objeto_contratacao" && f !== "objeto");
+    const allFields = sections.flatMap(s => s.fields).filter(f => f !== "objeto");
     const fieldsSchema = allFields.map(f => `"${f}": { "valor": "string", "confianca": "alta|media|baixa", "fontes": ["string"], "sugestao_melhoria": "string" }`).join(",\n  ");
 
-    // CORREÇÃO 3: Updated prompt with strict instructions not to invent data
+    // CORREÇÃO 3: Updated prompt with strict instructions not to invent data but to officially expand the object
     const systemPrompt = `Você é um agente especialista em contratações públicas brasileiras (Lei 14.133/2021).
 
-Seu trabalho é SUGERIR preenchimento dos campos de um ${docType.toUpperCase()} com base no objeto da contratação informado pelo usuário.
+Seu trabalho é SUGERIR o preenchimento ótimo dos campos de um ${docType.toUpperCase()} com base no objeto da contratação informado pelo usuário.
+Quando o usuário informar um objeto curto ou amador, você DEVE gerar uma redação aprimorada e extensamente oficial do "objeto_contratacao" garantindo clareza do escopo.
 
 ## CONTEXTO DO PROCESSO
 - Objeto: ${objeto}
@@ -240,8 +253,7 @@ ${sections.map(s => `### ${s.label}\nCampos: ${s.fields.join(", ")}\n${s.instruc
    - "baixa": sugestão genérica que o usuário DEVE revisar
 6. Em "fontes", liste APENAS normas que você tem CERTEZA que existem
 7. Seja CONCISO — máximo 3 parágrafos por campo
-8. Campos como "responsavel_tecnico", "fiscal_contrato" devem ter confiança "baixa" com valor "[a ser designado pelo ordenador de despesa]"
-9. NÃO preencha o campo "objeto_contratacao" — esse é fornecido pelo usuário
+8. Campos de Assinatura ou Pessoas (responsavel_tecnico, fiscal_contrato, equipe_planejamento) devem constar com confiança "baixa" e valores "[a ser designado pelo ordenador de despesa]"
 
 Retorne APENAS um JSON válido com esta estrutura exata:
 {
@@ -295,7 +307,7 @@ Modalidade: "${processoModalidade}"`;
       for (const fieldId of section.fields) {
         // CORREÇÃO 3: Skip objeto field
         if (fieldId === "objeto_contratacao" || fieldId === "objeto") continue;
-        
+
         const fieldData = parsed[fieldId];
         if (fieldData && typeof fieldData === "object" && fieldData.valor) {
           campos[fieldId] = {
