@@ -2,6 +2,7 @@ services:
   - type: web
     name: jarvis-mcp
     runtime: docker
+    rootDir: jarvis-mcp
     plan: free
     region: ohio
     envVars:
