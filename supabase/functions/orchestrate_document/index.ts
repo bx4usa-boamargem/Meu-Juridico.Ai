@@ -120,12 +120,26 @@ serve(async (req) => {
                     conteudo_final: html_final,
                     status: 'aprovado',
                     workflow_status: 'aprovado',
-                    score_conformidade: 1.0,
                     updated_at: new Date().toISOString()
                 })
                 .eq('id', document_id)
 
             if (updError) throw updError
+
+            // Criar versão no document_versions para que o DocumentView possa exibir
+            const { data: existingVersions } = await supabase
+                .from('document_versions')
+                .select('versao')
+                .eq('documento_id', document_id)
+                .order('versao', { ascending: false })
+                .limit(1)
+            const nextVersao = ((existingVersions?.[0]?.versao) ?? 0) + 1
+            await supabase.from('document_versions').insert({
+                documento_id: document_id,
+                processo_id: actualProcessId,
+                conteudo_html: html_final,
+                versao: nextVersao,
+            })
 
             // Update process status
             if (actualProcessId && actualDocType) {
@@ -283,14 +297,28 @@ Você deve esgotar o tema da seção atual. Um ETP excelente deve ser exaustivo 
             .update({
                 status: 'aprovado',
                 workflow_status: 'aprovado',
-                score_conformidade: parseFloat(score.toFixed(3)),
                 conteudo_final: htmlContent,
-                section_memories: sectionMemories,
                 updated_at: new Date().toISOString()
             })
             .eq('id', document_id)
 
         if (updError) throw updError
+
+        // Criar versão no document_versions para que o DocumentView possa exibir o conteúdo gerado
+        const { data: existingVers } = await supabase
+            .from('document_versions')
+            .select('versao')
+            .eq('documento_id', document_id)
+            .order('versao', { ascending: false })
+            .limit(1)
+        const nextVersao = ((existingVers?.[0]?.versao) ?? 0) + 1
+        const { error: verErr } = await supabase.from('document_versions').insert({
+            documento_id: document_id,
+            processo_id: actualProcessId,
+            conteudo_html: htmlContent,
+            versao: nextVersao,
+        })
+        if (verErr) console.error('[ORCHESTRATOR] Falha ao criar document_versions:', verErr)
 
         // Update process status
         if (actualProcessId && actualDocType) {

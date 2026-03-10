@@ -39,8 +39,8 @@ interface Props {
 }
 
 const ESTADOS = [
-  "AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG","PA",
-  "PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO",
+  "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", "PA",
+  "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO",
 ];
 
 const LOADING_PHASES = [
@@ -63,6 +63,7 @@ export function PriceResearchDrawer({
   const [analiseIa, setAnaliseIa] = useState("");
   const [memoriaCalculo, setMemoriaCalculo] = useState("");
   const [generatingPdf, setGeneratingPdf] = useState(false);
+  const [selectedItems, setSelectedItems] = useState<any[]>([]);
   // Legacy fallback
   const [legacyResults, setLegacyResults] = useState<any[] | null>(null);
   const [legacyStats, setLegacyStats] = useState<any | null>(null);
@@ -130,10 +131,18 @@ export function PriceResearchDrawer({
     }
   };
 
-  const handleUseValue = (group: UnitGroup) => {
+  const handleToggleSelectItem = (item: any) => {
+    setSelectedItems(prev => {
+      const exists = prev.find(i => i.id === item.id || (i.orgao === item.orgao && i.valor_unitario === item.valor_unitario));
+      if (exists) return prev.filter(i => i !== exists);
+      return [...prev, item];
+    });
+  };
+
+  const handleUseValue = (value: number, unidade?: string) => {
     if (onUseValue) {
-      onUseValue(group.mediana, group.unidade);
-      toast.success(`Valor ${fmt(group.mediana)} / ${group.unidade} aplicado`);
+      onUseValue(value, unidade);
+      toast.success(`Valor ${fmt(value)} / ${unidade || "unidade"} aplicado`);
       onOpenChange(false);
     }
   };
@@ -367,9 +376,14 @@ ${detailSections}
                                 <div className="flex items-center gap-1.5">
                                   {group.unidade}
                                   {isRecommended && (
-                                    <Badge className="text-[7px] px-1.5 py-0 bg-primary text-primary-foreground">
-                                      Recomendada
-                                    </Badge>
+                                    <div className="flex gap-1 items-center">
+                                      <Badge className="text-[7px] px-1.5 py-0 bg-emerald-500 hover:bg-emerald-600 text-white border-none">
+                                        Qualidade Ouro
+                                      </Badge>
+                                      <Badge variant="outline" className="text-[7px] px-1.5 py-0 border-primary/30 text-primary">
+                                        PNCP
+                                      </Badge>
+                                    </div>
                                   )}
                                 </div>
                               </TableCell>
@@ -384,9 +398,9 @@ ${detailSections}
                                     size="sm"
                                     variant={isRecommended ? "default" : "outline"}
                                     className="text-[10px] h-7 px-3"
-                                    onClick={() => handleUseValue(group)}
+                                    onClick={() => handleUseValue(group.mediana, group.unidade)}
                                   >
-                                    Usar este valor
+                                    Usar Mediana
                                   </Button>
                                 ) : (
                                   <span className="text-[10px] text-muted-foreground">{fmt(group.mediana)}</span>
@@ -401,6 +415,82 @@ ${detailSections}
                   <p className="text-[10px] text-muted-foreground mt-2">
                     Preço de referência baseado na mediana saneada. Outliers removidos por desvio acima de 2σ.
                   </p>
+                </div>
+
+                {/* Comparative Section */}
+                {selectedItems.length > 0 && (
+                  <Card className="border-primary/20 bg-primary/5">
+                    <CardContent className="p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-xs font-semibold flex items-center gap-1.5">
+                          <Check className="h-3 w-3 text-primary" />
+                          Itens Selecionados para Comparativo ({selectedItems.length})
+                        </h4>
+                        <Button variant="ghost" size="sm" className="h-6 text-[10px]" onClick={() => setSelectedItems([])}>Limpar</Button>
+                      </div>
+                      <div className="space-y-2">
+                        {selectedItems.map((item, idx) => (
+                          <div key={idx} className="flex items-center justify-between text-[11px] bg-background p-2 rounded border">
+                            <div className="flex flex-col">
+                              <span className="font-medium truncate max-w-[300px]">{item.orgao}</span>
+                              <span className="text-[9px] text-muted-foreground">{item.data} • {item.fonte}</span>
+                            </div>
+                            <span className="font-bold">{fmt(item.valor_unitario)}</span>
+                          </div>
+                        ))}
+                      </div>
+                      {selectedItems.length >= 3 && (
+                        <Button variant="outline" className="w-full h-8 text-xs border-primary/30 text-primary hover:bg-primary/10" onClick={() => {
+                          const avg = selectedItems.reduce((acc, i) => acc + i.valor_unitario, 0) / selectedItems.length;
+                          handleUseValue(avg, unitGroups?.[0]?.unidade);
+                        }}>
+                          Usar Média dos Selecionados ({fmt(selectedItems.reduce((acc, i) => acc + i.valor_unitario, 0) / selectedItems.length)})
+                        </Button>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Individual Items Scroll */}
+                <div className="space-y-3">
+                  <h4 className="text-xs font-semibold">Fontes Detalhadas do PNCP</h4>
+                  <div className="space-y-2">
+                    {unitGroups!.flatMap(g => g.itens).map((item, idx) => (
+                      <div
+                        key={idx}
+                        className={cn(
+                          "p-3 rounded-lg border transition-all cursor-pointer hover:border-primary/50",
+                          selectedItems.find(i => i.id === item.id || (i.orgao === item.orgao && i.valor_unitario === item.valor_unitario))
+                            ? "bg-primary/5 border-primary shadow-sm"
+                            : "bg-card hover:bg-muted/30"
+                        )}
+                        onClick={() => handleToggleSelectItem(item)}
+                      >
+                        <div className="flex justify-between items-start gap-3">
+                          <div className="flex-1 space-y-1">
+                            <div className="flex items-center gap-2">
+                              <span className="text-[11px] font-bold">{item.orgao}</span>
+                              <Badge variant="secondary" className="text-[8px] px-1 py-0">{item.estado}</Badge>
+                            </div>
+                            <div className="flex items-center gap-3 text-[9px] text-muted-foreground">
+                              <span>Data: {item.data}</span>
+                              <span>Fonte: {item.fonte}</span>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-sm font-bold text-primary">{fmt(item.valor_unitario)}</p>
+                            {selectedItems.find(i => i.id === item.id || (i.orgao === item.orgao && i.valor_unitario === item.valor_unitario)) ? (
+                              <div className="h-4 w-4 bg-primary text-white rounded-full flex items-center justify-center ml-auto">
+                                <Check className="h-2.5 w-2.5" />
+                              </div>
+                            ) : (
+                              <div className="h-4 w-4 border rounded-full ml-auto opacity-30" />
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
 
                 {/* AI Analysis */}

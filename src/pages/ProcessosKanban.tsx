@@ -7,10 +7,30 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Plus, Search, LayoutGrid, List, FolderKanban, CheckCircle2, Clock, Lock, Loader2 } from "lucide-react";
+import { Plus, Search, LayoutGrid, List, FolderKanban, CheckCircle2, Clock, Lock, Loader2, GripVertical } from "lucide-react";
 import { NovoProcessoDialog } from "@/components/NovoProcessoDialog";
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
+import {
+  DndContext,
+  DragOverlay,
+  closestCorners,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+  DragStartEvent
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { toast } from "sonner";
 
 const MOCK_AVATARS = [
   { initials: "JS", color: "bg-primary" },
@@ -19,11 +39,31 @@ const MOCK_AVATARS = [
   { initials: "RC", color: "bg-destructive" },
 ];
 
-const STATUS_CONFIG: Record<string, { label: string; color: string; borderColor: string }> = {
-  ativo: { label: "Em Andamento", color: "bg-primary/10 text-primary", borderColor: "border-t-primary" },
-  rascunho: { label: "Rascunho", color: "bg-warning/10 text-warning", borderColor: "border-t-warning" },
-  finalizado: { label: "Finalizado", color: "bg-success/10 text-success", borderColor: "border-t-success" },
-  arquivado: { label: "Arquivado", color: "bg-muted text-muted-foreground", borderColor: "border-t-muted-foreground" },
+const STATUS_CONFIG: Record<string, { label: string; color: string; borderColor: string; dotColor: string }> = {
+  ativo: {
+    label: "Em Andamento",
+    color: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
+    borderColor: "border-t-blue-500",
+    dotColor: "bg-blue-500"
+  },
+  rascunho: {
+    label: "Pendente",
+    color: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+    borderColor: "border-t-amber-500",
+    dotColor: "bg-amber-500"
+  },
+  finalizado: {
+    label: "Concluído",
+    color: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+    borderColor: "border-t-emerald-500",
+    dotColor: "bg-emerald-500"
+  },
+  arquivado: {
+    label: "Arquivado",
+    color: "bg-slate-500/10 text-slate-500",
+    borderColor: "border-t-slate-300",
+    dotColor: "bg-slate-400"
+  },
 };
 
 const PIPELINE_STEPS = ["DFD", "ETP", "TR", "MR", "Edital", "Pesq.", "Parecer", "Contrato", "Ata"];
@@ -57,17 +97,146 @@ function getPipelineSteps(documentos: any[]) {
     const doc = documentos?.find((d: any) => d.posicao_cadeia === i + 1);
     let status = "bloqueado";
     if (doc?.status === "aprovado") status = "aprovado";
-    else if (doc?.status === "rascunho" || doc?.status === "gerando") status = "rascunho";
+    else if (doc?.status === "gerando" || doc?.status === "rascunho") status = "rascunho";
     else if (doc) status = "proximo";
     return { label, status };
   });
+}
+
+function SortableProcessCard({ p, col, navigate }: { p: any; col: any; navigate: any }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging
+  } = useSortable({ id: p.id });
+
+  const style = {
+    transform: CSS.Translate.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  const { completed, total, pct } = getProgressInfo(p.documentos ?? []);
+  const health = getHealthIndicator(p.updated_at || p.created_at);
+  const pipeline = getPipelineSteps(p.documentos ?? []);
+  const avatars = MOCK_AVATARS.slice(0, Math.max(1, Math.floor(Math.random() * 4) + 1));
+
+  return (
+    <div ref={setNodeRef} style={style} {...attributes}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Card
+            className={cn(
+              "group cursor-pointer transition-all duration-300 border-t-[4px] hover:shadow-lg bg-card/50 backdrop-blur-sm relative",
+              col.config.borderColor,
+              isDragging && "z-50 shadow-2xl"
+            )}
+            onClick={() => navigate(`/processo/${p.id}`)}
+          >
+            <CardContent className="p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <div {...listeners} className="cursor-grab active:cursor-grabbing p-1 -ml-1 text-muted-foreground/30 hover:text-muted-foreground transition-colors">
+                    <GripVertical className="h-3.5 w-3.5" />
+                  </div>
+                  {p.modalidade && (
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-accent text-accent-foreground font-medium">
+                      {p.modalidade}
+                    </span>
+                  )}
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
+                    {p.numero_processo || "S/N"}
+                  </span>
+                </div>
+                <div className={cn("h-2.5 w-2.5 rounded-full", health.color)} title={health.label} />
+              </div>
+
+              <p className="text-sm font-semibold leading-snug line-clamp-2">
+                {p.objeto || "Objeto não informado"}
+              </p>
+
+              {p.orgao && (
+                <p className="text-xs text-muted-foreground truncate">{p.orgao}</p>
+              )}
+
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">{completed}/{total} docs</span>
+                  <span className="font-semibold">{pct}%</span>
+                </div>
+                <div className="flex gap-0.5">
+                  {pipeline.map((step, i) => (
+                    <div
+                      key={i}
+                      className={cn(
+                        "h-1.5 flex-1 rounded-sm transition-all",
+                        step.status === "aprovado" ? "bg-emerald-500" :
+                          step.status === "rascunho" ? "bg-amber-500" :
+                            step.status === "proximo" ? "bg-blue-500/30" :
+                              "bg-muted"
+                      )}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between pt-1">
+                <span className="text-[9px] text-muted-foreground font-medium uppercase tracking-wider">
+                  {new Date(p.updated_at || p.created_at).toLocaleDateString("pt-BR")}
+                </span>
+                <div className="flex -space-x-2">
+                  {avatars.map((a, i) => (
+                    <Avatar key={i} className="h-5 w-5 border-2 border-background">
+                      <AvatarFallback className={cn("text-[8px] text-white", a.color)}>
+                        {a.initials}
+                      </AvatarFallback>
+                    </Avatar>
+                  ))}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TooltipTrigger>
+        <TooltipContent side="right" className="p-3 max-w-xs shadow-xl border-primary/20">
+          <p className="font-semibold text-sm mb-2">Pipeline do Processo</p>
+          <div className="space-y-1">
+            {pipeline.map((step, i) => {
+              const cfg = STEP_STATUS_ICON[step.status] || STEP_STATUS_ICON.bloqueado;
+              const Icon = cfg.icon;
+              return (
+                <div key={i} className="flex items-center gap-2 text-xs">
+                  <Icon className={cn("h-3.5 w-3.5", cfg.className)} />
+                  <span className={step.status === "bloqueado" ? "text-muted-foreground/50" : ""}>{step.label}</span>
+                </div>
+              );
+            })}
+          </div>
+        </TooltipContent>
+      </Tooltip>
+    </div>
+  );
 }
 
 export default function ProcessosKanban() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [activeId, setActiveId] = useState<string | null>(null);
   const navigate = useNavigate();
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   const { data: processos, isLoading, refetch } = useQuery({
     queryKey: ["processos-kanban"],
@@ -80,6 +249,44 @@ export default function ProcessosKanban() {
       return data;
     },
   });
+
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveId(event.active.id as string);
+  };
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    setActiveId(null);
+
+    if (!over) return;
+
+    const processId = active.id as string;
+    const overId = over.id as string;
+
+    // Se o ID "over" for o nome de uma coluna
+    const newStatus = ["ativo", "rascunho", "finalizado"].includes(overId)
+      ? overId
+      : processos?.find(p => p.id === overId)?.status;
+
+    const currentProcess = processos?.find(p => p.id === processId);
+
+    if (newStatus && currentProcess && currentProcess.status !== newStatus) {
+      try {
+        const { error } = await supabase
+          .from("processos")
+          .update({ status: newStatus })
+          .eq("id", processId);
+
+        if (error) throw error;
+
+        toast.success(`Processo movido para ${STATUS_CONFIG[newStatus].label}`);
+        refetch();
+      } catch (err) {
+        console.error("Erro ao mover processo:", err);
+        toast.error("Falha ao atualizar status do processo");
+      }
+    }
+  };
 
   const filtered = processos?.filter((p) => {
     if (!search) return true;
@@ -155,131 +362,67 @@ export default function ProcessosKanban() {
           <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
         </div>
       ) : viewMode === "grid" ? (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {grouped.map((col) => (
-            <div key={col.status} className="space-y-3">
-              <div className="flex items-center gap-2">
-                <Badge className={cn("font-medium", col.config.color)}>
-                  {col.config.label}
-                </Badge>
-                <span className="text-xs text-muted-foreground font-medium">{col.items.length}</span>
-              </div>
-
-              <div className="space-y-3">
-                {col.items.length === 0 ? (
-                  <div className="border border-dashed rounded-lg p-8 text-center">
-                    <p className="text-xs text-muted-foreground">Nenhum processo</p>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCorners}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+        >
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {grouped.map((col) => (
+              <div key={col.status} className="space-y-4">
+                <div className="flex items-center justify-between px-1">
+                  <div className="flex items-center gap-2">
+                    <div className={cn("h-3 w-3 rounded-full shadow-sm", col.config.dotColor)} />
+                    <span className="text-sm font-bold tracking-tight text-foreground/70 uppercase">
+                      {col.config.label}
+                    </span>
                   </div>
-                ) : (
-                  col.items.map((p) => {
-                    const { completed, total, pct, barColor } = getProgressInfo(p.documentos ?? []);
-                    const health = getHealthIndicator(p.updated_at || p.created_at);
-                    const pipeline = getPipelineSteps(p.documentos ?? []);
-                    const avatars = MOCK_AVATARS.slice(0, Math.max(1, Math.floor(Math.random() * 4) + 1));
+                  <Badge variant="outline" className="bg-background/50 font-mono text-[10px] py-0 h-5 border-muted-foreground/20">
+                    {col.items.length}
+                  </Badge>
+                </div>
 
-                    return (
-                      <Tooltip key={p.id}>
-                        <TooltipTrigger asChild>
-                          <Card
-                            className={cn(
-                              "cursor-pointer hover:shadow-md transition-all border-t-[3px]",
-                              col.config.borderColor
-                            )}
-                            onClick={() => navigate(`/processo/${p.id}`)}
-                          >
-                            <CardContent className="p-4 space-y-3">
-                              {/* Tags + Health */}
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-1.5 flex-wrap">
-                                  {p.modalidade && (
-                                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-accent text-accent-foreground font-medium">
-                                      {p.modalidade}
-                                    </span>
-                                  )}
-                                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
-                                    {p.numero_processo || "S/N"}
-                                  </span>
-                                </div>
-                                <div className={cn("h-2.5 w-2.5 rounded-full", health.color)} title={health.label} />
-                              </div>
-
-                              {/* Title */}
-                              <p className="text-sm font-semibold leading-snug line-clamp-2">
-                                {p.objeto || "Objeto não informado"}
-                              </p>
-
-                              {p.orgao && (
-                                <p className="text-xs text-muted-foreground truncate">{p.orgao}</p>
-                              )}
-
-                              {/* Segmented progress bar */}
-                              <div className="space-y-1.5">
-                                <div className="flex items-center justify-between text-xs">
-                                  <span className="text-muted-foreground">{completed}/{total} documentos</span>
-                                  <span className="font-semibold">{pct}%</span>
-                                </div>
-                                <div className="flex gap-0.5">
-                                  {pipeline.map((step, i) => (
-                                    <div
-                                      key={i}
-                                      className={cn(
-                                        "h-2 flex-1 rounded-sm transition-all",
-                                        step.status === "aprovado" ? "bg-success" :
-                                        step.status === "rascunho" ? "bg-warning" :
-                                        step.status === "proximo" ? "bg-primary/30" :
-                                        "bg-muted"
-                                      )}
-                                    />
-                                  ))}
-                                </div>
-                              </div>
-
-                              {/* Footer */}
-                              <div className="flex items-center justify-between pt-1">
-                                <span className="text-[10px] text-muted-foreground">
-                                  {new Date(p.updated_at || p.created_at).toLocaleDateString("pt-BR")}
-                                </span>
-                                <div className="flex -space-x-2">
-                                  {avatars.map((a, i) => (
-                                    <Avatar key={i} className="h-6 w-6 border-2 border-card">
-                                      <AvatarFallback className={cn("text-[9px] text-primary-foreground", a.color)}>
-                                        {a.initials}
-                                      </AvatarFallback>
-                                    </Avatar>
-                                  ))}
-                                </div>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        </TooltipTrigger>
-                        <TooltipContent side="right" className="p-3 max-w-xs">
-                          <p className="font-semibold text-sm mb-2">Pipeline do Processo</p>
-                          <div className="space-y-1">
-                            {pipeline.map((step, i) => {
-                              const cfg = STEP_STATUS_ICON[step.status] || STEP_STATUS_ICON.bloqueado;
-                              const Icon = cfg.icon;
-                              return (
-                                <div key={i} className="flex items-center gap-2 text-xs">
-                                  <Icon className={cn("h-3.5 w-3.5", cfg.className)} />
-                                  <span className={step.status === "bloqueado" ? "text-muted-foreground/50" : ""}>{step.label}</span>
-                                  <span className="text-muted-foreground ml-auto capitalize text-[10px]">
-                                    {step.status === "aprovado" ? "✅ Aprovado" :
-                                     step.status === "rascunho" ? "🔄 Rascunho" :
-                                     step.status === "proximo" ? "⏳ Próximo" : "🔒 Bloqueado"}
-                                  </span>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </TooltipContent>
-                      </Tooltip>
-                    );
-                  })
-                )}
+                <SortableContext
+                  id={col.status}
+                  items={col.items.map(i => i.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <div
+                    className={cn(
+                      "space-y-3 min-h-[500px] rounded-xl p-2 transition-colors duration-200 border-2 border-transparent",
+                      activeId && "bg-muted/30 border-dashed border-muted-foreground/10"
+                    )}
+                  >
+                    {col.items.length === 0 ? (
+                      <div className="border border-dashed rounded-lg p-12 text-center bg-card/10 flex flex-col items-center justify-center gap-2">
+                        <FolderKanban className="h-8 w-8 text-muted-foreground/20" />
+                        <p className="text-xs text-muted-foreground">Arraste aqui para mover</p>
+                      </div>
+                    ) : (
+                      col.items.map((p) => (
+                        <SortableProcessCard key={p.id} p={p} col={col} navigate={navigate} />
+                      ))
+                    )}
+                  </div>
+                </SortableContext>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+
+          <DragOverlay>
+            {activeId ? (
+              <div className="w-[350px] rotate-3 scale-105 pointer-events-none drop-shadow-2xl">
+                {(() => {
+                  const p = processos?.find(p => p.id === activeId);
+                  const col = grouped.find(c => c.status === p?.status);
+                  if (!p || !col) return null;
+                  return <SortableProcessCard p={p} col={col} navigate={navigate} />;
+                })()}
+              </div>
+            ) : null}
+          </DragOverlay>
+        </DndContext>
       ) : (
         <div className="border rounded-lg overflow-hidden">
           <table className="w-full text-sm">

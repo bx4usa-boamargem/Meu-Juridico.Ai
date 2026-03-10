@@ -1,6 +1,0 @@
-xxxxxexport default {
-    plugins: {
-        tailwindcss: {},
-        autoprefixer: {},
-    },
-};

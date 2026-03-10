@@ -1,0 +1,8 @@
+Duplicatas (31.8MB cada):
+ - /Users/severinobione/OMNISEEN_V3 - Antigravity/tools/miniforge3/pkgs/icu-78.2-h38cb7af_0/lib/libicudata.78.2.dylib
+ - /Users/severinobione/OMNISEEN_V3 - Antigravity/tools/miniforge3/lib/libicudata.78.2.dylib
+
+Duplicatas (32.0MB cada):
+ - /Users/severinobione/OMNISEEN_V3 - Antigravity/node_modules/@swc/core-darwin-arm64/swc.darwin-arm64.node
+ - /Users/severinobione/Antigravity -meu-juridico-ai/node_modules/@swc/core-darwin-arm64/swc.darwin-arm64.node
+

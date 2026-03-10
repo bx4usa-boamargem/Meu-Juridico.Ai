@@ -43,15 +43,14 @@ serve(async (req: Request) => {
 
         const { data: modelos, error: errModelos } = await supabase
             .from('document_templates')
-            .select('conteudo_texto')
-            .eq('tipo', 'Mapa de Riscos')
-            .ilike('objeto', `%${termoBusca}%`)
+            .select('sections_plan')
+            .eq('doc_type', 'mapa_risco')
             .limit(3);
 
         let contextoModelos = '';
         if (modelos && modelos.length > 0) {
             contextoModelos = "\nModelos de referência na base de conhecimento:\n" +
-                modelos.map((m, i) => `Modelo ${i + 1}: ${m.conteudo_texto.substring(0, 1000)}...`).join('\n\n');
+                modelos.map((m, i) => `Modelo ${i + 1}: ${JSON.stringify(m.sections_plan)?.substring(0, 500) || '...'}...`).join('\n\n');
         }
 
         // 2. Buscar alertas de monitoramento (radar_intelligence) simulado ou real

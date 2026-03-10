@@ -234,26 +234,27 @@ ${sections.map(s => `### ${s.label}\nCampos: ${s.fields.join(", ")}\n${s.instruc
 
 ## REGRAS OBRIGATÓRIAS — LEIA COM ATENÇÃO
 
-1. Use APENAS as informações fornecidas pelo usuário acima.
-2. Se uma informação NÃO foi fornecida pelo usuário, use linguagem genérica com placeholders como:
+2. Se o contexto do RAG contiver "[GOLDEN TEMPLATE]", você DEVE priorizar essa estrutura e redação, pois trata-se de um modelo de excelência pré-aprovado pela PGM/Controle Interno.
+3. Se uma informação NÃO foi fornecida pelo usuário, use linguagem genérica com placeholders como:
    - "[nome do órgão]" ou "[secretaria requisitante]"
    - "[quantidade a ser definida pelo setor técnico]"
    - "[valor a ser apurado mediante pesquisa de preços]"
    - "[responsável a ser designado]"
-3. NUNCA invente:
+4. NUNCA invente:
    - Nomes de secretarias, departamentos ou setores específicos
    - Números de normas, decretos ou instruções normativas que possam não existir
    - Quantidades, valores ou preços
    - Nomes de pessoas, cargos específicos
    - Dados de planejamento (PPA, LOA) que o usuário não informou
-4. Cite APENAS artigos da Lei 14.133/2021 e normas federais amplamente conhecidas.
-5. Para cada campo, avalie a confiança:
-   - "alta": baseado em dados concretos fornecidos pelo usuário ou legislação clara
-   - "media": inferido com razoável certeza a partir do objeto
+5. Para campos técnicos detalhados (ex: ETP, TR), utilize redação densa e fundamentada, espelhando os Golden Templates se disponíveis.
+6. Cite APENAS artigos da Lei 14.133/2021 e normas federais amplamente conhecidas.
+7. Para cada campo, avalie a confiança:
+   - "alta": baseado em dados concretos fornecidos pelo usuário, Golden Templates idênticos ou legislação clara
+   - "media": inferido com razoável certeza a partir do objeto ou modelos similares
    - "baixa": sugestão genérica que o usuário DEVE revisar
-6. Em "fontes", liste APENAS normas que você tem CERTEZA que existem
-7. Seja CONCISO — máximo 3 parágrafos por campo
-8. Campos de Assinatura ou Pessoas (responsavel_tecnico, fiscal_contrato, equipe_planejamento) devem constar com confiança "baixa" e valores "[a ser designado pelo ordenador de despesa]"
+8. Em "fontes", liste APENAS normas que você tem CERTEZA que existem.
+9. Seja CONCISO porém TÉCNICO e ROBUSTO — mínimo 2 parágrafos para campos de descrição ou justificativa.
+10. Campos de Assinatura ou Pessoas (responsavel_tecnico, fiscal_contrato, equipe_planejamento) devem constar com confiança "baixa" e valores "[a ser designado pelo ordenador de despesa]"
 
 Retorne APENAS um JSON válido com esta estrutura exata:
 {

@@ -12,6 +12,8 @@ import { RichTextEditor } from "@/components/documento/RichTextEditor";
 import { TextAreaComIA } from "@/components/documento/TextAreaComIA";
 import { TeamListField } from "@/components/documento/TeamListField";
 import { PriceResearchDrawer } from "@/components/documento/PriceResearchDrawer";
+import { CatalogoBusca } from "@/components/documento/CatalogoBusca";
+import type { CatalogoItem } from "@/components/documento/CatalogoBusca";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import type { SectionDef, FieldDef } from "@/lib/document-sections";
@@ -99,6 +101,7 @@ export function StepFormRenderer({
 }: Props) {
   const editorRef = useRef<{ insertToken: (token: string) => void } | null>(null);
   const [priceDrawerOpen, setPriceDrawerOpen] = useState(false);
+  const [catalogoOpen, setCatalogoOpen] = useState(false);
 
   const hasValorField = section.fields.some(f => f.key === "valor_estimado" || f.key === "valor_global");
   const isEtpOrTr = documentType === "etp" || documentType === "tr";
@@ -440,16 +443,41 @@ export function StepFormRenderer({
       </div>
 
       {/* AI action buttons */}
-      {isBuscarObjeto && onValidarObjeto && (
-        <Button
-          variant="outline"
-          size="sm"
-          className="gap-1.5 text-xs border-primary/30 text-primary hover:bg-primary/5"
-          onClick={onValidarObjeto}
-          disabled={!formData.objeto_contratacao?.trim()}
-        >
-          <Shield className="h-3.5 w-3.5" /> Validar Objeto com IA
-        </Button>
+      {isBuscarObjeto && (
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 text-xs border-primary/30 text-primary hover:bg-primary/5"
+            onClick={() => setCatalogoOpen(true)}
+          >
+            <Search className="h-3.5 w-3.5" /> Buscar no Catálogo CATMAT/CATSER
+          </Button>
+          {onValidarObjeto && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 text-xs border-primary/30 text-primary hover:bg-primary/5"
+              onClick={onValidarObjeto}
+              disabled={!formData.objeto_contratacao?.trim()}
+            >
+              <Shield className="h-3.5 w-3.5" /> Validar Objeto com IA
+            </Button>
+          )}
+        </div>
+      )}
+
+      {/* Catálogo CATMAT / CATSER */}
+      {isBuscarObjeto && (
+        <CatalogoBusca
+          open={catalogoOpen}
+          onOpenChange={setCatalogoOpen}
+          onSelect={(item: CatalogoItem) => {
+            // Preenche objeto_contratacao com o nome completo do item
+            const texto = `${item.item} (Código: ${item.codigo} | Unidade: ${item.unidade})`;
+            onChange("objeto_contratacao", texto);
+          }}
+        />
       )}
 
       {isJustificativa && onGerarJustificativa && (
